@@ -159,3 +159,43 @@ def test_patch_unknown_fact_404(client, sample_clean_text) -> None:
         "/api/analyses/missing/facts/missing", json={"status": "VERIFIED"}
     )
     assert response.status_code == 404
+
+
+def test_search_sources(client) -> None:
+    response = client.get("/api/search", params={"q": "предел при покушении"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["results"]
+    assert body["results"][0]["norm_id"] == "uk-rf:art-66"
+    for hit in body["results"]:
+        assert hit["fragment"]
+        assert hit["sha256"]
+        assert hit["matched_terms"]
+
+
+def test_search_sources_temporal(client) -> None:
+    response = client.get(
+        "/api/search",
+        params={"q": "синтетическая фикстура", "applicable_at": "2022-06-01"},
+    )
+    assert response.status_code == 200
+    results = response.json()["results"]
+    synthetic = next(r for r in results if r["norm_id"] == "uk-rf:art-999-synthetic")
+    assert synthetic["version_id"] == "v2020"
+
+
+def test_search_sources_bad_date_400(client) -> None:
+    response = client.get(
+        "/api/search", params={"q": "наказание", "applicable_at": "не дата"}
+    )
+    assert response.status_code == 400
+
+
+def test_search_sources_requires_query(client) -> None:
+    assert client.get("/api/search").status_code == 422
+
+
+def test_search_sources_empty_for_nonsense(client) -> None:
+    response = client.get("/api/search", params={"q": "квантовая хромодинамика"})
+    assert response.status_code == 200
+    assert response.json()["results"] == []

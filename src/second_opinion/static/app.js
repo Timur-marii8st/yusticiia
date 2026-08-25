@@ -376,6 +376,66 @@ async function loadDemo() {
   $("doc-text").value = documentText;
 }
 
+function renderSearchHit(hit) {
+  const li = document.createElement("li");
+  const title = div("eval-title");
+  const badgeEl = document.createElement("span");
+  badgeEl.className = "status-badge status-LIKELY";
+  badgeEl.textContent = hit.score.toFixed(2);
+  badgeEl.title = "лексическая релевантность (справочная)";
+  title.appendChild(badgeEl);
+  title.append(` ${hit.ref} — ${hit.title}`);
+
+  const detail = div("detail hidden");
+  const quote = document.createElement("blockquote");
+  quote.textContent = hit.fragment;
+  detail.appendChild(quote);
+
+  const meta = div("meta");
+  const period = hit.effective_to
+    ? `${hit.effective_from} — ${hit.effective_to}`
+    : `с ${hit.effective_from} (действует)`;
+  meta.appendChild(div("", `Редакция: ${hit.version_id}; период действия: ${period}`));
+  meta.appendChild(div("", `Источник: ${hit.source_document}`));
+  if (hit.source_url) meta.appendChild(div("", `URL: ${hit.source_url}`));
+  meta.appendChild(div("", `Извлечено: ${hit.retrieved_at}; SHA-256: ${hit.sha256.slice(0, 16)}…`));
+  meta.appendChild(div("", `Статус сверки: ${hit.verification_status}` +
+    (hit.synthetic ? "; СИНТЕТИЧЕСКАЯ фикстура" : "")));
+  meta.appendChild(div("", `Совпавшие термины: ${hit.matched_terms.join(", ")}`));
+  detail.appendChild(meta);
+
+  title.addEventListener("click", () => toggleDetail(detail));
+  li.appendChild(title);
+  li.appendChild(detail);
+  return li;
+}
+
+async function runSearch() {
+  const box = $("search-error");
+  box.hidden = true;
+  const query = $("search-query").value.trim();
+  const list = $("search-results");
+  list.innerHTML = "";
+  if (!query) return;
+  try {
+    const response = await fetch(
+      `/api/search?q=${encodeURIComponent(query)}&limit=10`
+    );
+    if (!response.ok) {
+      throw new Error((await response.json()).detail || `HTTP ${response.status}`);
+    }
+    const body = await response.json();
+    if (!body.results.length) {
+      list.appendChild(div("hint", "В базе источников ничего не найдено."));
+      return;
+    }
+    body.results.forEach((hit) => list.appendChild(renderSearchHit(hit)));
+  } catch (err) {
+    box.textContent = `Ошибка поиска: ${err.message}`;
+    box.hidden = false;
+  }
+}
+
 $("analyze-btn").addEventListener("click", submit);
 $("demo-btn").addEventListener("click", loadDemo);
 $("doc-text").addEventListener("input", (e) => {
@@ -385,4 +445,8 @@ $("doc-file").addEventListener("change", (e) => {
   documentText = "";
   $("doc-text").value = "";
   $("file-name").textContent = e.target.files.length ? e.target.files[0].name : "или выберите файл…";
+});
+$("search-btn").addEventListener("click", runSearch);
+$("search-query").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") runSearch();
 });

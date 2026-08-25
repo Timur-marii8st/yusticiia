@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from .. import __version__
 from ..domain.cases import ComparableCase
 from ..ingestion.parser import ParseError
+from ..legal_rag import LegalRag
 from ..legal_sources.store import NoApplicableVersionError, NormNotFoundError
 from ..pipeline import (
     UNSET_VALUE,
@@ -48,6 +49,7 @@ def create_app(pipeline: AnalysisPipeline) -> FastAPI:
         ),
     )
     app.state.pipeline = pipeline
+    rag = LegalRag(pipeline.norm_store)
 
     # -- служебные ----------------------------------------------------------
 
@@ -189,6 +191,34 @@ def create_app(pipeline: AnalysisPipeline) -> FastAPI:
         return {
             "total": len(selected),
             "cases": [c.model_dump(mode="json") for c in selected[:limit]],
+        }
+
+    # -- поиск по базе источников ---------------------------------------------
+
+    @app.get("/api/search")
+    def search_sources(
+        q: str = Query(min_length=1),
+        limit: int = Query(default=10, ge=1, le=50),
+        code: str | None = None,
+        article: int | None = None,
+        applicable_at: str | None = None,
+    ) -> dict:
+        """Лексический поиск по базе норм. Только реальные фрагменты
+        источников; пустой результат честнее выдуманного."""
+        when: date | None = None
+        if applicable_at:
+            try:
+                when = date.fromisoformat(applicable_at)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=400, detail="applicable_at: ожидается ISO-дата"
+                ) from exc
+        hits = rag.search(
+            q, limit=limit, code=code, article=article, applicable_at=when
+        )
+        return {
+            "query": q,
+            "results": [hit.model_dump(mode="json") for hit in hits],
         }
 
     # -- статический UI -------------------------------------------------------

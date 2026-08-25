@@ -59,6 +59,21 @@
       </section>
 
       <section class="panel">
+        <h1>Источники</h1>
+        <p class="hint">
+          Поиск по базе норм: каждый результат — фрагмент реального источника
+          с редакцией и реквизитами. Если ничего не найдено, система не додумывает.
+        </p>
+        <div class="controls">
+          <input type="search" id="search-query"
+            placeholder="Например: предел наказания при покушении" size="42">
+          <button id="search-btn" class="secondary">Найти</button>
+        </div>
+        <div id="search-error" class="error" hidden></div>
+        <ul id="search-results" class="items"></ul>
+      </section>
+
+      <section class="panel">
         <h1>Сопоставимая практика</h1>
         <p class="hint">
           Справочный материал. Сходство не является основанием для вывода о наказании.
