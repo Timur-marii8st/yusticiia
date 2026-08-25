@@ -27,6 +27,8 @@ def test_clean_sample_end_to_end(pipeline) -> None:
     assert report.comparable_cases
     assert all(m.reasons for m in report.comparable_cases)
     assert report.analytics and report.analytics.n_cases > 0
+    assert report.analytics.feature_spread
+    assert "special_procedure" in report.analytics.feature_spread
     assert report.disclaimers
     assert any("не заменяет" in disclaimer for disclaimer in report.disclaimers)
     assert any("описательный" in disclaimer for disclaimer in report.disclaimers)

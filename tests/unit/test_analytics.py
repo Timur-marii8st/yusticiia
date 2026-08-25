@@ -29,6 +29,23 @@ def test_descriptive_stats_on_known_distribution() -> None:
     assert analytics.p25_months == 16.5
     assert analytics.p75_months == 27.0
     assert analytics.suspended_share == 0.25
+    assert analytics.feature_spread["suspended"] == 0.25
+    assert analytics.feature_spread["recidivism"] == 0.0
+
+
+def test_feature_spread_counts_flags() -> None:
+    cases = [
+        _case(12, suspended=True),
+        _case(24),
+    ]
+    cases[0].special_procedure = True
+    cases[0].guilty_plea = True
+    cases[1].recidivism = True
+    analytics = compute_analytics(cases)
+    assert analytics.feature_spread["special_procedure"] == 0.5
+    assert analytics.feature_spread["guilty_plea"] == 0.5
+    assert analytics.feature_spread["recidivism"] == 0.5
+    assert analytics.feature_spread["jury_trial"] == 0.0
 
 
 def test_non_imprisonment_terms_excluded_from_term_stats() -> None:

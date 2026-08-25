@@ -23,6 +23,8 @@ class AnalyticsSummary(BaseModel):
     max_months: float | None = None
     punishment_type_distribution: dict[str, int] = Field(default_factory=dict)
     suspended_share: float | None = None
+    #: Доля дел с каждым признаком в выборке (описательная).
+    feature_spread: dict[str, float] = Field(default_factory=dict)
 
 
 class AnalysisReport(BaseModel):

@@ -223,6 +223,14 @@ function renderCase(match) {
   return li;
 }
 
+const FEATURE_LABELS = {
+  special_procedure: "Особый порядок",
+  guilty_plea: "Признание вины",
+  recidivism: "Рецидив",
+  jury_trial: "Суд присяжных",
+  suspended: "Условное осуждение",
+};
+
 function renderAnalytics(analytics) {
   if (!analytics) {
     $("analytics").textContent = "Недостаточно сопоставимых дел для статистики.";
@@ -252,11 +260,35 @@ function renderAnalytics(analytics) {
   const dist = document.createElement("div");
   dist.className = "meta";
   dist.textContent = `Виды наказания: ${JSON.stringify(analytics.punishment_type_distribution)}`;
+
+  const spreadTable = document.createElement("table");
+  spreadTable.className = "stats";
+  const spreadHeader = document.createElement("tr");
+  ["Признак в выборке", "Доля дел"].forEach((label) => {
+    const th = document.createElement("th");
+    th.textContent = label;
+    spreadHeader.appendChild(th);
+  });
+  spreadTable.appendChild(spreadHeader);
+  Object.entries(analytics.feature_spread || {}).forEach(([feature, share]) => {
+    const tr = document.createElement("tr");
+    const th = document.createElement("th");
+    th.textContent = FEATURE_LABELS[feature] || feature;
+    const td = document.createElement("td");
+    td.textContent = `${(share * 100).toFixed(1)}%`;
+    tr.appendChild(th);
+    tr.appendChild(td);
+    spreadTable.appendChild(tr);
+  });
+
   const note = div("meta", "Статистика описательная и не является рекомендацией о наказании.");
   const wrap = $("analytics");
   wrap.innerHTML = "";
   wrap.appendChild(table);
   wrap.appendChild(dist);
+  if (Object.keys(analytics.feature_spread || {}).length) {
+    wrap.appendChild(spreadTable);
+  }
   wrap.appendChild(note);
 }
 

@@ -6,6 +6,15 @@ from ..domain.analysis import AnalyticsSummary
 from ..domain.cases import ComparableCase
 from ..domain.enums import PunishmentType
 
+#: Признаки, по которым показывается распределение в выборке.
+SPREAD_FEATURES = (
+    "special_procedure",
+    "guilty_plea",
+    "recidivism",
+    "jury_trial",
+    "suspended",
+)
+
 
 def compute_analytics(cases: list[ComparableCase]) -> AnalyticsSummary:
     """Описательная статистика по выборке сопоставимых дел.
@@ -23,6 +32,12 @@ def compute_analytics(cases: list[ComparableCase]) -> AnalyticsSummary:
     for case in cases:
         distribution[case.punishment_type] = distribution.get(case.punishment_type, 0) + 1
     suspended_count = sum(1 for case in cases if case.suspended)
+    feature_spread = {
+        feature: round(
+            sum(1 for case in cases if getattr(case, feature)) / len(cases), 3
+        )
+        for feature in SPREAD_FEATURES
+    } if cases else {}
 
     def percentile(sorted_terms: list[float], fraction: float) -> float:
         if not sorted_terms:
@@ -47,4 +62,5 @@ def compute_analytics(cases: list[ComparableCase]) -> AnalyticsSummary:
         max_months=sorted_terms[-1] if terms else None,
         punishment_type_distribution=distribution,
         suspended_share=round(suspended_count / len(cases), 3) if cases else None,
+        feature_spread=feature_spread,
     )
