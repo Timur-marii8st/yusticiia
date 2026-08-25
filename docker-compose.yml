@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    container_name: second-opinion
+    ports:
+      # Публикация только на loopback: собственной аутентификации нет
+      # (docs/SECURITY.md п. 6).
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      SO_LLM_PROVIDER: mock
+      SO_MAX_UPLOAD_BYTES: "5242880"
+    restart: unless-stopped

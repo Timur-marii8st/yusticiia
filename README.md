@@ -96,7 +96,7 @@ src/second_opinion/
     audit/             # JSONL аудит-журнал (версии моделей/промптов/правил)
     api/               # FastAPI + статический экран анализа
     static/            # UI (vanilla JS, без шага сборки)
-prompts/               # версионируемые промпты
+    prompts/           # версионируемые промпты (часть пакета)
 data/fixtures/         # фикстуры: нормы (draft), СИНТЕТИЧЕСКИЕ дела, образцы
 tests/                 # unit + integration
 evaluation/            # метрики и датасеты (make eval)
@@ -116,26 +116,42 @@ ruff check .    # или: make lint
 second-opinion eval     # или: make eval
 ```
 
-Метрики: precision/recall/F1 извлечения, корректность и покрытие
-доказательств, доля подтверждённых утверждений без доказательств (цель 0).
-Отчёты — в `evaluation/reports/`. Подробности: [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md),
-план развития метрик — раздел M9.
+Три раздела метрик:
+
+- **извлечение фактов:** precision/recall/F1, корректность и покрытие
+  доказательств, доля подтверждённых утверждений без доказательств
+  (`unsupported_claim_rate`, цель 0);
+- **поиск по источникам:** Recall@5, MRR, nDCG@10; честный пустой ответ;
+  целостность цитирования (фрагмент = реально хранящаяся редакция,
+  SHA-256 сходится);
+- **временна́я корректность:** правильность выбора редакции нормы на дату.
+
+Отчёты — в `evaluation/reports/`; пороги приёмки и методика —
+[docs/EVALUATION.md](docs/EVALUATION.md).
 
 ## Документация
 
-- [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) — текущее состояние
+- [docs/PRODUCT_VISION.md](docs/PRODUCT_VISION.md) — видение и non-goals
+- [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) — аудит репозитория
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — архитектура
 - [docs/DOMAIN_MODEL.md](docs/DOMAIN_MODEL.md) — доменная модель
+- [docs/RULE_ENGINE.md](docs/RULE_ENGINE.md) — реестр правил и как добавлять новые
+- [docs/LEGAL_RAG.md](docs/LEGAL_RAG.md) — поиск по базе источников
+- [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md) — источники данных и процесс наполнения
+- [docs/EVALUATION.md](docs/EVALUATION.md) — метрики и пороги
 - [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) — план (M0–M10)
 - [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md) — фактический статус
+- [docs/GLOSSARY.md](docs/GLOSSARY.md) — глоссарий
 - [docs/ADR/](docs/ADR/) — архитектурные решения
 
 ## Безопасность
 
-Текст документа — недоверенные данные (защита от prompt injection: документ
-подаётся модели как данные, системные инструкции отделены). Ключи — только из
-переменных окружения, аудит-журнал не хранит сырые тексты. Детали появятся в
-`docs/SECURITY.md` (M10).
+Текст документа — недоверенные данные: защита от prompt injection (документ
+подаётся модели как данные с явными маркерами, системные инструкции
+отделены, цитаты проверяются по тексту). Ключи — только из переменных
+окружения, аудит-журнал не хранит сырые тексты. Модель угроз и статус мер —
+[docs/SECURITY.md](docs/SECURITY.md); обращение с ПДн —
+[docs/PRIVACY.md](docs/PRIVACY.md).
 
 ## Статус данных (важно)
 
@@ -143,6 +159,18 @@ second-opinion eval     # или: make eval
   перед демонстрацией обязательна сверка с официальным источником.
 - Дела в `data/fixtures/cases/` — СИНТЕТИЧЕСКИЕ и явно маркируются.
 
+## Запуск в Docker
+
+```bash
+docker compose up          # или: docker build -t second-opinion . && docker run ...
+# → http://127.0.0.1:8000 (только loopback; собственной аутентификации нет)
+```
+
+Подробности профилей развёртывания — [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md),
+для разработчиков — [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+
 ## Дорожная карта
 
-Майлстоуны M0–M10 — в [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md).
+Выполнено M0–M9 и основная часть M10 — см.
+[docs/ROADMAP.md](docs/ROADMAP.md) и
+[docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).

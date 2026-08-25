@@ -33,10 +33,23 @@ def _env(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip()
 
 
+def _default_data_dir() -> Path:
+    """Каталог данных по умолчанию.
+
+    В репозитории (есть исходники/pyproject) — ``<root>/data``; при работе
+    установленного пакета (pip/Docker) путь от корня пакета некорректен,
+    поэтому данные берутся относительно рабочего каталога: ``./data``.
+    """
+    if (PROJECT_ROOT / "pyproject.toml").exists():
+        return PROJECT_ROOT / "data"
+    return Path.cwd() / "data"
+
+
 @lru_cache
 def load_config() -> AppConfig:
-    fixtures = Path(_env("SO_FIXTURES_DIR") or (PROJECT_ROOT / "data" / "fixtures"))
-    data_dir = Path(_env("SO_DATA_DIR") or (PROJECT_ROOT / "data"))
+    default_data = _default_data_dir()
+    fixtures = Path(_env("SO_FIXTURES_DIR") or (default_data / "fixtures"))
+    data_dir = Path(_env("SO_DATA_DIR") or default_data)
     return AppConfig(
         data_dir=data_dir,
         fixtures_dir=fixtures,
