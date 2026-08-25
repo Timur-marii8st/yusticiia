@@ -5,9 +5,13 @@ from datetime import date
 
 from .analytics.descriptive import compute_analytics
 from .audit.trail import AuditTrail
-from .domain.analysis import DEFAULT_DISCLAIMERS, AnalysisReport
+from .domain.analysis import DEFAULT_DISCLAIMERS, AnalysisReport, AnalyticsSummary
+from .domain.cases import CaseMatch
 from .domain.documents import Document
+from .domain.enums import ExtractionMethod, FactStatus
+from .domain.facts import CaseFacts, LegalFact
 from .domain.norms import NormRef
+from .domain.rules import RuleEvaluation
 from .fact_extraction.builder import build_case_facts
 from .fact_extraction.llm_extractor import LLMFactExtractor
 from .fact_extraction.pattern_extractor import PatternFactExtractor, _value_key
@@ -18,9 +22,27 @@ from .retrieval.case_retrieval import CaseRetriever
 from .rule_engine.engine import ENGINE_VERSION, RuleEngine
 from .storage.repositories import JsonFileRepository
 
+UNSET_VALUE = object()
+
 
 class DocumentNotFound(KeyError):
     pass
+
+
+class AnalysisNotFound(KeyError):
+    pass
+
+
+class FactNotFound(KeyError):
+    pass
+
+
+#: Статусы, которые вправе устанавливать пользователь (человек в контуре).
+USER_ALLOWED_STATUSES = (
+    FactStatus.VERIFIED,
+    FactStatus.UNCERTAIN,
+    FactStatus.NOT_FOUND,
+)
 
 
 class AnalysisPipeline:
@@ -57,6 +79,10 @@ class AnalysisPipeline:
     def retriever(self) -> CaseRetriever:
         return self._retriever
 
+    @property
+    def llm_provider(self) -> LLMProvider:
+        return self._llm
+
     # -- загрузка документа -------------------------------------------------
 
     def ingest(self, filename: str, content: bytes) -> Document:
@@ -90,29 +116,15 @@ class AnalysisPipeline:
         llm_facts = self._llm_extractor.extract(document, known_keys)
         facts = pattern_facts + llm_facts
 
-        case_facts = build_case_facts(facts)
-        resolved_date, assumed = self._resolve_applicable_at(applicable_at, case_facts.applicable_at)
-
-        evaluations = self._engine.evaluate(
-            case_facts,
-            self._norm_store,
-            resolved_date,
-            audit=self._audit,
-            request_id=request_id,
+        # Предварительный вывод — чтобы узнать извлечённую дату.
+        preliminary = build_case_facts(_active_facts(facts))
+        resolved_date, assumed = self._resolve_applicable_at(
+            applicable_at, preliminary.applicable_at
         )
 
-        norms_applied: list[NormRef] = []
-        seen: set[tuple[str, str]] = set()
-        for evaluation in evaluations:
-            for norm_ref in evaluation.norms_used:
-                key = (norm_ref.norm_id, norm_ref.version_id)
-                if key in seen:
-                    continue
-                seen.add(key)
-                norms_applied.append(norm_ref)
-
-        matches = self._retriever.search(case_facts)
-        analytics = compute_analytics([match.case for match in matches])
+        (case_facts, evaluations, norms_applied, matches, analytics) = self._derive(
+            _active_facts(facts), resolved_date, request_id
+        )
 
         report = AnalysisReport(
             analysis_id=uuid.uuid4().hex,
@@ -147,6 +159,123 @@ class AnalysisPipeline:
     def get_analysis(self, analysis_id: str) -> AnalysisReport | None:
         return self._analyses.get(analysis_id)
 
+    # -- человек в контуре: коррекция фактов ---------------------------------
+
+    def update_fact(
+        self,
+        analysis_id: str,
+        fact_id: str,
+        *,
+        status: str | None = None,
+        value: object = UNSET_VALUE,
+    ) -> AnalysisReport:
+        """Скорректировать факт пользователем и пересчитать отчёт.
+
+        Факт со статусом ``NOT_FOUND`` исключается из последующих проверок,
+        но остаётся в отчёте для прозрачности истории правок.
+        """
+        report = self._analyses.get(analysis_id)
+        if report is None:
+            raise AnalysisNotFound(f"отчёт не найден: {analysis_id}")
+        fact = next((f for f in report.facts if f.id == fact_id), None)
+        if fact is None:
+            raise FactNotFound(f"факт не найден: {fact_id}")
+
+        old_status = fact.status
+        status_changed = False
+        if status is not None:
+            try:
+                new_status = FactStatus(status)
+            except ValueError as exc:
+                raise ValueError(f"неизвестный статус факта: {status}") from exc
+            if new_status not in USER_ALLOWED_STATUSES:
+                raise ValueError(
+                    f"пользователь не может устанавливать статус {status}"
+                )
+            if new_status is FactStatus.VERIFIED and not fact.evidence:
+                raise ValueError(
+                    "нельзя подтвердить факт без доказательства (цитаты)"
+                )
+            fact.status = new_status
+            if new_status is FactStatus.VERIFIED:
+                fact.extraction_method = ExtractionMethod.USER
+            status_changed = True
+
+        value_changed = value is not UNSET_VALUE
+        if value_changed:
+            fact.value = value
+            fact.extraction_method = ExtractionMethod.USER
+            if not fact.evidence:
+                raise ValueError(
+                    "нельзя корректировать факт без привязки к фрагменту документа"
+                )
+            fact.status = FactStatus.VERIFIED
+            status_changed = True
+
+        request_id = uuid.uuid4().hex
+        resolved_date = (
+            date.fromisoformat(report.applicable_at)
+            if report.applicable_at
+            else date.today()
+        )
+        (case_facts, evaluations, norms_applied, matches, analytics) = self._derive(
+            _active_facts(report.facts), resolved_date, request_id
+        )
+        report.case_facts = case_facts
+        report.evaluations = evaluations
+        report.norms_applied = norms_applied
+        report.comparable_cases = matches
+        report.analytics = analytics
+
+        self._analyses.save(report)
+        self._audit.log(
+            operation="fact_update",
+            component="pipeline",
+            request_id=request_id,
+            output_hash=_hash_report(report),
+            details={
+                "analysis_id": analysis_id,
+                "fact_id": fact_id,
+                "old_status": old_status.value,
+                "new_status": fact.status.value,
+                "status_changed": status_changed,
+                "value_changed": value_changed,
+            },
+        )
+        return report
+
+    # -- общий вывод ----------------------------------------------------------
+
+    def _derive(
+        self, facts: list[LegalFact], applicable_at: date, request_id: str
+    ) -> tuple[
+        CaseFacts,
+        list[RuleEvaluation],
+        list[NormRef],
+        list[CaseMatch],
+        AnalyticsSummary,
+    ]:
+        case_facts = build_case_facts(facts)
+        evaluations = self._engine.evaluate(
+            case_facts,
+            self._norm_store,
+            applicable_at,
+            audit=self._audit,
+            request_id=request_id,
+        )
+        norms_applied: list[NormRef] = []
+        seen: set[tuple[str, str]] = set()
+        for evaluation in evaluations:
+            for norm_ref in evaluation.norms_used:
+                key = (norm_ref.norm_id, norm_ref.version_id)
+                if key in seen:
+                    continue
+                seen.add(key)
+                norms_applied.append(norm_ref)
+        matches = self._retriever.search(case_facts)
+        analytics = compute_analytics([match.case for match in matches])
+        return case_facts, evaluations, norms_applied, matches, analytics
+
     def _resolve_applicable_at(
         self, explicit: str | None, extracted: str | None
     ) -> tuple[date, bool]:
@@ -159,7 +288,11 @@ class AnalysisPipeline:
         return date.today(), True
 
 
-def _count_statuses(evaluations: list) -> dict[str, int]:
+def _active_facts(facts: list[LegalFact]) -> list[LegalFact]:
+    return [fact for fact in facts if fact.status is not FactStatus.NOT_FOUND]
+
+
+def _count_statuses(evaluations: list[RuleEvaluation]) -> dict[str, int]:
     counts: dict[str, int] = {}
     for evaluation in evaluations:
         counts[evaluation.status.value] = counts.get(evaluation.status.value, 0) + 1

@@ -70,7 +70,21 @@ function factValueLabel(fact) {
   return String(value);
 }
 
-function renderFact(fact) {
+async function updateFact(analysisId, factId, body) {
+  clearError();
+  const response = await fetch(`/api/analyses/${analysisId}/facts/${factId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    showError(`Ошибка правки факта: ${(await response.json()).detail || response.status}`);
+    return;
+  }
+  renderReport(await response.json());
+}
+
+function renderFact(fact, analysisId) {
   const li = document.createElement("li");
   const title = div("fact-title");
   title.appendChild(badge(fact.status));
@@ -93,6 +107,30 @@ function renderFact(fact) {
     );
   });
   detail.appendChild(meta);
+
+  const actions = div("meta");
+  if (fact.status !== "VERIFIED") {
+    const confirmBtn = document.createElement("button");
+    confirmBtn.textContent = "Подтвердить";
+    confirmBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      updateFact(analysisId, fact.id, { status: "VERIFIED" });
+    });
+    actions.appendChild(confirmBtn);
+  }
+  if (fact.status !== "NOT_FOUND") {
+    const rejectBtn = document.createElement("button");
+    rejectBtn.textContent = "Исключить из проверок";
+    rejectBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      updateFact(analysisId, fact.id, { status: "NOT_FOUND" });
+    });
+    actions.appendChild(rejectBtn);
+  }
+  if (actions.children.length) {
+    detail.appendChild(div("meta", "Решение судьи:"));
+    detail.appendChild(actions);
+  }
 
   title.addEventListener("click", () => toggleDetail(detail));
   li.appendChild(title);
@@ -250,7 +288,7 @@ function renderReport(report) {
   const factsById = {};
   report.facts.forEach((fact) => {
     factsById[fact.id] = fact;
-    factsList.appendChild(renderFact(fact));
+    factsList.appendChild(renderFact(fact, report.analysis_id));
   });
   if (!report.facts.length) {
     factsList.appendChild(div("hint", "Факты не извлечены."));

@@ -115,3 +115,47 @@ def test_unsupported_format_rejected(client) -> None:
 def test_unknown_document_404(client) -> None:
     assert client.get("/api/documents/missing").status_code == 404
     assert client.post("/api/documents/missing/analyze", json={}).status_code == 404
+
+
+def test_patch_fact_recalculates_report(client, sample_clean_text) -> None:
+    document_id = _upload(client, sample_clean_text)
+    analysis = client.post(f"/api/documents/{document_id}/analyze", json={}).json()
+    restitution = next(
+        f for f in analysis["facts"] if f["type"] == "restitution"
+    )
+
+    response = client.patch(
+        f"/api/analyses/{analysis['analysis_id']}/facts/{restitution['id']}",
+        json={"status": "NOT_FOUND"},
+    )
+    assert response.status_code == 200, response.text
+    updated = response.json()
+    fact = next(f for f in updated["facts"] if f["id"] == restitution["id"])
+    assert fact["status"] == "NOT_FOUND"
+    r004 = next(e for e in updated["evaluations"] if e["rule_id"] == "R-004")
+    assert "не применимо" in r004["headline"]
+
+
+def test_patch_fact_invalid_status_400(client, sample_clean_text) -> None:
+    document_id = _upload(client, sample_clean_text)
+    analysis = client.post(f"/api/documents/{document_id}/analyze", json={}).json()
+    fact = analysis["facts"][0]
+    response = client.patch(
+        f"/api/analyses/{analysis['analysis_id']}/facts/{fact['id']}",
+        json={"status": "CONFLICT"},
+    )
+    assert response.status_code == 400
+
+
+def test_patch_unknown_fact_404(client, sample_clean_text) -> None:
+    document_id = _upload(client, sample_clean_text)
+    analysis = client.post(f"/api/documents/{document_id}/analyze", json={}).json()
+    response = client.patch(
+        f"/api/analyses/{analysis['analysis_id']}/facts/missing",
+        json={"status": "VERIFIED"},
+    )
+    assert response.status_code == 404
+    response = client.patch(
+        "/api/analyses/missing/facts/missing", json={"status": "VERIFIED"}
+    )
+    assert response.status_code == 404

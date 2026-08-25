@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
@@ -13,7 +13,13 @@ from .. import __version__
 from ..domain.cases import ComparableCase
 from ..ingestion.parser import ParseError
 from ..legal_sources.store import NoApplicableVersionError, NormNotFoundError
-from ..pipeline import AnalysisPipeline, DocumentNotFound
+from ..pipeline import (
+    UNSET_VALUE,
+    AnalysisNotFound,
+    AnalysisPipeline,
+    DocumentNotFound,
+    FactNotFound,
+)
 
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
 
@@ -25,6 +31,11 @@ class TextDocumentPayload(BaseModel):
 
 class AnalyzePayload(BaseModel):
     applicable_at: str | None = None
+
+
+class FactUpdatePayload(BaseModel):
+    status: str | None = None
+    value: Any = None
 
 
 def create_app(pipeline: AnalysisPipeline) -> FastAPI:
@@ -104,6 +115,23 @@ def create_app(pipeline: AnalysisPipeline) -> FastAPI:
         report = pipeline.get_analysis(analysis_id)
         if report is None:
             raise HTTPException(status_code=404, detail="отчёт не найден")
+        return report.model_dump(mode="json")
+
+    @app.patch("/api/analyses/{analysis_id}/facts/{fact_id}")
+    def update_fact(
+        analysis_id: str, fact_id: str, payload: FactUpdatePayload
+    ) -> dict:
+        """Правка факта человеком: подтверждение, исключение или коррекция
+        значения. Отчёт пересчитывается детерминированным движком."""
+        value = payload.value if "value" in payload.model_fields_set else UNSET_VALUE
+        try:
+            report = pipeline.update_fact(
+                analysis_id, fact_id, status=payload.status, value=value
+            )
+        except (AnalysisNotFound, FactNotFound) as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         return report.model_dump(mode="json")
 
     # -- нормы --------------------------------------------------------------
