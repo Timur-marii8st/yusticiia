@@ -1,0 +1,45 @@
+{
+  "code": "УК РФ",
+  "source_document": "СИНТЕТИЧЕСКАЯ фикстура для демонстрации временных редакций",
+  "note": "ПОЛНОСТЬЮ СИНТЕТИЧЕСКАЯ норма (не существует в законодательстве). Используется только в тестах и демо для проверки выбора редакции по дате (ADR-002).",
+  "norms": [
+    {
+      "norm_id": "uk-rf:art-999-synthetic",
+      "article": 999,
+      "part": 1,
+      "title": "Синтетическая тестовая статья (две редакции)",
+      "versions": [
+        {
+          "version_id": "v2020",
+          "norm_id": "uk-rf:art-999-synthetic",
+          "text": "СИНТЕТИЧЕСКАЯ ФИКСТУРА, редакция 2020–2023: лишение свободы на срок до трёх лет.",
+          "sanctions": [
+            { "punishment_type": "imprisonment", "min_months": null, "max_months": 36 }
+          ],
+          "effective_from": "2020-01-01",
+          "effective_to": "2023-12-31",
+          "source_url": "synthetic-fixture",
+          "retrieved_at": "2026-08-25",
+          "sha256": "AUTOFILL",
+          "verification_status": "draft",
+          "synthetic": true
+        },
+        {
+          "version_id": "v2024",
+          "norm_id": "uk-rf:art-999-synthetic",
+          "text": "СИНТЕТИЧЕСКАЯ ФИКСТУРА, редакция с 2024: лишение свободы на срок до пяти лет.",
+          "sanctions": [
+            { "punishment_type": "imprisonment", "min_months": null, "max_months": 60 }
+          ],
+          "effective_from": "2024-01-01",
+          "effective_to": null,
+          "source_url": "synthetic-fixture",
+          "retrieved_at": "2026-08-25",
+          "sha256": "AUTOFILL",
+          "verification_status": "draft",
+          "synthetic": true
+        }
+      ]
+    }
+  ]
+}

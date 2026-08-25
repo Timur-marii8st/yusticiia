@@ -1,0 +1,183 @@
+{
+  "code": "УК РФ",
+  "source_document": "Уголовный кодекс Российской Федерации от 13.06.1996 № 63-ФЗ",
+  "note": "ФИКСТУРЫ ДЛЯ РАЗРАБОТКИ/ТЕСТОВ. Значения санкций — черновые (verification_status: draft): перед любой демонстрацией сверить с официальным источником. Санкции отражают максимум лишения свободы по статье.",
+  "norms": [
+    {
+      "norm_id": "uk-rf:art-158-part-1",
+      "article": 158,
+      "part": 1,
+      "title": "Кража (без квалифицирующих признаков) — санкция: черновик фикстуры",
+      "versions": [
+        {
+          "version_id": "v-current",
+          "norm_id": "uk-rf:art-158-part-1",
+          "text": "ЧЕРНОВИК ФИКСТУРЫ (сверить с официальным источником): ч. 1 ст. 158 УК РФ — лишение свободы на срок до двух лет.",
+          "sanctions": [
+            { "punishment_type": "imprisonment", "min_months": null, "max_months": 24 }
+          ],
+          "effective_from": "1996-07-01",
+          "effective_to": null,
+          "source_url": "http://www.consultant.ru/document/cons_doc_LAW_10699/",
+          "retrieved_at": "2026-08-25",
+          "sha256": "AUTOFILL",
+          "verification_status": "draft"
+        }
+      ]
+    },
+    {
+      "norm_id": "uk-rf:art-158-part-2",
+      "article": 158,
+      "part": 2,
+      "title": "Кража с квалифицирующими признаками — санкция: черновик фикстуры",
+      "versions": [
+        {
+          "version_id": "v-current",
+          "norm_id": "uk-rf:art-158-part-2",
+          "text": "ЧЕРНОВИК ФИКСТУРЫ (сверить с официальным источником): ч. 2 ст. 158 УК РФ — лишение свободы на срок до пяти лет.",
+          "sanctions": [
+            { "punishment_type": "imprisonment", "min_months": null, "max_months": 60 }
+          ],
+          "effective_from": "1996-07-01",
+          "effective_to": null,
+          "source_url": "http://www.consultant.ru/document/cons_doc_LAW_10699/",
+          "retrieved_at": "2026-08-25",
+          "sha256": "AUTOFILL",
+          "verification_status": "draft"
+        }
+      ]
+    },
+    {
+      "norm_id": "uk-rf:art-159-part-1",
+      "article": 159,
+      "part": 1,
+      "title": "Мошенничество — санкция: черновик фикстуры",
+      "versions": [
+        {
+          "version_id": "v-current",
+          "norm_id": "uk-rf:art-159-part-1",
+          "text": "ЧЕРНОВИК ФИКСТУРЫ (сверить с официальным источником): ч. 1 ст. 159 УК РФ — лишение свободы на срок до двух лет.",
+          "sanctions": [
+            { "punishment_type": "imprisonment", "min_months": null, "max_months": 24 }
+          ],
+          "effective_from": "1996-07-01",
+          "effective_to": null,
+          "source_url": "http://www.consultant.ru/document/cons_doc_LAW_10699/",
+          "retrieved_at": "2026-08-25",
+          "sha256": "AUTOFILL",
+          "verification_status": "draft"
+        }
+      ]
+    },
+    {
+      "norm_id": "uk-rf:art-159-part-2",
+      "article": 159,
+      "part": 2,
+      "title": "Мошенничество группой лиц либо с причинением значительного ущерба — санкция: черновик фикстуры",
+      "versions": [
+        {
+          "version_id": "v-current",
+          "norm_id": "uk-rf:art-159-part-2",
+          "text": "ЧЕРНОВИК ФИКСТУРЫ (сверить с официальным источником): ч. 2 ст. 159 УК РФ — лишение свободы на срок до пяти лет.",
+          "sanctions": [
+            { "punishment_type": "imprisonment", "min_months": null, "max_months": 60 }
+          ],
+          "effective_from": "1996-07-01",
+          "effective_to": null,
+          "source_url": "http://www.consultant.ru/document/cons_doc_LAW_10699/",
+          "retrieved_at": "2026-08-25",
+          "sha256": "AUTOFILL",
+          "verification_status": "draft"
+        }
+      ]
+    },
+    {
+      "norm_id": "uk-rf:art-228-part-1",
+      "article": 228,
+      "part": 1,
+      "title": "Незаконные приобретение/хранение наркотических средств (значительный размер) — санкция: черновик фикстуры",
+      "versions": [
+        {
+          "version_id": "v-current",
+          "norm_id": "uk-rf:art-228-part-1",
+          "text": "ЧЕРНОВИК ФИКСТУРЫ (сверить с официальным источником): ч. 1 ст. 228 УК РФ — лишение свободы на срок до трёх лет.",
+          "sanctions": [
+            { "punishment_type": "imprisonment", "min_months": null, "max_months": 36 }
+          ],
+          "effective_from": "1996-07-01",
+          "effective_to": null,
+          "source_url": "http://www.consultant.ru/document/cons_doc_LAW_10699/",
+          "retrieved_at": "2026-08-25",
+          "sha256": "AUTOFILL",
+          "verification_status": "draft"
+        }
+      ]
+    },
+    {
+      "norm_id": "uk-rf:art-228-part-2",
+      "article": 228,
+      "part": 2,
+      "title": "То же деяние в крупном размере — санкция: черновик фикстуры",
+      "versions": [
+        {
+          "version_id": "v-current",
+          "norm_id": "uk-rf:art-228-part-2",
+          "text": "ЧЕРНОВИК ФИКСТУРЫ (сверить с официальным источником): ч. 2 ст. 228 УК РФ — лишение свободы на срок до десяти лет.",
+          "sanctions": [
+            { "punishment_type": "imprisonment", "min_months": 36, "max_months": 120 }
+          ],
+          "effective_from": "1996-07-01",
+          "effective_to": null,
+          "source_url": "http://www.consultant.ru/document/cons_doc_LAW_10699/",
+          "retrieved_at": "2026-08-25",
+          "sha256": "AUTOFILL",
+          "verification_status": "draft"
+        }
+      ]
+    },
+    {
+      "norm_id": "uk-rf:art-161-part-1",
+      "article": 161,
+      "part": 1,
+      "title": "Грабёж — санкция: черновик фикстуры",
+      "versions": [
+        {
+          "version_id": "v-current",
+          "norm_id": "uk-rf:art-161-part-1",
+          "text": "ЧЕРНОВИК ФИКСТУРЫ (сверить с официальным источником): ч. 1 ст. 161 УК РФ — лишение свободы на срок до четырёх лет.",
+          "sanctions": [
+            { "punishment_type": "imprisonment", "min_months": null, "max_months": 48 }
+          ],
+          "effective_from": "1996-07-01",
+          "effective_to": null,
+          "source_url": "http://www.consultant.ru/document/cons_doc_LAW_10699/",
+          "retrieved_at": "2026-08-25",
+          "sha256": "AUTOFILL",
+          "verification_status": "draft"
+        }
+      ]
+    },
+    {
+      "norm_id": "uk-rf:art-111-part-1",
+      "article": 111,
+      "part": 1,
+      "title": "Умышленное причинение тяжкого вреда здоровью — санкция: черновик фикстуры",
+      "versions": [
+        {
+          "version_id": "v-current",
+          "norm_id": "uk-rf:art-111-part-1",
+          "text": "ЧЕРНОВИК ФИКСТУРЫ (сверить с официальным источником): ч. 1 ст. 111 УК РФ — лишение свободы на срок до восьми лет.",
+          "sanctions": [
+            { "punishment_type": "imprisonment", "min_months": null, "max_months": 96 }
+          ],
+          "effective_from": "1996-07-01",
+          "effective_to": null,
+          "source_url": "http://www.consultant.ru/document/cons_doc_LAW_10699/",
+          "retrieved_at": "2026-08-25",
+          "sha256": "AUTOFILL",
+          "verification_status": "draft"
+        }
+      ]
+    }
+  ]
+}

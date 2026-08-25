@@ -1,0 +1,63 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from ..audit.trail import AuditTrail
+from ..config import AppConfig, load_config
+from ..domain.analysis import AnalysisReport
+from ..domain.cases import ComparableCase
+from ..domain.documents import Document
+from ..legal_sources.store import NormStore
+from ..llm.mock_provider import MockLLMProvider
+from ..pipeline import AnalysisPipeline
+from ..retrieval.case_retrieval import CaseRetriever
+from ..storage.repositories import JsonFileRepository
+
+
+def load_cases(fixtures_dir: Path) -> list[ComparableCase]:
+    cases: list[ComparableCase] = []
+    cases_dir = fixtures_dir / "cases"
+    if cases_dir.exists():
+        for path in sorted(cases_dir.glob("*.json")):
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(payload, dict) and "cases" in payload:
+                cases.extend(ComparableCase.model_validate(item) for item in payload["cases"])
+            elif isinstance(payload, list):
+                cases.extend(ComparableCase.model_validate(item) for item in payload)
+            else:
+                cases.append(ComparableCase.model_validate(payload))
+    return cases
+
+
+def build_pipeline(config: AppConfig | None = None) -> AnalysisPipeline:
+    config = config or load_config()
+    config.store_dir.mkdir(parents=True, exist_ok=True)
+
+    documents = JsonFileRepository[Document](
+        config.store_dir / "documents", Document, "document_id"
+    )
+    analyses = JsonFileRepository[AnalysisReport](
+        config.store_dir / "analyses", AnalysisReport, "analysis_id"
+    )
+    norm_store = NormStore.from_directory(config.fixtures_dir / "norms")
+    retriever = CaseRetriever(load_cases(config.fixtures_dir))
+
+    if config.llm_provider == "openai_compatible":
+        from ..llm.openai_compatible import OpenAICompatibleProvider
+
+        provider = OpenAICompatibleProvider(
+            config.openai_base_url, config.openai_api_key, config.llm_model
+        )
+    else:
+        provider = MockLLMProvider()
+
+    return AnalysisPipeline(
+        documents=documents,
+        analyses=analyses,
+        norm_store=norm_store,
+        retriever=retriever,
+        llm_provider=provider,
+        audit=AuditTrail(config.audit_path),
+        max_upload_bytes=config.max_upload_bytes,
+    )

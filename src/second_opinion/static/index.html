@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Второе мнение — юридический аудит проекта судебного акта</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-name">Второе мнение</span>
+      <span class="brand-sub">юридический аудит проекта судебного акта</span>
+    </div>
+    <div class="topbar-note">
+      Система не заменяет судью и не назначает наказание.
+    </div>
+  </header>
+
+  <main>
+    <section class="panel" id="upload-panel">
+      <h1>Документ</h1>
+      <p class="hint">
+        Вставьте текст проекта судебного акта или выберите файл
+        (TXT, MD, DOCX, PDF с текстовым слоем).
+      </p>
+      <textarea id="doc-text" rows="10"
+        placeholder="Текст проекта судебного акта…"></textarea>
+      <div class="controls">
+        <label class="file-label">
+          <input type="file" id="doc-file" accept=".txt,.md,.markdown,.docx,.pdf">
+          <span id="file-name">или выберите файл…</span>
+        </label>
+        <label class="date-label">
+          Дата юридически значимого события (для выбора редакции нормы):
+          <input type="date" id="applicable-at">
+        </label>
+        <button id="analyze-btn" class="primary">Проанализировать</button>
+        <button id="demo-btn" class="secondary">Демо-образец</button>
+      </div>
+      <div id="upload-error" class="error" hidden></div>
+    </section>
+
+    <div id="results" hidden>
+      <section class="panel">
+        <h1>Дело / документ</h1>
+        <div id="doc-card" class="card"></div>
+      </section>
+
+      <section class="panel">
+        <h1>Обнаруженные обстоятельства</h1>
+        <p class="hint">Нажмите на обстоятельство, чтобы увидеть цитату из документа.</p>
+        <ul id="facts-list" class="items"></ul>
+      </section>
+
+      <section class="panel">
+        <h1>Проверка норм</h1>
+        <ul id="evaluations-list" class="items"></ul>
+      </section>
+
+      <section class="panel">
+        <h1>Сопоставимая практика</h1>
+        <p class="hint">
+          Справочный материал. Сходство не является основанием для вывода о наказании.
+        </p>
+        <ul id="cases-list" class="items"></ul>
+      </section>
+
+      <section class="panel" id="analytics-panel">
+        <h1>Аналитика (описательная)</h1>
+        <div id="analytics" class="card"></div>
+      </section>
+
+      <section class="panel disclaimers-panel">
+        <ul id="disclaimers" class="disclaimers"></ul>
+      </section>
+    </div>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

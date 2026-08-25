@@ -1,0 +1,36 @@
+{
+  "dataset_id": "golden_v1",
+  "note": "Крошечный золотой набор для MVP: синтетические образцы документов и ожидаемые типы фактов. Расширяется в M9.",
+  "samples": [
+    {
+      "id": "sample-158-clean",
+      "path": "data/fixtures/sample_documents/sample_158_special_clean.txt",
+      "expected_types": [
+        "qualification",
+        "defendant_age",
+        "minor_dependents",
+        "health_factor",
+        "guilty_plea",
+        "restitution",
+        "special_procedure",
+        "punishment_type",
+        "punishment_term",
+        "suspended_sentence",
+        "date_of_offense"
+      ]
+    },
+    {
+      "id": "sample-228-attempt",
+      "path": "data/fixtures/sample_documents/sample_228_attempt_violation.txt",
+      "expected_types": [
+        "qualification",
+        "defendant_age",
+        "guilty_plea",
+        "offense_stage",
+        "punishment_type",
+        "punishment_term",
+        "date_of_offense"
+      ]
+    }
+  ]
+}

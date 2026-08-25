@@ -1,0 +1,149 @@
+{
+  "note": "ПОЛНОСТЬЮ СИНТЕТИЧЕСКИЕ дела для разработки и демонстрации. Не являются реальной судебной практикой.",
+  "cases": [
+    {
+      "case_id": "syn-001",
+      "title": "Синтетическое дело № 1 (кража, особый порядок)",
+      "court": "Н-ский районный суд",
+      "date": "2024-03-12",
+      "article": 158, "part": 2, "stage": "completed",
+      "recidivism": false, "special_procedure": true, "guilty_plea": true,
+      "mitigating_codes": ["61.1.к"], "aggravating_codes": [],
+      "punishment_type": "imprisonment", "term_months": 18, "suspended": true,
+      "summary": "Синтетический пример: кража с причинением значительного ущерба, особый порядок, возмещение ущерба, условное осуждение.",
+      "synthetic": true
+    },
+    {
+      "case_id": "syn-002",
+      "title": "Синтетическое дело № 2 (кража, рецидив)",
+      "court": "Н-ский районный суд",
+      "date": "2023-11-02",
+      "article": 158, "part": 2, "stage": "completed",
+      "recidivism": true, "special_procedure": false, "guilty_plea": false,
+      "mitigating_codes": [], "aggravating_codes": ["63.1.а"],
+      "punishment_type": "imprisonment", "term_months": 36, "suspended": false,
+      "summary": "Синтетический пример: кража, рецидив, реальный срок.",
+      "synthetic": true
+    },
+    {
+      "case_id": "syn-003",
+      "title": "Синтетическое дело № 3 (покушение на кражу, особый порядок)",
+      "court": "З-ский городской суд",
+      "date": "2024-06-27",
+      "article": 158, "part": 2, "stage": "attempt",
+      "recidivism": false, "special_procedure": true, "guilty_plea": true,
+      "mitigating_codes": ["61.1.и"], "aggravating_codes": [],
+      "punishment_type": "imprisonment", "term_months": 12, "suspended": true,
+      "summary": "Синтетический пример: покушение на кражу, особый порядок, явка с повинной.",
+      "synthetic": true
+    },
+    {
+      "case_id": "syn-004",
+      "title": "Синтетическое дело № 4 (кража, признание вины)",
+      "court": "З-ский городской суд",
+      "date": "2024-01-18",
+      "article": 158, "part": 2, "stage": "completed",
+      "recidivism": false, "special_procedure": false, "guilty_plea": true,
+      "mitigating_codes": [], "aggravating_codes": [],
+      "punishment_type": "imprisonment", "term_months": 24, "suspended": false,
+      "summary": "Синтетический пример: кража, признание вины, реальный срок.",
+      "synthetic": true
+    },
+    {
+      "case_id": "syn-005",
+      "title": "Синтетическое дело № 5 (кража, исправительные работы)",
+      "court": "Н-ский районный суд",
+      "date": "2023-08-05",
+      "article": 158, "part": 1, "stage": "completed",
+      "recidivism": false, "special_procedure": true, "guilty_plea": true,
+      "mitigating_codes": ["61.1.к"], "aggravating_codes": [],
+      "punishment_type": "correctional_labor", "term_months": 10, "suspended": false,
+      "summary": "Синтетический пример: простая кража, особый порядок, исправительные работы.",
+      "synthetic": true
+    },
+    {
+      "case_id": "syn-006",
+      "title": "Синтетическое дело № 6 (мошенничество, возмещение)",
+      "court": "З-ский городской суд",
+      "date": "2024-09-14",
+      "article": 159, "part": 1, "stage": "completed",
+      "recidivism": false, "special_procedure": false, "guilty_plea": true,
+      "mitigating_codes": ["61.1.к"], "aggravating_codes": [],
+      "punishment_type": "imprisonment", "term_months": 12, "suspended": true,
+      "summary": "Синтетический пример: мошенничество, полное возмещение, условное осуждение.",
+      "synthetic": true
+    },
+    {
+      "case_id": "syn-007",
+      "title": "Синтетическое дело № 7 (ст. 228 ч. 1, раскаяние)",
+      "court": "Н-ский районный суд",
+      "date": "2025-02-20",
+      "article": 228, "part": 1, "stage": "completed",
+      "recidivism": false, "special_procedure": false, "guilty_plea": true,
+      "mitigating_codes": ["61.2"], "aggravating_codes": [],
+      "punishment_type": "imprisonment", "term_months": 18, "suspended": true,
+      "summary": "Синтетический пример: хранение без цели сбыта, раскаяние, условное осуждение.",
+      "synthetic": true
+    },
+    {
+      "case_id": "syn-008",
+      "title": "Синтетическое дело № 8 (покушение по ст. 228 ч. 1)",
+      "court": "З-ский городской суд",
+      "date": "2024-12-03",
+      "article": 228, "part": 1, "stage": "attempt",
+      "recidivism": false, "special_procedure": true, "guilty_plea": true,
+      "mitigating_codes": ["61.1.и"], "aggravating_codes": [],
+      "punishment_type": "imprisonment", "term_months": 8, "suspended": false,
+      "summary": "Синтетический пример: покушение на приобретение, особый порядок.",
+      "synthetic": true
+    },
+    {
+      "case_id": "syn-009",
+      "title": "Синтетическое дело № 9 (кража, несовершеннолетние дети)",
+      "court": "Н-ский районный суд",
+      "date": "2024-05-30",
+      "article": 158, "part": 2, "stage": "completed",
+      "recidivism": false, "special_procedure": false, "guilty_plea": true,
+      "mitigating_codes": ["61.2"], "aggravating_codes": [],
+      "punishment_type": "imprisonment", "term_months": 30, "suspended": false,
+      "summary": "Синтетический пример: кража, у подсудимого двое несовершеннолетних детей.",
+      "synthetic": true
+    },
+    {
+      "case_id": "syn-010",
+      "title": "Синтетическое дело № 10 (грабёж)",
+      "court": "З-ский городской суд",
+      "date": "2023-07-22",
+      "article": 161, "part": 1, "stage": "completed",
+      "recidivism": false, "special_procedure": false, "guilty_plea": false,
+      "mitigating_codes": [], "aggravating_codes": [],
+      "punishment_type": "imprisonment", "term_months": 24, "suspended": false,
+      "summary": "Синтетический пример: грабёж без квалифицирующих признаков.",
+      "synthetic": true
+    },
+    {
+      "case_id": "syn-011",
+      "title": "Синтетическое дело № 11 (покушение на кражу, общий порядок)",
+      "court": "Н-ский районный суд",
+      "date": "2025-04-11",
+      "article": 158, "part": 2, "stage": "attempt",
+      "recidivism": false, "special_procedure": false, "guilty_plea": true,
+      "mitigating_codes": [], "aggravating_codes": [],
+      "punishment_type": "imprisonment", "term_months": 20, "suspended": false,
+      "summary": "Синтетический пример: покушение на кражу, общий порядок.",
+      "synthetic": true
+    },
+    {
+      "case_id": "syn-012",
+      "title": "Синтетическое дело № 12 (мошенничество группой лиц)",
+      "court": "З-ский городской суд",
+      "date": "2024-10-09",
+      "article": 159, "part": 2, "stage": "completed",
+      "recidivism": false, "special_procedure": false, "guilty_plea": false,
+      "mitigating_codes": [], "aggravating_codes": [],
+      "punishment_type": "imprisonment", "term_months": 36, "suspended": false,
+      "summary": "Синтетический пример: мошенничество группой лиц по предварительному сговору.",
+      "synthetic": true
+    }
+  ]
+}

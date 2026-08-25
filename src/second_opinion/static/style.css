@@ -1,0 +1,157 @@
+:root {
+  --bg: #f6f7f9;
+  --panel: #ffffff;
+  --ink: #1c2733;
+  --muted: #5b6b7b;
+  --line: #dde3ea;
+  --accent: #23507a;
+  --ok: #1e7a3c;
+  --warn: #a06a00;
+  --fail: #b02a2a;
+  --unknown: #6b7480;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 14px 28px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand-name { font-size: 18px; font-weight: 600; }
+.brand-sub { color: var(--muted); margin-left: 10px; font-size: 13px; }
+.topbar-note { color: var(--muted); font-size: 13px; }
+
+main {
+  max-width: 1080px;
+  margin: 24px auto;
+  padding: 0 20px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px 22px;
+}
+
+h1 { font-size: 16px; margin: 0 0 10px; }
+.hint { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+
+textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px;
+  font: 13px/1.45 Consolas, "Courier New", monospace;
+  resize: vertical;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.date-label { color: var(--muted); font-size: 13px; display: flex; gap: 8px; align-items: center; }
+.file-label { color: var(--accent); font-size: 13px; cursor: pointer; }
+.file-label input { display: none; }
+
+button {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  background: var(--panel);
+}
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.secondary { background: var(--panel); }
+button:disabled { opacity: 0.5; cursor: wait; }
+
+.error { color: var(--fail); margin-top: 10px; font-size: 14px; }
+
+.card { font-size: 14px; }
+.card .kv { display: flex; gap: 8px; margin: 2px 0; }
+.card .kv .k { color: var(--muted); min-width: 220px; }
+
+.items { list-style: none; margin: 0; padding: 0; }
+.items > li { border-top: 1px solid var(--line); padding: 8px 0; }
+.items > li:first-child { border-top: none; }
+
+.status-badge {
+  display: inline-block;
+  min-width: 22px;
+  text-align: center;
+  font-weight: 600;
+  border-radius: 4px;
+  padding: 0 6px;
+  margin-right: 8px;
+  font-size: 13px;
+}
+.status-PASS { background: #e6f3ea; color: var(--ok); }
+.status-WARNING { background: #fdf3e0; color: var(--warn); }
+.status-FAIL { background: #fbe9e9; color: var(--fail); }
+.status-UNKNOWN { background: #eef0f2; color: var(--unknown); }
+.status-VERIFIED { background: #e6f3ea; color: var(--ok); }
+.status-LIKELY { background: #e9f0fb; color: var(--accent); }
+.status-UNCERTAIN, .status-CONFLICT { background: #fdf3e0; color: var(--warn); }
+.status-NOT_FOUND { background: #eef0f2; color: var(--unknown); }
+
+.fact-title, .eval-title, .case-title { cursor: pointer; }
+.fact-title:hover, .eval-title:hover, .case-title:hover { text-decoration: underline; }
+
+.detail {
+  margin: 8px 0 4px 30px;
+  padding: 10px 14px;
+  border-left: 3px solid var(--line);
+  background: #fafbfc;
+  font-size: 13px;
+}
+.detail.hidden { display: none; }
+.detail blockquote {
+  margin: 6px 0;
+  padding: 8px 12px;
+  background: #fffbe8;
+  border: 1px solid #efe3b0;
+  border-radius: 4px;
+  font-style: normal;
+}
+.detail .chain { margin: 4px 0; }
+.detail .chain .step { margin: 3px 0; }
+.detail .chain .arrow { color: var(--muted); margin-right: 6px; }
+.detail .meta { color: var(--muted); margin-top: 6px; }
+.detail .meta div { margin: 1px 0; }
+.detail .missing { color: var(--warn); }
+.detail .numbers { color: var(--muted); }
+
+.reasons { margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size: 13px; }
+
+.disclaimers { margin: 0; padding-left: 18px; color: var(--muted); font-size: 12.5px; }
+.disclaimers-panel { background: #fbfcfd; }
+
+table.stats { border-collapse: collapse; margin-top: 6px; }
+table.stats td, table.stats th {
+  border: 1px solid var(--line);
+  padding: 5px 12px;
+  text-align: left;
+  font-size: 13px;
+}
+table.stats th { background: #f2f5f8; font-weight: 600; }
