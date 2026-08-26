@@ -31,7 +31,10 @@ from second_opinion.domain.documents import Document  # noqa: E402
 from second_opinion.fact_extraction.pattern_extractor import (  # noqa: E402
     PatternFactExtractor,
 )
-from second_opinion.legal_rag import LegalRag  # noqa: E402
+from second_opinion.legal_rag import (  # noqa: E402
+    HashingTfidfEmbedder,
+    LegalRag,
+)
 from second_opinion.legal_sources.store import NormStore  # noqa: E402
 
 #: Пороги приёмки; нарушение любого из них даёт ненулевой код возврата.
@@ -51,6 +54,10 @@ def _run_extraction(dataset_path: Path) -> dict:
     total_evidence_correct = 0
     total_evidence = 0
     unsupported_rates: list[float] = []
+    # Агрегаты по типам фактов для per-type P/R/F1.
+    type_tp: dict[str, int] = {}
+    type_fp: dict[str, int] = {}
+    type_fn: dict[str, int] = {}
 
     for sample in dataset["samples"]:
         text = (PROJECT_ROOT / sample["path"]).read_text(encoding="utf-8")
@@ -71,6 +78,12 @@ def _run_extraction(dataset_path: Path) -> dict:
         total_evidence_correct += correct
         total_evidence += total
         unsupported_rates.append(rate)
+        for fact_type in predicted & gold:
+            type_tp[fact_type] = type_tp.get(fact_type, 0) + 1
+        for fact_type in predicted - gold:
+            type_fp[fact_type] = type_fp.get(fact_type, 0) + 1
+        for fact_type in gold - predicted:
+            type_fn[fact_type] = type_fn.get(fact_type, 0) + 1
         results.append(
             {
                 "sample": sample["id"],
@@ -85,6 +98,23 @@ def _run_extraction(dataset_path: Path) -> dict:
             }
         )
 
+    per_type: dict[str, dict] = {}
+    for fact_type in sorted(set(type_tp) | set(type_fp) | set(type_fn)):
+        tp, fp, fn = (
+            type_tp.get(fact_type, 0),
+            type_fp.get(fact_type, 0),
+            type_fn.get(fact_type, 0),
+        )
+        prec = tp / (tp + fp) if tp + fp else 0.0
+        rec = tp / (tp + fn) if tp + fn else 0.0
+        f1_t = 2 * prec * rec / (prec + rec) if prec + rec else 0.0
+        per_type[fact_type] = {
+            "support": tp + fn,
+            "precision": round(prec, 3),
+            "recall": round(rec, 3),
+            "f1": round(f1_t, 3),
+        }
+
     return {
         "dataset_id": dataset["dataset_id"],
         "macro_f1": _mean(macro_f1),
@@ -92,14 +122,15 @@ def _run_extraction(dataset_path: Path) -> dict:
             round(total_evidence_correct / total_evidence, 3) if total_evidence else None
         ),
         "unsupported_claim_rate_max": max(unsupported_rates) if unsupported_rates else None,
+        "per_type": per_type,
         "samples": results,
     }
 
 
-def _run_retrieval(dataset_path: Path) -> dict:
+def _run_retrieval(dataset_path: Path, mode: str) -> dict:
     dataset = json.loads(dataset_path.read_text(encoding="utf-8"))
     store = NormStore.from_directory(load_config().fixtures_dir / "norms")
-    rag = LegalRag(store)
+    rag = LegalRag(store, embedder=HashingTfidfEmbedder()) if mode == "hybrid" else LegalRag(store)
 
     results: list[dict] = []
     recalls: list[float] = []
@@ -160,6 +191,7 @@ def _run_retrieval(dataset_path: Path) -> dict:
 
     return {
         "dataset_id": dataset["dataset_id"],
+        "mode": mode,
         "queries_total": len(dataset["queries"]),
         "recall_at_5_mean": _mean(recalls),
         "mrr_mean": _mean(rrs),
@@ -208,7 +240,10 @@ def main() -> int:
 
     datasets_dir = PROJECT_ROOT / "evaluation" / "datasets"
     extraction = _run_extraction(datasets_dir / "golden_v1.json")
-    retrieval = _run_retrieval(datasets_dir / "retrieval_v1.json")
+    retrieval = {
+        mode: _run_retrieval(datasets_dir / "retrieval_v1.json", mode)
+        for mode in ("lexical", "hybrid")
+    }
     temporal = _run_temporal(datasets_dir / "retrieval_v1.json")
 
     report = {
@@ -236,13 +271,17 @@ def main() -> int:
         print("ВНИМАНИЕ: обнаружены подтверждённые факты без доказательств",
               file=sys.stderr)
         exit_code = 1
-    if (retrieval["recall_at_5_mean"] or 0) < 0.8:
-        print("ВНИМАНИЕ: средний Recall@5 поиска ниже порога 0.8", file=sys.stderr)
-        exit_code = 1
-    if (retrieval["citation_integrity"] or 0) < 1.0:
-        print("ВНИМАНИЕ: нарушена целостность цитирования источников",
-              file=sys.stderr)
-        exit_code = 1
+    # Пороги применяются к обоим режимам поиска: гибридный реранкинг не
+    # должен деградировать качество ниже приёмки.
+    for mode, result in retrieval.items():
+        if (result["recall_at_5_mean"] or 0) < 0.8:
+            print(f"ВНИМАНИЕ: средний Recall@5 ({mode}) ниже порога 0.8",
+                  file=sys.stderr)
+            exit_code = 1
+        if (result["citation_integrity"] or 0) < 1.0:
+            print(f"ВНИМАНИЕ: нарушена целостность цитирования ({mode})",
+                  file=sys.stderr)
+            exit_code = 1
     if (temporal["accuracy"] or 0) < 1.0:
         print("ВНИМАНИЕ: ошибки выбора редакции нормы на дату", file=sys.stderr)
         exit_code = 1

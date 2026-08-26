@@ -30,6 +30,28 @@ def load_cases(fixtures_dir: Path) -> list[ComparableCase]:
     return cases
 
 
+def build_legal_rag(norm_store: NormStore):
+    """Собрать поисковик по конфигурации: лексический или гибридный
+    (ADR-003). Гибридный режим включается явно через ``SO_RAG_MODE``."""
+    from ..config import load_config
+    from ..legal_rag import (
+        HashingTfidfEmbedder,
+        LegalRag,
+        OpenAICompatibleEmbeddingProvider,
+    )
+
+    config = load_config()
+    if config.rag_mode != "hybrid":
+        return LegalRag(norm_store)
+    if config.embeddings_provider == "openai_compatible":
+        embedder = OpenAICompatibleEmbeddingProvider(
+            config.openai_base_url, config.openai_api_key, config.embedding_model
+        )
+    else:
+        embedder = HashingTfidfEmbedder()
+    return LegalRag(norm_store, embedder=embedder)
+
+
 def build_pipeline(config: AppConfig | None = None) -> AnalysisPipeline:
     config = config or load_config()
     config.store_dir.mkdir(parents=True, exist_ok=True)

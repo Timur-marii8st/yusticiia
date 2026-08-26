@@ -1,6 +1,6 @@
 {
   "dataset_id": "golden_v1",
-  "note": "Крошечный золотой набор для MVP: синтетические образцы документов и ожидаемые типы фактов. Расширяется в M9.",
+  "note": "Золотой набор: синтетические образцы документов и ожидаемые типы фактов (разметка по содержимому). sample-negative-appeal — негативный контроль: процессуальный документ без обстоятельств дела; корректное извлечение — пустое множество.",
   "samples": [
     {
       "id": "sample-158-clean",
@@ -31,6 +31,26 @@
         "punishment_term",
         "date_of_offense"
       ]
+    },
+    {
+      "id": "sample-159-group-restitution",
+      "path": "data/fixtures/sample_documents/sample_159_group_restitution.txt",
+      "expected_types": [
+        "qualification",
+        "defendant_age",
+        "prior_convictions",
+        "minor_dependents",
+        "surrender_or_confession",
+        "restitution",
+        "punishment_type",
+        "punishment_term",
+        "date_of_offense"
+      ]
+    },
+    {
+      "id": "sample-negative-appeal",
+      "path": "data/fixtures/sample_documents/sample_negative_appeal.txt",
+      "expected_types": []
     }
   ]
 }

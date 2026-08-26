@@ -46,6 +46,7 @@ def make_case(
     aggravating: tuple[str, ...] = (),
     suspended: bool | None = None,
     punishment_type: str | None = "imprisonment",
+    age: int | None = None,
 ) -> CaseFacts:
     case = CaseFacts()
     case.offense.qualifications.append(Qualification(article=article, part=part))
@@ -73,13 +74,16 @@ def make_case(
         case.aggravating.append(
             AggravatingFactor(code=code, title=code, fact_ids=[f"fact-{code}"])
         )
+    if age is not None:
+        case.defendant.age = age
+        _register_fact(case, FactType.DEFENDANT_AGE, age)
     return case
 
 
 def run(norm_store: NormStore, case: CaseFacts) -> dict[str, RuleEvaluation]:
     engine = RuleEngine()
     evaluations = engine.evaluate(case, norm_store, APPLICABLE_AT)
-    assert len(evaluations) == 6
+    assert len(evaluations) == 8
     for evaluation in evaluations:
         assert evaluation.rule_version
     return {e.rule_id: e for e in evaluations}
@@ -269,3 +273,79 @@ def test_evaluation_records_used_fact_ids(norm_store: NormStore) -> None:
     case.offense.qualifications.append(Qualification(article=158, part=2))
     evaluation = run(norm_store, case)["R-001"]
     assert evaluation.facts_used or evaluation.missing
+
+# -- R-007: особый порядок и несовершеннолетие ---------------------------------
+
+
+def test_r007_minor_with_special_procedure_fails(norm_store: NormStore) -> None:
+    evaluation = run(norm_store, make_case(special=True, age=16))["R-007"]
+    assert evaluation.status.value == "FAIL"
+    assert "420" in evaluation.explanation
+    assert evaluation.numbers == {"age": 16.0}
+
+
+def test_r007_adult_special_procedure_passes(norm_store: NormStore) -> None:
+    evaluation = run(norm_store, make_case(special=True, age=35))["R-007"]
+    assert evaluation.status.value == "PASS"
+
+
+def test_r007_no_special_procedure_not_applicable(norm_store: NormStore) -> None:
+    evaluation = run(norm_store, make_case(special=False, age=16))["R-007"]
+    assert evaluation.status.value == "PASS"
+    assert "не применимо" in evaluation.headline
+
+
+def test_r007_missing_age_is_unknown(norm_store: NormStore) -> None:
+    evaluation = run(norm_store, make_case(special=True))["R-007"]
+    assert evaluation.status.value == "UNKNOWN"
+    assert evaluation.missing
+
+
+def test_r007_cites_upk_norm_version(norm_store: NormStore) -> None:
+    evaluation = run(norm_store, make_case(special=True, age=17))["R-007"]
+    refs = {(n.norm_id, n.version_id) for n in evaluation.norms_used}
+    assert ("upk-rf:art-420", "v-current") in refs
+
+
+# -- R-008: рецидив и смягчающие пп. «и»/«к» ------------------------------------
+
+
+def test_r008_recidivism_with_ik_mitigating_warns(norm_store: NormStore) -> None:
+    case = make_case(mitigating=("61.1.и",), aggravating=("63.1.а",))
+    evaluation = run(norm_store, case)["R-008"]
+    assert evaluation.status.value == "WARNING"
+    assert "не учитывается" in evaluation.explanation.lower()
+    # provenance: использованные факты указаны
+    assert evaluation.facts_used
+
+
+def test_r008_recidivism_only_passes(norm_store: NormStore) -> None:
+    case = make_case(aggravating=("63.1.а",))
+    evaluation = run(norm_store, case)["R-008"]
+    assert evaluation.status.value == "PASS"
+    assert "не применимо" in evaluation.headline
+
+
+def test_r008_other_aggravating_without_ik_passes(norm_store: NormStore) -> None:
+    case = make_case(aggravating=("63.1.м",))
+    evaluation = run(norm_store, case)["R-008"]
+    assert evaluation.status.value == "PASS"
+
+
+def test_r008_ik_without_recidivism_passes(norm_store: NormStore) -> None:
+    case = make_case(mitigating=("61.1.к",))
+    evaluation = run(norm_store, case)["R-008"]
+    assert evaluation.status.value == "PASS"
+
+
+def test_r008_non_ik_mitigating_with_recidivism_passes(norm_store: NormStore) -> None:
+    case = make_case(mitigating=("61.2",), aggravating=("63.1.а",))
+    evaluation = run(norm_store, case)["R-008"]
+    assert evaluation.status.value == "PASS"
+
+
+def test_r008_cites_art63_version(norm_store: NormStore) -> None:
+    case = make_case(mitigating=("61.1.и",), aggravating=("63.1.а",))
+    evaluation = run(norm_store, case)["R-008"]
+    refs = {(n.norm_id, n.version_id) for n in evaluation.norms_used}
+    assert ("uk-rf:art-63", "v-current") in refs

@@ -19,3 +19,22 @@ jobs:
         run: ruff check .
       - name: Test
         run: pytest
+      - name: Evaluation
+        run: python -m evaluation.run > /dev/null
+
+  # Supply-chain аудит (docs/SECURITY.md п. 8). На старте не блокирует merge;
+  # переводится в блокирующий после стабилизации базы известных уязвимостей.
+  audit:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: pip install -e .
+      - name: pip-audit
+        run: |
+          pip install pip-audit
+          pip-audit --skip-editable

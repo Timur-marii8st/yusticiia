@@ -15,6 +15,17 @@ def _facts_of_type(case_facts: CaseFacts, fact_type: FactType) -> list[LegalFact
     return [f for f in case_facts.facts if f.type is fact_type]
 
 
+def _versioned_ref(context, norm_id: str, fallback_ref: str) -> NormRef:
+    """Ссылка на норму с конкретной редакцией; при недоступности хранилища —
+    ссылка без версии (честно помечена пустым version_id)."""
+    try:
+        version = context.norm_store.get_norm(norm_id, context.applicable_at)
+        meta = context.norm_store.get_norm_meta(norm_id)
+    except (NoApplicableVersionError, NormNotFoundError):
+        return NormRef(norm_id=norm_id, version_id="", ref=fallback_ref)
+    return NormRef(norm_id=norm_id, version_id=version.version_id, ref=meta.ref)
+
+
 class _BaseSanctionRule(LegalRule):
     """Общая логика правил, сравнивающих срок с пределом санкции статьи."""
 
@@ -536,4 +547,155 @@ class SuspendedLimitRule(LegalRule):
             facts_used=facts_used,
             norms_used=[norm_ref],
             numbers=numbers,
+        )
+
+
+class MinorSpecialProcedureRule(LegalRule):
+    """Особый порядок недопустим по делам о преступлениях несовершеннолетних
+    (ч. 2 ст. 420 УПК РФ)."""
+
+    rule_id = "R-007"
+    version = "1.0.0"
+    title = "Особый порядок и несовершеннолетие (ч. 2 ст. 420 УПК РФ)"
+    description = (
+        "Особый порядок судебного разбирательства не применяется по уголовным "
+        "делам о преступлениях, совершённых лицом до достижения 18 лет."
+    )
+    norm_refs = ["upk-rf:art-420"]
+
+    def evaluate(self, context) -> RuleEvaluation:
+        case: CaseFacts = context.case_facts
+        special = case.procedural.special_procedure
+        if special is None:
+            return self._unknown(
+                ["признак особого порядка"],
+                "Не извлечено, рассматривалось ли дело в особом порядке; "
+                "проверка невозможна без предположений.",
+            )
+
+        facts_used = [
+            f.id for f in _facts_of_type(case, FactType.SPECIAL_PROCEDURE)
+        ]
+        if not special:
+            return self._evaluation(
+                status=RuleStatus.PASS,
+                headline=f"{self.title}: не применимо",
+                explanation="Дело рассматривалось без особого порядка.",
+                facts_used=facts_used,
+                norms_used=[
+                    _versioned_ref(context, "upk-rf:art-420", "УПК РФ ст. 420 ч. 2")
+                ],
+            )
+
+        age_facts = _facts_of_type(case, FactType.DEFENDANT_AGE)
+        facts_used += [f.id for f in age_facts]
+        age = case.defendant.age
+        if age is None:
+            return self._unknown(
+                ["возраст подсудимого на момент деяния"],
+                "Особый порядок обнаружен, но возраст не извлечён; проверить "
+                "недопустимость по возрасту нельзя.",
+            )
+        norms_used = [
+            _versioned_ref(context, "upk-rf:art-420", "УПК РФ ст. 420 ч. 2")
+        ]
+        numbers = {"age": float(age)}
+        if age < 18:
+            return self._evaluation(
+                status=RuleStatus.FAIL,
+                headline=f"{self.title}: возможно нарушение",
+                explanation=(
+                    f"Дело рассмотрено в особом порядке, при этом из документа "
+                    f"следует возраст {age} год(а)/лет. По ч. 2 ст. 420 УПК РФ "
+                    "особый порядок не применяется к делам о преступлениях "
+                    "несовершеннолетних. Проверьте возраст лица на момент "
+                    "деяния и дату его достижения совершеннолетия."
+                ),
+                facts_used=facts_used,
+                norms_used=norms_used,
+                numbers=numbers,
+            )
+        return self._evaluation(
+            status=RuleStatus.PASS,
+            headline=f"{self.title}: противоречий не выявлено",
+            explanation=(
+                f"Возраст {age} год(а)/лет — ограничение ч. 2 ст. 420 УПК РФ "
+                "не задействовано. Дополнительная проверка: возраст указан на "
+                "момент деяния или на момент рассмотрения дела."
+            ),
+            facts_used=facts_used,
+            norms_used=norms_used,
+            numbers=numbers,
+        )
+
+
+class RecidivismMitigatingConflictRule(LegalRule):
+    """Рецидив не учитывается при смягчающих пп. «и»/«к» (ч. 2 ст. 63 УК РФ)."""
+
+    rule_id = "R-008"
+    version = "1.0.0"
+    title = "Рецидив и смягчающие пп. «и»/«к» (ч. 2 ст. 63 УК РФ)"
+    description = (
+        "Если судом установлены смягчающие обстоятельства, предусмотренные "
+        "пунктами «и» и (или) «к» ч. 1 ст. 61 УК РФ, отягчающее обстоятельство "
+        "«рецидив преступлений» (п. «а» ч. 1 ст. 63 УК РФ) не учитывается "
+        "при назначении наказания."
+    )
+    norm_refs = ["uk-rf:art-63", "uk-rf:art-61"]
+
+    def evaluate(self, context) -> RuleEvaluation:
+        case: CaseFacts = context.case_facts
+        ik_codes = MITIGATING_IK_CODES & case.mitigating_codes()
+        recidivism_factors = [
+            factor for factor in case.aggravating if factor.code == "63.1.а"
+        ]
+
+        facts_used = sorted(
+            {
+                fact_id
+                for factor in case.mitigating
+                if factor.code in ik_codes
+                for fact_id in factor.fact_ids
+            }
+            | {
+                fact_id
+                for factor in recidivism_factors
+                for fact_id in factor.fact_ids
+            }
+        )
+        norms_used = [
+            _versioned_ref(context, "uk-rf:art-63", "УК РФ ст. 63 ч. 2"),
+            _versioned_ref(context, "uk-rf:art-61", "УК РФ ст. 61 ч. 1"),
+        ]
+
+        if not recidivism_factors or not ik_codes:
+            missing_desc = (
+                "смягчающие обстоятельства пп. «и»/«к» не установлены"
+                if not ik_codes
+                else "отягчающее «рецидив» не установлен"
+            )
+            return self._evaluation(
+                status=RuleStatus.PASS,
+                headline=f"{self.title}: не применимо",
+                explanation=(
+                    f"Сочетание отсутствует ({missing_desc}); правило ч. 2 "
+                    "ст. 63 УК РФ не задействуется."
+                ),
+                facts_used=facts_used,
+                norms_used=norms_used,
+            )
+
+        ik_titles = ", ".join(sorted(ik_codes))
+        return self._evaluation(
+            status=RuleStatus.WARNING,
+            headline=f"{self.title}: требует внимания",
+            explanation=(
+                f"Одновременно установлены смягчающие обстоятельства "
+                f"({ik_titles}) и отягчающее «рецидив преступлений». По "
+                "ч. 2 ст. 63 УК РФ это отягчающее обстоятельство в такой "
+                "ситуации НЕ учитывается при назначении наказания. Проверьте, "
+                "как оно отражено в мотивировке акта."
+            ),
+            facts_used=facts_used,
+            norms_used=norms_used,
         )

@@ -9,14 +9,16 @@ from ..legal_sources.store import NormStore
 from .context import RuleContext
 from .rules import (
     CombinedLimitRule,
+    MinorSpecialProcedureRule,
     MitigatingTwoThirdsRule,
+    RecidivismMitigatingConflictRule,
     SanctionRangeRule,
     SpecialProcedureLimitRule,
     StageLimitRule,
     SuspendedLimitRule,
 )
 
-ENGINE_VERSION = "1.0.0"
+ENGINE_VERSION = "1.1.0"
 
 DEFAULT_RULES = (
     SanctionRangeRule,
@@ -25,6 +27,8 @@ DEFAULT_RULES = (
     MitigatingTwoThirdsRule,
     CombinedLimitRule,
     SuspendedLimitRule,
+    MinorSpecialProcedureRule,
+    RecidivismMitigatingConflictRule,
 )
 
 

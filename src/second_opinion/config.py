@@ -19,6 +19,9 @@ class AppConfig:
     openai_api_key: str
     llm_model: str
     max_upload_bytes: int
+    rag_mode: str = "lexical"  # "lexical" | "hybrid" (ADR-003)
+    embeddings_provider: str = "hashing"  # "hashing" | "openai_compatible"
+    embedding_model: str = ""
 
     @property
     def store_dir(self) -> Path:
@@ -58,6 +61,9 @@ def load_config() -> AppConfig:
         openai_api_key=_env("SO_OPENAI_API_KEY"),
         llm_model=_env("SO_LLM_MODEL", "gpt-4o-mini"),
         max_upload_bytes=int(_env("SO_MAX_UPLOAD_BYTES") or DEFAULT_MAX_UPLOAD_BYTES),
+        rag_mode=_env("SO_RAG_MODE", "lexical") or "lexical",
+        embeddings_provider=_env("SO_EMBEDDINGS_PROVIDER", "hashing") or "hashing",
+        embedding_model=_env("SO_EMBEDDING_MODEL"),
     )
 
 

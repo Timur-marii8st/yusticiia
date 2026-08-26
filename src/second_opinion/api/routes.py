@@ -12,7 +12,6 @@ from pydantic import BaseModel, Field
 from .. import __version__
 from ..domain.cases import ComparableCase
 from ..ingestion.parser import ParseError
-from ..legal_rag import LegalRag
 from ..legal_sources.store import NoApplicableVersionError, NormNotFoundError
 from ..pipeline import (
     UNSET_VALUE,
@@ -49,7 +48,9 @@ def create_app(pipeline: AnalysisPipeline) -> FastAPI:
         ),
     )
     app.state.pipeline = pipeline
-    rag = LegalRag(pipeline.norm_store)
+    from ..api.deps import build_legal_rag
+
+    rag = build_legal_rag(pipeline.norm_store)
 
     # -- служебные ----------------------------------------------------------
 

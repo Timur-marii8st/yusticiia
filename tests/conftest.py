@@ -8,6 +8,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FIXTURES_DIR = PROJECT_ROOT / "data" / "fixtures"
 SAMPLE_CLEAN = FIXTURES_DIR / "sample_documents" / "sample_158_special_clean.txt"
 SAMPLE_VIOLATION = FIXTURES_DIR / "sample_documents" / "sample_228_attempt_violation.txt"
+SAMPLE_NEGATIVE = FIXTURES_DIR / "sample_documents" / "sample_negative_appeal.txt"
 
 
 @pytest.fixture()
@@ -42,3 +43,8 @@ def sample_clean_text() -> str:
 @pytest.fixture()
 def sample_violation_text() -> str:
     return SAMPLE_VIOLATION.read_text(encoding="utf-8")
+
+
+@pytest.fixture()
+def sample_negative_text() -> str:
+    return SAMPLE_NEGATIVE.read_text(encoding="utf-8")

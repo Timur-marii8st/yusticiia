@@ -96,3 +96,18 @@ def test_sentence_taken_from_resolutive_part() -> None:
     )
     term = _by_type(_facts(text), FactType.PUNISHMENT_TERM)[0]
     assert term.value == 24.0
+
+# -- устойчивость паттернов к типовым формулировкам ------------------------------
+
+
+def test_restitution_with_participle_between_verb_and_noun() -> None:
+    facts = _facts(
+        "Подсудимый добровольно возместил причинённый ущерб потерпевшему."
+    )
+    assert FactType.RESTITUTION in {f.type for f in facts}
+
+
+def test_negative_document_extracts_nothing(sample_negative_text: str) -> None:
+    """Негативный контроль: процессуальный документ без обстоятельств
+    дела не должен порождать юридически значимых фактов."""
+    assert _facts(sample_negative_text) == []

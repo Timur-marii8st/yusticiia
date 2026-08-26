@@ -9,8 +9,12 @@ from pydantic import BaseModel, Field
 
 from ..domain.norms import LegalNorm, NormVersion
 from ..legal_sources.store import NoApplicableVersionError, NormStore
+from .embeddings import EmbeddingProvider, cosine
 
 _TOKEN = re.compile(r"[a-zа-яё0-9]+")
+
+#: Константа Reciprocal Rank Fusion: чем больше, тем ровнее вклад позиций.
+RRF_K = 60
 
 #: Слова, не несущие юридического смысла в запросе. «ук/рф/упк/статья/часть»
 #: совпали бы с каждой нормой и только размывали ранжирование.
@@ -69,18 +73,30 @@ class SearchHit(BaseModel):
     synthetic: bool
     score: float
     matched_terms: list[str] = Field(default_factory=list)
+    #: Лексический балл (в гибридном режиме отделяется от итогового).
+    lexical_score: float | None = None
+    #: Косинусная близость к запросу (только в гибридном режиме).
+    semantic_score: float | None = None
 
 
 class LegalRag:
-    """Лексический поиск по базе источников (детерминированный, без LLM).
+    """Лексический поиск по базе источников с опциональным гибридным
+    реранкингом (детерминированный; LLM не используется).
 
     Инвариант: результат содержит только реально хранящиеся фрагменты
     текста норм; если ничего не найдено — возвращается пустой список,
     а не сгенерированный ответ (см. docs/LEGAL_SAFETY_PRINCIPLES.md §6).
+    Реранкинг меняет только ПОРЯДОК кандидатов, найденных лексической
+    фазой, и никогда не добавляет новые фрагменты.
     """
 
-    def __init__(self, norm_store: NormStore) -> None:
+    def __init__(
+        self,
+        norm_store: NormStore,
+        embedder: EmbeddingProvider | None = None,
+    ) -> None:
         self._store = norm_store
+        self._embedder = embedder
 
     def search(
         self,
@@ -158,9 +174,49 @@ class LegalRag:
                 )
             )
         hits.sort(key=lambda hit: (-hit.score, hit.norm_id))
-        return hits[:limit]
+        if self._embedder is None:
+            return hits[:limit]
+        return self._rerank(hits, query, limit)
 
     # -- внутреннее -----------------------------------------------------------
+
+    def _rerank(
+        self, hits: list[SearchHit], query: str, limit: int
+    ) -> list[SearchHit]:
+        """Гибридный реранкинг: Reciprocal Rank Fusion лексического и
+        семантического ранжирований (ADR-003)."""
+        query_vector = self._embedder.embed([query])[0]
+        texts = [f"{hit.title} {hit.ref} {hit.fragment}" for hit in hits]
+        vectors = self._embedder.embed(texts)
+        similarities = [
+            cosine(query_vector, vector) for vector in vectors
+        ]
+
+        lexical_ranking = sorted(
+            range(len(hits)), key=lambda i: (-hits[i].score, hits[i].norm_id)
+        )
+        semantic_ranking = sorted(
+            range(len(hits)), key=lambda i: (-similarities[i], hits[i].norm_id)
+        )
+
+        fused: dict[int, float] = {}
+        for ranking in (lexical_ranking, semantic_ranking):
+            for position, index in enumerate(ranking, start=1):
+                fused[index] = fused.get(index, 0.0) + 1.0 / (RRF_K + position)
+
+        reranked: list[SearchHit] = []
+        for index, hit in enumerate(hits):
+            reranked.append(
+                hit.model_copy(
+                    update={
+                        "score": round(fused[index], 4),
+                        "lexical_score": hit.score,
+                        "semantic_score": round(similarities[index], 4),
+                    }
+                )
+            )
+        reranked.sort(key=lambda hit: (-hit.score, hit.norm_id))
+        return reranked[:limit]
 
     def _select_version(
         self, norm: LegalNorm, applicable_at: date | None
