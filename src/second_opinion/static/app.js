@@ -397,6 +397,7 @@ function renderAnalytics(analytics) {
 
 function renderReport(report) {
   $("results").hidden = false;
+  $("download-json").href = `/api/analyses/${report.analysis_id}`;
 
   const card = $("doc-card");
   card.innerHTML = "";
@@ -627,6 +628,7 @@ async function runSearch() {
 }
 
 $("analyze-btn").addEventListener("click", submit);
+$("print-btn").addEventListener("click", () => window.print());
 $("demo-btn").addEventListener("click", loadDemo);
 $("doc-text").addEventListener("input", (e) => {
   documentText = e.target.value;

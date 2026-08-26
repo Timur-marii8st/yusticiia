@@ -134,6 +134,7 @@ second-opinion eval     # или: make eval
 - [docs/PRODUCT_VISION.md](docs/PRODUCT_VISION.md) — видение и non-goals
 - [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) — аудит репозитория
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — архитектура
+- [docs/API.md](docs/API.md) — справочник HTTP API
 - [docs/DOMAIN_MODEL.md](docs/DOMAIN_MODEL.md) — доменная модель
 - [docs/RULE_ENGINE.md](docs/RULE_ENGINE.md) — реестр правил и как добавлять новые
 - [docs/LEGAL_RAG.md](docs/LEGAL_RAG.md) — поиск по базе источников
@@ -142,6 +143,7 @@ second-opinion eval     # или: make eval
 - [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) — план (M0–M10)
 - [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md) — фактический статус
 - [docs/GLOSSARY.md](docs/GLOSSARY.md) — глоссарий
+- [CHANGELOG.md](CHANGELOG.md) — история итераций
 - [docs/ADR/](docs/ADR/) — архитектурные решения
 
 ## Безопасность

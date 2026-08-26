@@ -44,6 +44,11 @@
     <div id="results" hidden>
       <section class="panel">
         <h1>Дело / документ</h1>
+        <div class="report-actions no-print">
+          <button id="print-btn" class="secondary">Печать отчёта</button>
+          <a id="download-json" class="secondary" download="second-opinion-report.json"
+            href="#">Скачать JSON</a>
+        </div>
         <div id="doc-card" class="card"></div>
       </section>
 
@@ -79,7 +84,7 @@
         <ul id="evaluations-list" class="items"></ul>
       </section>
 
-      <section class="panel">
+      <section class="panel" id="sources-panel">
         <h1>Источники</h1>
         <p class="hint">
           Поиск по базе норм: каждый результат — фрагмент реального источника

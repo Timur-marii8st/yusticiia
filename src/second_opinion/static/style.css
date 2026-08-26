@@ -155,3 +155,24 @@ table.stats td, table.stats th {
   font-size: 13px;
 }
 table.stats th { background: #f2f5f8; font-weight: 600; }
+
+.report-actions { display: flex; gap: 8px; margin-bottom: 10px; }
+.report-actions a.secondary {
+  display: inline-block; text-decoration: none;
+  padding: 6px 14px;
+}
+
+/* Печатная версия отчёта: только содержательный анализ. */
+@media print {
+  .topbar, #upload-panel, #sources-panel, .report-actions,
+  .controls, button, .add-fact-box, .hint {
+    display: none !important;
+  }
+  body { background: #fff; }
+  .panel {
+    break-inside: avoid;
+    box-shadow: none;
+    border-color: #999;
+  }
+  .detail.hidden { display: none; }
+}
