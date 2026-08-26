@@ -158,6 +158,28 @@
       ]
     },
     {
+      "norm_id": "uk-rf:art-161-part-2",
+      "article": 161,
+      "part": 2,
+      "title": "Грабёж с квалифицирующими признаками — санкция: черновик фикстуры",
+      "versions": [
+        {
+          "version_id": "v-current",
+          "norm_id": "uk-rf:art-161-part-2",
+          "text": "ЧЕРНОВИК ФИКСТУРЫ (сверить с официальным источником): ч. 2 ст. 161 УК РФ — лишение свободы на срок до семи лет.",
+          "sanctions": [
+            { "punishment_type": "imprisonment", "min_months": null, "max_months": 84 }
+          ],
+          "effective_from": "1996-07-01",
+          "effective_to": null,
+          "source_url": "http://www.consultant.ru/document/cons_doc_LAW_10699/",
+          "retrieved_at": "2026-08-26",
+          "sha256": "AUTOFILL",
+          "verification_status": "draft"
+        }
+      ]
+    },
+    {
       "norm_id": "uk-rf:art-111-part-1",
       "article": 111,
       "part": 1,

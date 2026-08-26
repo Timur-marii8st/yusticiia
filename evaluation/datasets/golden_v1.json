@@ -51,6 +51,49 @@
       "id": "sample-negative-appeal",
       "path": "data/fixtures/sample_documents/sample_negative_appeal.txt",
       "expected_types": []
+    },
+    {
+      "id": "sample-minor-special-conflict",
+      "path": "data/fixtures/sample_documents/sample_minor_special_procedure_conflict.txt",
+      "expected_types": [
+        "qualification",
+        "defendant_age",
+        "guilty_plea",
+        "surrender_or_confession",
+        "special_procedure",
+        "punishment_type",
+        "punishment_term",
+        "date_of_offense"
+      ]
+    },
+    {
+      "id": "sample-recidivism-warning",
+      "path": "data/fixtures/sample_documents/sample_recidivism_mitigating_warning.txt",
+      "expected_types": [
+        "qualification",
+        "defendant_age",
+        "prior_convictions",
+        "aggravating_recidivism",
+        "surrender_or_confession",
+        "restitution",
+        "punishment_type",
+        "punishment_term",
+        "date_of_offense"
+      ]
+    },
+    {
+      "id": "sample-suspended-boundary-73",
+      "path": "data/fixtures/sample_documents/sample_suspended_boundary_73.txt",
+      "expected_types": [
+        "qualification",
+        "defendant_age",
+        "guilty_plea",
+        "minor_dependents",
+        "punishment_type",
+        "punishment_term",
+        "suspended_sentence",
+        "date_of_offense"
+      ]
     }
   ]
 }

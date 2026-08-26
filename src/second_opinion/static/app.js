@@ -84,7 +84,7 @@ async function updateFact(analysisId, factId, body) {
   renderReport(await response.json());
 }
 
-function renderFact(fact, analysisId) {
+function renderFact(fact, analysisId, usedIn) {
   const li = document.createElement("li");
   const title = div("fact-title");
   title.appendChild(badge(fact.status));
@@ -106,6 +106,25 @@ function renderFact(fact, analysisId) {
         (ev.page ? `, страница ${ev.page}` : ""))
     );
   });
+
+  // Обратная связь: в каких проверках правила-движка участвует факт.
+  const used = usedIn && usedIn[fact.id];
+  if (used && used.length) {
+    const usedBlock = div("chain");
+    usedBlock.appendChild(div("step", "Учитывается при следующих проверках:"));
+    used.forEach((evaluation) => {
+      const line = div("step", "");
+      line.appendChild(badge(evaluation.status));
+      line.append(` ${evaluation.headline}`);
+      usedBlock.appendChild(line);
+    });
+    detail.appendChild(usedBlock);
+  } else {
+    detail.appendChild(
+      div("meta", "Ни одна детерминированная проверка не использует этот факт.")
+    );
+  }
+
   detail.appendChild(meta);
 
   const actions = div("meta");
@@ -317,10 +336,17 @@ function renderReport(report) {
 
   const factsList = $("facts-list");
   factsList.innerHTML = "";
+  // Индекс «факт → проверки», где он использован (обратная связь для судьи).
+  const usedIn = {};
+  report.evaluations.forEach((ev) => {
+    ev.facts_used.forEach((factId) => {
+      (usedIn[factId] = usedIn[factId] || []).push(ev);
+    });
+  });
   const factsById = {};
   report.facts.forEach((fact) => {
     factsById[fact.id] = fact;
-    factsList.appendChild(renderFact(fact, report.analysis_id));
+    factsList.appendChild(renderFact(fact, report.analysis_id, usedIn));
   });
   if (!report.facts.length) {
     factsList.appendChild(div("hint", "Факты не извлечены."));

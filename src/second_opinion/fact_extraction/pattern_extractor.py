@@ -168,7 +168,8 @@ class PatternFactExtractor:
         re.IGNORECASE,
     )
     _PRIOR = re.compile(
-        r"ранее\s+судим\w+|имеет(?:ся)?\s+(?:непогашенн\w+|несняты\w+|неснят\w+)?\s*судимост\w+",
+        r"ранее\s+(?:дважды|трижды|четырежды|многократно)?\s*судим\w+"
+        r"|имеет(?:ся)?\s+(?:непогашенн\w+|несняты\w+|неснят\w+)?\s*судимост\w+",
         re.IGNORECASE,
     )
 
@@ -211,7 +212,7 @@ class PatternFactExtractor:
 
     # -- отягчающие ---------------------------------------------------------
 
-    _RECIDIVISM = re.compile(r"рецидив\w+", re.IGNORECASE)
+    _RECIDIVISM = re.compile(r"рецидив\w*", re.IGNORECASE)
 
     def _extract_aggravating(self, text: str, emit: Callable[..., None]) -> None:
         for match in self._RECIDIVISM.finditer(text):

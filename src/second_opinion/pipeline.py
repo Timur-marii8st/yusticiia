@@ -18,6 +18,7 @@ from .fact_extraction.pattern_extractor import PatternFactExtractor, _value_key
 from .ingestion.parser import parse_document
 from .legal_sources.store import NormStore
 from .llm.provider import LLMProvider
+from .logging_utils import StageTimer, log_stage
 from .retrieval.case_retrieval import CaseRetriever
 from .rule_engine.engine import ENGINE_VERSION, RuleEngine
 from .storage.repositories import JsonFileRepository
@@ -111,15 +112,31 @@ class AnalysisPipeline:
         document = self.get_document(document_id)
         request_id = uuid.uuid4().hex
 
+        timer = StageTimer()
         pattern_facts = self._pattern_extractor.extract(document)
         known_keys = {(f.type.value, _value_key(f.value)) for f in pattern_facts}
         llm_facts = self._llm_extractor.extract(document, known_keys)
         facts = pattern_facts + llm_facts
+        log_stage(
+            request_id,
+            "fact_extraction",
+            duration_ms=timer.elapsed_ms(),
+            document_id=document_id,
+            pattern_facts=len(pattern_facts),
+            llm_facts=len(llm_facts),
+        )
 
         # Предварительный вывод — чтобы узнать извлечённую дату.
         preliminary = build_case_facts(_active_facts(facts))
         resolved_date, assumed = self._resolve_applicable_at(
             applicable_at, preliminary.applicable_at
+        )
+        log_stage(
+            request_id,
+            "applicable_date",
+            document_id=document_id,
+            applicable_at=resolved_date.isoformat(),
+            assumed=assumed,
         )
 
         (case_facts, evaluations, norms_applied, matches, analytics) = self._derive(
@@ -140,6 +157,16 @@ class AnalysisPipeline:
             disclaimers=list(DEFAULT_DISCLAIMERS),
         )
         self._analyses.save(report)
+        log_stage(
+            request_id,
+            "analysis_complete",
+            duration_ms=timer.elapsed_ms(),
+            document_id=document_id,
+            analysis_id=report.analysis_id,
+            facts=len(facts),
+            evaluations=_count_statuses(evaluations),
+            comparable_cases=len(matches),
+        )
         self._audit.log(
             operation="analysis_complete",
             component="pipeline",
@@ -256,12 +283,20 @@ class AnalysisPipeline:
         AnalyticsSummary,
     ]:
         case_facts = build_case_facts(facts)
+        rules_timer = StageTimer()
         evaluations = self._engine.evaluate(
             case_facts,
             self._norm_store,
             applicable_at,
             audit=self._audit,
             request_id=request_id,
+        )
+        log_stage(
+            request_id,
+            "rule_engine",
+            duration_ms=rules_timer.elapsed_ms(),
+            engine_version=ENGINE_VERSION,
+            statuses=_count_statuses(evaluations),
         )
         norms_applied: list[NormRef] = []
         seen: set[tuple[str, str]] = set()
@@ -272,7 +307,15 @@ class AnalysisPipeline:
                     continue
                 seen.add(key)
                 norms_applied.append(norm_ref)
+        retrieval_timer = StageTimer()
         matches = self._retriever.search(case_facts)
+        log_stage(
+            request_id,
+            "case_retrieval",
+            duration_ms=retrieval_timer.elapsed_ms(),
+            corpus_size=self._retriever.total,
+            matched=len(matches),
+        )
         analytics = compute_analytics([match.case for match in matches])
         return case_facts, evaluations, norms_applied, matches, analytics
 

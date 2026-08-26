@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from second_opinion.domain.enums import FactStatus
-from tests.conftest import SAMPLE_CLEAN, SAMPLE_VIOLATION
+from tests.conftest import FIXTURES_DIR, SAMPLE_CLEAN, SAMPLE_VIOLATION
 
 
 def _analysis(pipeline, path):
@@ -85,3 +85,90 @@ def test_analysis_is_persisted(pipeline) -> None:
     loaded = pipeline.get_analysis(report.analysis_id)
     assert loaded is not None
     assert loaded.document_id == document.document_id
+
+
+def _evaluations_by_id(report):
+    return {e.rule_id: e for e in report.evaluations}
+
+
+# -- краевые случаи на новых синтетических образцах -----------------------------
+
+
+def test_minor_with_special_procedure_flags_r007(pipeline) -> None:
+    """16 лет + особый порядок: R-007 обязан дать FAIL (ч. 2 ст. 420 УПК)."""
+    path = FIXTURES_DIR / "sample_documents" / "sample_minor_special_procedure_conflict.txt"
+    _, report = _analysis(pipeline, path)
+    statuses = _evaluations_by_id(report)
+    assert statuses["R-007"].status.value == "FAIL"
+    assert "420" in statuses["R-007"].explanation
+    # используемые факты указаны и существуют в отчёте
+    fact_ids = {f.id for f in report.facts}
+    assert set(statuses["R-007"].facts_used) <= fact_ids
+
+
+def test_recidivism_with_ik_mitigating_warns_r008(pipeline) -> None:
+    """Рецидив + явка с повинной/возмещение: R-008 обязан предупредить."""
+    path = FIXTURES_DIR / "sample_documents" / "sample_recidivism_mitigating_warning.txt"
+    _, report = _analysis(pipeline, path)
+    statuses = _evaluations_by_id(report)
+    assert statuses["R-008"].status.value == "WARNING"
+    assert statuses["R-001"].status.value == "PASS"  # 14 мес. ≤ 84 (ч. 2 ст. 161)
+
+
+def test_suspended_boundary_exactly_eight_years_passes_r006(pipeline) -> None:
+    """Условное осуждение ровно при 96 мес.: граница ч. 3 ст. 73 включена."""
+    path = FIXTURES_DIR / "sample_documents" / "sample_suspended_boundary_73.txt"
+    _, report = _analysis(pipeline, path)
+    evaluation = next(e for e in report.evaluations if e.rule_id == "R-006")
+    assert evaluation.status.value == "PASS"
+    assert evaluation.numbers["term_months"] == 96
+    assert evaluation.numbers["limit_months"] == 96
+
+
+def test_analysis_is_reproducible_across_pipeline_instances(tmp_path) -> None:
+    """Воспроизводимость: два независимых конвейера дают одинаковый
+    содержательный результат по одному документу (ADR-001: детерминизм)."""
+    from second_opinion.api.deps import build_pipeline
+    from second_opinion.config import AppConfig
+
+    def build() -> object:
+        return build_pipeline(
+            AppConfig(
+                data_dir=tmp_path,
+                fixtures_dir=FIXTURES_DIR,
+                llm_provider="mock",
+                openai_base_url="",
+                openai_api_key="",
+                llm_model="",
+                max_upload_bytes=1_000_000,
+            )
+        )
+
+    reports = []
+    for pipeline in (build(), build()):
+        document = pipeline.ingest(SAMPLE_CLEAN.name, SAMPLE_CLEAN.read_bytes())
+        reports.append(pipeline.analyze(document.document_id))
+
+    first, second = reports
+
+    def normalized(report):
+        # document_id у каждого ingest свой (uuid) — это связь с документом,
+        # а не содержательный результат; исключаем его из сравнения.
+        facts = []
+        for fact in report.facts:
+            data = fact.model_dump()
+            for evidence in data["evidence"]:
+                evidence["document_id"] = "<doc>"
+            facts.append(data)
+        return facts, report.analytics.model_dump()
+
+    first_facts, first_analytics = normalized(first)
+    second_facts, second_analytics = normalized(second)
+    assert first_facts == second_facts
+    assert [e.model_dump() for e in first.evaluations] == [
+        e.model_dump() for e in second.evaluations
+    ]
+    assert first_analytics == second_analytics
+    assert [c.model_dump() for c in first.comparable_cases] == [
+        c.model_dump() for c in second.comparable_cases
+    ]

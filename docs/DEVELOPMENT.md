@@ -35,6 +35,7 @@ src/second_opinion/
     retrieval/       # поиск сопоставимых дел
     analytics/       # описательная статистика
     audit/           # JSONL-аудит (хэши/версии, без текстов)
+    logging_utils.py # структурные логи стадий (request_id, длительности)
     llm/             # LLMProvider + мок/OpenAI-совместимый адаптеры
     prompts/         # версионируемые промпты (часть пакета)
     api/            # FastAPI-роуты (без бизнес-логики)
