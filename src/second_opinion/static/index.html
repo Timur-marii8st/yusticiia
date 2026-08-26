@@ -51,6 +51,27 @@
         <h1>Обнаруженные обстоятельства</h1>
         <p class="hint">Нажмите на обстоятельство, чтобы увидеть цитату из документа.</p>
         <ul id="facts-list" class="items"></ul>
+
+        <details class="add-fact-box" id="add-fact-box" hidden>
+          <summary>Добавить обстоятельство вручную</summary>
+          <div class="controls">
+            <select id="new-fact-type"></select>
+          </div>
+          <div class="controls">
+            <span id="new-fact-value-input"></span>
+          </div>
+          <div class="controls">
+            <textarea id="new-fact-quote" rows="3"
+              placeholder="Точная цитата из документа (скопируйте без изменений)…"></textarea>
+          </div>
+          <div class="controls">
+            <button id="add-fact-btn" class="secondary">Добавить обстоятельство</button>
+          </div>
+          <p class="hint">
+            Цитата обязана дословно находиться в документе — иначе факт не
+            будет принят. Добавленное обстоятельство сразу участвует в проверках.
+          </p>
+        </details>
       </section>
 
       <section class="panel">

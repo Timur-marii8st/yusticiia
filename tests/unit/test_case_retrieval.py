@@ -19,7 +19,7 @@ def _retriever() -> CaseRetriever:
 
 
 def test_case_base_expanded() -> None:
-    assert _retriever().total == 22
+    assert _retriever().total == 26
 
 
 def test_filter_by_article_only() -> None:
@@ -86,3 +86,19 @@ def test_recidivism_positive_match_is_substantive() -> None:
     recidivism_matches = [m for m in matches if m.case.recidivism]
     assert recidivism_matches
     assert any("рецидив" in reason for reason in recidivism_matches[0].reasons)
+
+
+def test_group_criterion_matching() -> None:
+    criteria = _criteria(159, part=2)
+    criteria.offense.complicity_role = "group_with_conspiracy"
+    matches = _retriever().search(criteria, limit=50)
+    assert matches
+    assert any("групп" in reason for match in matches for reason in match.reasons)
+
+
+def test_group_criterion_counts_as_substance() -> None:
+    """Только группа без иных совпадений: дела без признака группы не выдаются."""
+    criteria = _criteria(158, part=None)
+    criteria.offense.complicity_role = "organized_group"
+    matches = _retriever().search(criteria, limit=50)
+    assert all(m.case.group for m in matches)

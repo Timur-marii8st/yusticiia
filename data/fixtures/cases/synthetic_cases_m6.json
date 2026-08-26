@@ -131,6 +131,62 @@
       "punishment_type": "imprisonment", "term_months": 30, "suspended": true,
       "summary": "Синтетический пример: мошенничество группой лиц, полное возмещение, условное осуждение.",
       "synthetic": true
+    },
+    {
+      "case_id": "syn-023",
+      "title": "Синтетическое дело № 23 (кража группой, покушение)",
+      "court": "З-ский городской суд",
+      "date": "2024-06-12",
+      "article": 158, "part": 2, "stage": "attempt",
+      "recidivism": false, "special_procedure": false, "guilty_plea": true,
+      "jury_trial": false,
+      "group": true,
+      "mitigating_codes": [], "aggravating_codes": [],
+      "punishment_type": "imprisonment", "term_months": 20, "suspended": false,
+      "summary": "Синтетический пример: покушение на кражу группой лиц по предварительному сговору.",
+      "synthetic": true
+    },
+    {
+      "case_id": "syn-024",
+      "title": "Синтетическое дело № 24 (тяжкий вред здоровью, присяжные)",
+      "court": "Областной суд",
+      "date": "2023-11-03",
+      "article": 111, "part": 1, "stage": "completed",
+      "recidivism": false, "special_procedure": false, "guilty_plea": false,
+      "jury_trial": true,
+      "group": false,
+      "mitigating_codes": [], "aggravating_codes": [],
+      "punishment_type": "imprisonment", "term_months": 60, "suspended": false,
+      "summary": "Синтетический пример: тяжкий вред здоровью, рассмотрение с участием присяжных заседателей.",
+      "synthetic": true
+    },
+    {
+      "case_id": "syn-025",
+      "title": "Синтетическое дело № 25 (наркотики, особый порядок)",
+      "court": "Н-ский районный суд",
+      "date": "2024-08-19",
+      "article": 228, "part": 1, "stage": "completed",
+      "recidivism": false, "special_procedure": true, "guilty_plea": true,
+      "jury_trial": false,
+      "group": false,
+      "mitigating_codes": ["61.1.\u0438"], "aggravating_codes": [],
+      "punishment_type": "imprisonment", "term_months": 24, "suspended": false,
+      "summary": "Синтетический пример: хранение наркотических средств, явка с повинной, особый порядок.",
+      "synthetic": true
+    },
+    {
+      "case_id": "syn-026",
+      "title": "Синтетическое дело № 26 (мошенничество группой, условно)",
+      "court": "З-ский городской суд",
+      "date": "2025-01-27",
+      "article": 159, "part": 2, "stage": "completed",
+      "recidivism": false, "special_procedure": false, "guilty_plea": true,
+      "jury_trial": false,
+      "group": true,
+      "mitigating_codes": ["61.1.\u043a"], "aggravating_codes": [],
+      "punishment_type": "imprisonment", "term_months": 18, "suspended": true,
+      "summary": "Синтетический пример: мошенничество группой лиц, возмещение ущерба, условное осуждение.",
+      "synthetic": true
     }
   ]
 }

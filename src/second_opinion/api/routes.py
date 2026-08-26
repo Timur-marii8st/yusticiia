@@ -38,6 +38,12 @@ class FactUpdatePayload(BaseModel):
     value: Any = None
 
 
+class FactAddPayload(BaseModel):
+    type: str
+    value: Any
+    quote: str = Field(min_length=1)
+
+
 def create_app(pipeline: AnalysisPipeline) -> FastAPI:
     app = FastAPI(
         title="Второе мнение",
@@ -118,6 +124,25 @@ def create_app(pipeline: AnalysisPipeline) -> FastAPI:
         report = pipeline.get_analysis(analysis_id)
         if report is None:
             raise HTTPException(status_code=404, detail="отчёт не найден")
+        return report.model_dump(mode="json")
+
+    @app.post("/api/analyses/{analysis_id}/facts")
+    def add_fact(analysis_id: str, payload: FactAddPayload) -> dict:
+        """Судья добавляет обстоятельство «с нуля»: тип + значение + цитата
+        из документа. Цитата обязана дословно находиться в тексте."""
+        from ..pipeline import FactValidationError
+
+        try:
+            report = pipeline.add_fact(
+                analysis_id,
+                fact_type=payload.type,
+                value=payload.value,
+                quote=payload.quote,
+            )
+        except (AnalysisNotFound, DocumentNotFound) as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except FactValidationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         return report.model_dump(mode="json")
 
     @app.patch("/api/analyses/{analysis_id}/facts/{fact_id}")

@@ -8,7 +8,7 @@ from .audit.trail import AuditTrail
 from .domain.analysis import DEFAULT_DISCLAIMERS, AnalysisReport, AnalyticsSummary
 from .domain.cases import CaseMatch
 from .domain.documents import Document
-from .domain.enums import ExtractionMethod, FactStatus
+from .domain.enums import ExtractionMethod, FactStatus, FactType, OffenseStage, PunishmentType
 from .domain.facts import CaseFacts, LegalFact
 from .domain.norms import NormRef
 from .domain.rules import RuleEvaluation
@@ -36,6 +36,90 @@ class AnalysisNotFound(KeyError):
 
 class FactNotFound(KeyError):
     pass
+
+
+class FactValidationError(ValueError):
+    """Данные нового/исправляемого факта не проходят валидацию."""
+
+
+_BOOLEAN_FACT_TYPES = frozenset(
+    {
+        FactType.PRIOR_CONVICTIONS,
+        FactType.MINOR_DEPENDENTS,
+        FactType.GUILTY_PLEA,
+        FactType.SURRENDER_OR_CONFESSION,
+        FactType.RESTITUTION,
+        FactType.AGGRAVATING_RECIDIVISM,
+        FactType.SPECIAL_PROCEDURE,
+        FactType.JURY_TRIAL,
+        FactType.SUSPENDED_SENTENCE,
+    }
+)
+
+_GROUP_ROLES = frozenset(
+    {"organized_group", "group_with_conspiracy", "group_of_persons"}
+)
+
+
+def _validate_fact_value(fact_type: FactType, value: object) -> None:
+    """Схемная проверка значения нового факта (человек вводит руками)."""
+    if fact_type in _BOOLEAN_FACT_TYPES:
+        if not isinstance(value, bool):
+            raise FactValidationError(
+                f"значение факта {fact_type.value} должно быть true/false"
+            )
+        return
+    if fact_type is FactType.DEFENDANT_AGE:
+        if not isinstance(value, int) or isinstance(value, bool) or not 0 <= value <= 150:
+            raise FactValidationError("defendant_age: ожидается целое число 0–150")
+        return
+    if fact_type is FactType.PUNISHMENT_TERM:
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
+            raise FactValidationError("punishment_term: ожидается число месяцев ≥ 0")
+        return
+    if fact_type is FactType.QUALIFICATION:
+        if (
+            not isinstance(value, dict)
+            or not isinstance(value.get("article"), int)
+            or isinstance(value.get("article"), bool)
+            or value["article"] < 1
+        ):
+            raise FactValidationError(
+                'qualification: ожидается {"article": int, "part": int|null}'
+            )
+        part = value.get("part")
+        if part is not None and (isinstance(part, bool) or not isinstance(part, int) or part < 1):
+            raise FactValidationError("qualification.part: целое число ≥ 1 или null")
+        return
+    if fact_type is FactType.DATE_OF_OFFENSE:
+        try:
+            date.fromisoformat(str(value))
+        except ValueError as exc:
+            raise FactValidationError(
+                "date_of_offense: ожидается дата в формате ГГГГ-ММ-ДД"
+            ) from exc
+        return
+    if fact_type is FactType.GROUP_OFFENSE:
+        if value not in _GROUP_ROLES:
+            raise FactValidationError(
+                f"group_offense: одно из {sorted(_GROUP_ROLES)}"
+            )
+        return
+    if fact_type is FactType.OFFENSE_STAGE:
+        if value not in {stage.value for stage in OffenseStage}:
+            raise FactValidationError(
+                f"offense_stage: одно из {sorted(stage.value for stage in OffenseStage)}"
+            )
+        return
+    if fact_type is FactType.PUNISHMENT_TYPE:
+        if value not in {pt.value for pt in PunishmentType}:
+            raise FactValidationError(
+                f"punishment_type: одно из {sorted(pt.value for pt in PunishmentType)}"
+            )
+        return
+    # HEALTH_FACTOR и остальные строковые типы: непустая строка.
+    if not isinstance(value, str) or not value.strip():
+        raise FactValidationError(f"{fact_type.value}: ожидается непустая строка")
 
 
 #: Статусы, которые вправе устанавливать пользователь (человек в контуре).
@@ -267,6 +351,94 @@ class AnalysisPipeline:
                 "new_status": fact.status.value,
                 "status_changed": status_changed,
                 "value_changed": value_changed,
+            },
+        )
+        return report
+
+    # -- человек в контуре: добавление факта «с нуля» -------------------------
+
+    def add_fact(
+        self, analysis_id: str, *, fact_type: str, value: object, quote: str
+    ) -> AnalysisReport:
+        """Судья добавляет обстоятельство вручную.
+
+        Инвариант тот же, что для извлечённых фактов: цитата обязана
+        дословно присутствовать в документе — иначе факт не создаётся.
+        Факт сразу получает статус VERIFIED с методом ``user``.
+        """
+        report = self._analyses.get(analysis_id)
+        if report is None:
+            raise AnalysisNotFound(f"отчёт не найден: {analysis_id}")
+        try:
+            typed = FactType(fact_type)
+        except ValueError as exc:
+            raise FactValidationError(f"неизвестный тип факта: {fact_type}") from exc
+        _validate_fact_value(typed, value)
+
+        document = self.get_document(report.document_id)
+        quote = quote.strip()
+        if not quote:
+            raise FactValidationError("цитата пуста")
+        start = document.text.find(quote)
+        if start < 0:
+            raise FactValidationError(
+                "цитата не найдена в документе дословно; скопируйте её без изменений"
+            )
+
+        existing = {f.type.value for f in report.facts}
+        counter = sum(1 for f in report.facts if f.type is typed) + 1
+        fact_id = f"fact-{typed.value}-user-{counter}"
+        while any(f.id == fact_id for f in report.facts):
+            counter += 1
+            fact_id = f"fact-{typed.value}-user-{counter}"
+
+        from .domain.evidence import Evidence
+
+        report.facts.append(
+            LegalFact(
+                id=fact_id,
+                type=typed,
+                value=value,
+                confidence=1.0,
+                evidence=[
+                    Evidence(
+                        document_id=document.document_id,
+                        quote=quote,
+                        start_offset=start,
+                        end_offset=start + len(quote),
+                    )
+                ],
+                extraction_method=ExtractionMethod.USER,
+                status=FactStatus.VERIFIED,
+            )
+        )
+
+        request_id = uuid.uuid4().hex
+        resolved_date = (
+            date.fromisoformat(report.applicable_at)
+            if report.applicable_at
+            else date.today()
+        )
+        (case_facts, evaluations, norms_applied, matches, analytics) = self._derive(
+            _active_facts(report.facts), resolved_date, request_id
+        )
+        report.case_facts = case_facts
+        report.evaluations = evaluations
+        report.norms_applied = norms_applied
+        report.comparable_cases = matches
+        report.analytics = analytics
+
+        self._analyses.save(report)
+        self._audit.log(
+            operation="fact_add",
+            component="pipeline",
+            request_id=request_id,
+            output_hash=_hash_report(report),
+            details={
+                "analysis_id": analysis_id,
+                "fact_id": fact_id,
+                "fact_type": typed.value,
+                "types_before": sorted(existing),
             },
         )
         return report

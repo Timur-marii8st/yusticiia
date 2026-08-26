@@ -28,6 +28,88 @@ const STAGE_LABELS = {
   preparation: "приготовление",
 };
 
+// Управление вводом значения для ручного добавления факта.
+const FACT_VALUE_KINDS = {
+  qualification: "qualification",
+  defendant_age: "number",
+  punishment_term: "number",
+  punishment_type: {
+    imprisonment: "лишение свободы",
+    fine: "штраф",
+    correctional_labor: "исправительные работы",
+    compulsory_labor: "обязательные работы",
+    restriction_of_liberty: "ограничение свободы",
+    other: "иное",
+  },
+  offense_stage: STAGE_LABELS,
+  group_offense: {
+    group_of_persons: "группой лиц",
+    group_with_conspiracy: "группой лиц по предварительному сговору",
+    organized_group: "организованной группой",
+  },
+  date_of_offense: "date",
+  health_factor: "text",
+};
+
+function isBooleanFactType(type) {
+  return FACT_VALUE_KINDS[type] === undefined && type !== "qualification";
+}
+
+let newValueAccessor = () => null;
+
+function buildValueInput(type) {
+  const container = $("new-fact-value-input");
+  container.innerHTML = "";
+  const kind = FACT_VALUE_KINDS[type];
+  if (type === "qualification") {
+    container.innerHTML =
+      '<input type="number" id="nf-article" min="1" placeholder="статья" style="width:7em"> ' +
+      '<input type="number" id="nf-part" min="1" placeholder="часть (необязательно)" style="width:12em">';
+    newValueAccessor = () => {
+      const article = Number($("nf-article").value);
+      if (!article) return null;
+      const partRaw = $("nf-part").value;
+      return { article, part: partRaw ? Number(partRaw) : null };
+    };
+    return;
+  }
+  if (typeof kind === "object") {
+    const select = document.createElement("select");
+    select.id = "nf-value";
+    Object.entries(kind).forEach(([value, label]) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      select.appendChild(option);
+    });
+    container.appendChild(select);
+    newValueAccessor = () => select.value;
+    return;
+  }
+  if (isBooleanFactType(type)) {
+    const select = document.createElement("select");
+    select.id = "nf-value";
+    [["true", "да"], ["false", "нет"]].forEach(([value, label]) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      select.appendChild(option);
+    });
+    container.appendChild(select);
+    newValueAccessor = () => select.value === "true";
+    return;
+  }
+  const input = document.createElement("input");
+  input.type = kind === "number" ? "number" : kind === "date" ? "date" : "text";
+  input.id = "nf-value";
+  if (kind === "number") input.min = "0";
+  container.appendChild(input);
+  newValueAccessor = () => {
+    if (kind === "number") return input.value === "" ? null : Number(input.value);
+    return input.value;
+  };
+}
+
 let documentText = "";
 
 function clearError() {
@@ -353,6 +435,7 @@ function renderReport(report) {
   if (!report.facts.length) {
     factsList.appendChild(div("hint", "Факты не извлечены."));
   }
+  renderAddFactBox(report);
 
   const evalsList = $("evaluations-list");
   evalsList.innerHTML = "";
@@ -374,6 +457,53 @@ function renderReport(report) {
     item.textContent = text;
     disclaimers.appendChild(item);
   });
+}
+
+function renderAddFactBox(report) {
+  const box = $("add-fact-box");
+  box.hidden = false;
+  box.dataset.analysisId = report.analysis_id;
+  const select = $("new-fact-type");
+  if (!select.options.length) {
+    const existing = new Set(report.facts.map((f) => f.type));
+    Object.keys(FACT_LABELS).forEach((type) => {
+      if (type === "date_of_offense" && existing.has(type)) return;
+      const option = document.createElement("option");
+      option.value = type;
+      option.textContent = FACT_LABELS[type];
+      select.appendChild(option);
+    });
+    buildValueInput(select.value);
+    select.addEventListener("change", () => buildValueInput(select.value));
+    $("add-fact-btn").addEventListener("click", submitNewFact);
+  }
+}
+
+async function submitNewFact() {
+  clearError();
+  const box = $("add-fact-box");
+  const type = $("new-fact-type").value;
+  const value = newValueAccessor();
+  const quote = $("new-fact-quote").value.trim();
+  if (value === null || value === undefined || value === "") {
+    showError("Заполните значение обстоятельства.");
+    return;
+  }
+  if (!quote) {
+    showError("Вставьте точную цитату из документа.");
+    return;
+  }
+  const response = await fetch(`/api/analyses/${box.dataset.analysisId}/facts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type, value, quote }),
+  });
+  if (!response.ok) {
+    showError(`Ошибка добавления: ${(await response.json()).detail || response.status}`);
+    return;
+  }
+  $("new-fact-quote").value = "";
+  renderReport(await response.json());
 }
 
 async function analyzeDocument(docId) {
