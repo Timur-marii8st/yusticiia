@@ -24,6 +24,10 @@ class AppConfig:
     embedding_model: str = ""
     #: Общий секрет для /api/*; пусто — авторизация выключена (loopback-MVP).
     auth_token: str = ""
+    #: Носитель документов/отчётов: "file" (по умолчанию) | "postgres" (ADR-006).
+    storage_backend: str = "file"
+    #: DSN PostgreSQL для storage_backend="postgres".
+    database_url: str = ""
 
     @property
     def store_dir(self) -> Path:
@@ -67,6 +71,8 @@ def load_config() -> AppConfig:
         embeddings_provider=_env("SO_EMBEDDINGS_PROVIDER", "hashing") or "hashing",
         embedding_model=_env("SO_EMBEDDING_MODEL"),
         auth_token=_env("SO_AUTH_TOKEN"),
+        storage_backend=_env("SO_STORAGE_BACKEND", "file") or "file",
+        database_url=_env("SO_DATABASE_URL"),
     )
 
 

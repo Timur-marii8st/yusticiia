@@ -54,14 +54,34 @@ def build_legal_rag(norm_store: NormStore):
 
 def build_pipeline(config: AppConfig | None = None) -> AnalysisPipeline:
     config = config or load_config()
-    config.store_dir.mkdir(parents=True, exist_ok=True)
 
-    documents = JsonFileRepository[Document](
-        config.store_dir / "documents", Document, "document_id"
-    )
-    analyses = JsonFileRepository[AnalysisReport](
-        config.store_dir / "analyses", AnalysisReport, "analysis_id"
-    )
+    if config.storage_backend == "postgres":
+        if not config.database_url:
+            raise ValueError(
+                "SO_DATABASE_URL не задан: storage_backend=postgres требует DSN"
+            )
+        from ..storage.postgres import PostgresJsonRepository
+
+        documents = PostgresJsonRepository[Document](
+            config.database_url,
+            table="documents",
+            model=Document,
+            id_field="document_id",
+        )
+        analyses = PostgresJsonRepository[AnalysisReport](
+            config.database_url,
+            table="analyses",
+            model=AnalysisReport,
+            id_field="analysis_id",
+        )
+    else:
+        config.store_dir.mkdir(parents=True, exist_ok=True)
+        documents = JsonFileRepository[Document](
+            config.store_dir / "documents", Document, "document_id"
+        )
+        analyses = JsonFileRepository[AnalysisReport](
+            config.store_dir / "analyses", AnalysisReport, "analysis_id"
+        )
     norm_store = NormStore.from_directory(config.fixtures_dir / "norms")
     retriever = CaseRetriever(load_cases(config.fixtures_dir))
 

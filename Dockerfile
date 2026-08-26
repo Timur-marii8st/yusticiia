@@ -9,7 +9,7 @@ COPY pyproject.toml README.md ./
 COPY src ./src
 # Нормативные фикстуры входят в образ; пользовательские данные — только томом.
 COPY data/fixtures ./data/fixtures
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir ".[pg]"
 
 # Данные (документы, отчёты, аудит) монтируются томом; WORKDIR=/app,
 # поэтому каталог данных по умолчанию — /app/data (фикстуры уже внутри).

@@ -165,7 +165,8 @@ second-opinion eval     # или: make eval
 
 ```bash
 docker compose up          # или: docker build -t second-opinion . && docker run ...
-# → http://127.0.0.1:8000 (только loopback; собственной аутентификации нет)
+# PostgreSQL (опционально, ADR-006): docker compose --profile postgres up
+# → http://127.0.0.1:8000 (только loopback; см. SO_AUTH_TOKEN в DEPLOYMENT.md)
 ```
 
 Подробности профилей развёртывания — [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md),

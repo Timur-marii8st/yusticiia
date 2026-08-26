@@ -31,6 +31,24 @@ docker compose up
 Контейнер слушает 8000 внутри; публикация только на loopback хоста.
 Каталог `data/` монтируется томом — отчёты и аудит переживают рестарт.
 
+#### PostgreSQL (опционально, ADR-006)
+
+Файловый бэкенд — по умолчанию; postgres включается конфигурацией:
+
+```bash
+# Локально:
+SO_STORAGE_BACKEND=postgres SO_DATABASE_URL=postgresql://second_opinion:second_opinion@127.0.0.1:5432/second_opinion \
+  .venv/Scripts/second-opinion serve
+
+# Docker (профиль postgres поднимает db + app):
+docker compose --profile postgres up
+# или: SO_STORAGE_BACKEND=postgres SO_DATABASE_URL=postgresql://... docker compose --profile postgres up --build
+```
+
+Таблицы `documents`/`analyses` (JSONB) создаются автоматически; доменные
+модели не меняются. Интеграционные тесты против реального PostgreSQL —
+`SO_TEST_DATABASE_URL=... pytest -k postgres`.
+
 ### C. Сетевое развертывание (требует доработок)
 
 Для многопользовательского доступа обязательно:
@@ -60,6 +78,12 @@ docker compose up
 | `SO_OPENAI_API_KEY` | ключ внешнего контура (никогда не коммитится) | пусто |
 | `SO_LLM_MODEL` | имя модели внешнего контура | `gpt-4o-mini` |
 | `SO_MAX_UPLOAD_BYTES` | лимит размера документа | 5242880 |
+| `SO_RAG_MODE` | `lexical` \| `hybrid` | `lexical` |
+| `SO_EMBEDDINGS_PROVIDER` | `hashing` \| `openai_compatible` | `hashing` |
+| `SO_EMBEDDING_MODEL` | модель эмбеддингов (openai_compatible) | пусто |
+| `SO_AUTH_TOKEN` | Bearer-токен для `/api/*` | пусто |
+| `SO_STORAGE_BACKEND` | `file` \| `postgres` (ADR-006) | `file` |
+| `SO_DATABASE_URL` | DSN PostgreSQL при `postgres` | пусто |
 
 Секреты задаются через окружение/секрет-хранилище, не через репозиторий.
 
