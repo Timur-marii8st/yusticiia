@@ -12,6 +12,7 @@ SPREAD_FEATURES = (
     "guilty_plea",
     "recidivism",
     "jury_trial",
+    "group",
     "suspended",
 )
 

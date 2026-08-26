@@ -31,6 +31,7 @@ class FactType(StrEnum):
     MINOR_DEPENDENTS = "minor_dependents"
     HEALTH_FACTOR = "health_factor"
     OFFENSE_STAGE = "offense_stage"
+    GROUP_OFFENSE = "group_offense"
     GUILTY_PLEA = "guilty_plea"
     SURRENDER_OR_CONFESSION = "surrender_or_confession"
     RESTITUTION = "restitution"

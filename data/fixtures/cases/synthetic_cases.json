@@ -140,6 +140,7 @@
       "date": "2024-10-09",
       "article": 159, "part": 2, "stage": "completed",
       "recidivism": false, "special_procedure": false, "guilty_plea": false,
+      "group": true,
       "mitigating_codes": [], "aggravating_codes": [],
       "punishment_type": "imprisonment", "term_months": 36, "suspended": false,
       "summary": "Синтетический пример: мошенничество группой лиц по предварительному сговору.",

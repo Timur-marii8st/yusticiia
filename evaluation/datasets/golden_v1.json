@@ -42,6 +42,7 @@
         "minor_dependents",
         "surrender_or_confession",
         "restitution",
+        "group_offense",
         "punishment_type",
         "punishment_term",
         "date_of_offense"
@@ -92,6 +93,18 @@
         "punishment_type",
         "punishment_term",
         "suspended_sentence",
+        "date_of_offense"
+      ]
+    },
+    {
+      "id": "sample-synth-temporal-999",
+      "path": "data/fixtures/sample_documents/sample_synth_temporal_999.txt",
+      "expected_types": [
+        "qualification",
+        "defendant_age",
+        "guilty_plea",
+        "punishment_type",
+        "punishment_term",
         "date_of_offense"
       ]
     }

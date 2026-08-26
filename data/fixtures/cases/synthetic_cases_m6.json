@@ -126,6 +126,7 @@
       "article": 159, "part": 2, "stage": "completed",
       "recidivism": false, "special_procedure": false, "guilty_plea": true,
       "jury_trial": false,
+      "group": true,
       "mitigating_codes": ["61.1.к"], "aggravating_codes": [],
       "punishment_type": "imprisonment", "term_months": 30, "suspended": true,
       "summary": "Синтетический пример: мошенничество группой лиц, полное возмещение, условное осуждение.",

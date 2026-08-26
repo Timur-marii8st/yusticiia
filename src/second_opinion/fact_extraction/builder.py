@@ -9,6 +9,9 @@ from ..domain.facts import (
     Qualification,
 )
 
+#: Приоритет форм группового деяния: сильнейшая квалификация побеждает.
+_ROLE_RANK = {"organized_group": 2, "group_with_conspiracy": 1, "group_of_persons": 0}
+
 
 def build_case_facts(facts: list[LegalFact]) -> CaseFacts:
     """Собрать агрегат обстоятельств дела из реестра фактов."""
@@ -42,6 +45,12 @@ def build_case_facts(facts: list[LegalFact]) -> CaseFacts:
             case.defendant.health_factors.append(str(value))
         elif fact.type is FactType.OFFENSE_STAGE:
             case.offense.stage = str(value)
+        elif fact.type is FactType.GROUP_OFFENSE:
+            role = str(value)
+            # Несколько формулировок в одном документе: оставляем самую
+            # сильную квалификацию (детерминированно).
+            if _ROLE_RANK[role] > _ROLE_RANK.get(case.offense.complicity_role or "", 0):
+                case.offense.complicity_role = role
         elif fact.type is FactType.GUILTY_PLEA:
             case.procedural.guilty_plea = bool(value)
         elif fact.type is FactType.SURRENDER_OR_CONFESSION:

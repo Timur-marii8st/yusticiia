@@ -23,6 +23,7 @@ class ComparableCase(BaseModel):
     special_procedure: bool = False
     guilty_plea: bool = False
     jury_trial: bool = False
+    group: bool = False
     mitigating_codes: list[str] = Field(default_factory=list)
     aggravating_codes: list[str] = Field(default_factory=list)
     punishment_type: str = "imprisonment"  # PunishmentType.value

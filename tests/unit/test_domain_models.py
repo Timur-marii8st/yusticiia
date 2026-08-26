@@ -104,3 +104,34 @@ def test_norm_version_rejects_reversed_dates() -> None:
             retrieved_at="2026-01-01",
             sha256=NormVersion.compute_sha256(text),
         )
+
+
+# -- сборка CaseFacts: приоритет форм группового деяния ---------------------------
+
+
+def _group_fact(value: str) -> LegalFact:
+    from second_opinion.domain.enums import ExtractionMethod
+    from second_opinion.domain.evidence import Evidence
+
+    return LegalFact(
+        id=f"fact-group-{abs(hash(value)) % 10000}",
+        type=FactType.GROUP_OFFENSE,
+        value=value,
+        confidence=0.95,
+        evidence=[Evidence(document_id="t", quote="q", start_offset=0, end_offset=1)],
+        extraction_method=ExtractionMethod.PATTERN,
+        status=FactStatus.VERIFIED,
+    )
+
+
+def test_builder_keeps_strongest_group_role() -> None:
+    from second_opinion.fact_extraction.builder import build_case_facts
+
+    case = build_case_facts(
+        [
+            _group_fact("group_with_conspiracy"),
+            _group_fact("group_of_persons"),
+            _group_fact("organized_group"),
+        ]
+    )
+    assert case.offense.complicity_role == "organized_group"

@@ -225,11 +225,30 @@ class PatternFactExtractor:
     _ATTEMPT = re.compile(r"покушени[ея]\s+на", re.IGNORECASE)
     _PREPARATION = re.compile(r"приготовлени[ея]\s+к", re.IGNORECASE)
 
+    # Групповой характер деяния: «группой лиц», «по предварительному
+    # сговору», «организованной группой» (ст. 35 УК РФ).
+    _GROUP = re.compile(
+        r"организованн\w+\s+групп\w+"
+        r"|групп\w+\s+лиц"
+        r"|по\s+предварительному\s+сговору",
+        re.IGNORECASE,
+    )
+
     def _extract_procedural(self, text: str, emit: Callable[..., None]) -> None:
         for match in self._SPECIAL_PROCEDURE.finditer(text):
             emit(FactType.SPECIAL_PROCEDURE, True, match.start(), match.end())
         for match in self._JURY.finditer(text):
             emit(FactType.JURY_TRIAL, True, match.start(), match.end())
+        for match in self._GROUP.finditer(text):
+            lowered = match.group(0).lower()
+            role = (
+                "organized_group"
+                if "организованн" in lowered
+                else "group_with_conspiracy"
+                if "сговор" in lowered
+                else "group_of_persons"
+            )
+            emit(FactType.GROUP_OFFENSE, role, match.start(), match.end())
         for match in self._ATTEMPT.finditer(text):
             emit(FactType.OFFENSE_STAGE, OffenseStage.ATTEMPT.value, match.start(), match.end())
             return

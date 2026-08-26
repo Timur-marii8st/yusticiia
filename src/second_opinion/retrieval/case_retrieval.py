@@ -65,6 +65,7 @@ class CaseRetriever:
         procedural = criteria.procedural
         return (
             criteria.offense.stage is not None
+            or bool(criteria.offense.complicity_role)
             or procedural.special_procedure is not None
             or procedural.guilty_plea is not None
             or procedural.jury_trial is not None
@@ -87,6 +88,10 @@ class CaseRetriever:
         if criteria.offense.stage and case.stage == criteria.offense.stage:
             score += 1.5
             reasons.append(f"та же стадия: {case.stage}")
+            substantive = True
+        if criteria.offense.complicity_role and case.group:
+            score += 1.5
+            reasons.append("также совершено группой / по сговору")
             substantive = True
         if criteria.procedural.special_procedure and case.special_procedure:
             score += 1.5

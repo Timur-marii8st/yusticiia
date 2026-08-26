@@ -111,3 +111,25 @@ def test_negative_document_extracts_nothing(sample_negative_text: str) -> None:
     """Негативный контроль: процессуальный документ без обстоятельств
     дела не должен порождать юридически значимых фактов."""
     assert _facts(sample_negative_text) == []
+
+
+# -- групповой характер деяния ---------------------------------------------------
+
+
+def test_group_of_persons_plain() -> None:
+    facts = _facts("Преступление совершено группой лиц по предварительному сговору.")
+    group = [f for f in facts if f.type is FactType.GROUP_OFFENSE]
+    assert {f.value for f in group} == {"group_with_conspiracy", "group_of_persons"}
+
+
+def test_organized_group_value() -> None:
+    facts = _facts("Деяние совершено организованной группой.")
+    group = [f for f in facts if f.type is FactType.GROUP_OFFENSE]
+    assert len(group) == 1
+    assert group[0].value == "organized_group"
+
+
+def test_no_group_words_no_fact() -> None:
+    assert FactType.GROUP_OFFENSE not in {
+        f.type for f in _facts("Он единолично совершил кражу из квартиры.")
+    }

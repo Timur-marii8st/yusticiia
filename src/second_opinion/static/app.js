@@ -9,6 +9,7 @@ const FACT_LABELS = {
   minor_dependents: "Несовершеннолетние дети",
   health_factor: "Состояние здоровья",
   offense_stage: "Стадия преступления",
+  group_offense: "Групповой характер деяния",
   guilty_plea: "Признание вины",
   surrender_or_confession: "Явка с повинной / способствование расследованию",
   restitution: "Возмещение ущерба / заглаживание вреда",
@@ -247,6 +248,7 @@ const FEATURE_LABELS = {
   guilty_plea: "Признание вины",
   recidivism: "Рецидив",
   jury_trial: "Суд присяжных",
+  group: "Групповое деяние",
   suspended: "Условное осуждение",
 };
 
