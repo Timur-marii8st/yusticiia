@@ -270,6 +270,34 @@ class AnalysisPipeline:
     def get_analysis(self, analysis_id: str) -> AnalysisReport | None:
         return self._analyses.get(analysis_id)
 
+    # -- удаление (право на забвение, docs/PRIVACY.md) ------------------------
+
+    def delete_document(self, document_id: str) -> None:
+        """Удалить документ и все отчёты по нему."""
+        if not self._documents.delete(document_id):
+            raise DocumentNotFound(f"документ не найден: {document_id}")
+        for report in self._analyses.list():
+            if report.document_id == document_id:
+                self._analyses.delete(report.analysis_id)
+        self._audit.log(
+            operation="document_delete",
+            component="pipeline",
+            request_id=document_id,
+            input_hash=document_id,
+            details={"cascade_analyses_deleted": True},
+        )
+
+    def delete_analysis(self, analysis_id: str) -> None:
+        """Удалить один отчёт анализа."""
+        if not self._analyses.delete(analysis_id):
+            raise AnalysisNotFound(f"отчёт не найден: {analysis_id}")
+        self._audit.log(
+            operation="analysis_delete",
+            component="pipeline",
+            request_id=analysis_id,
+            input_hash=analysis_id,
+        )
+
     # -- человек в контуре: коррекция фактов ---------------------------------
 
     def update_fact(

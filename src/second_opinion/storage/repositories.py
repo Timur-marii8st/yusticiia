@@ -60,3 +60,12 @@ class JsonFileRepository(Generic[T]):
             with path.open(encoding="utf-8") as fh:
                 items.append(self._model.model_validate(json.load(fh)))
         return items
+
+    def delete(self, obj_id: str) -> bool:
+        """Удалить объект; вернуть True, если он существовал."""
+        path = self._dir / f"{obj_id}.json"
+        with self._lock:
+            if not path.exists():
+                return False
+            path.unlink()
+            return True

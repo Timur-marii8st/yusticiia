@@ -8,10 +8,10 @@
 - M0 Foundation: каркас, доменные модели, ADR-001…007, CI
 - M1 Document ingestion: TXT/MD/DOCX/PDF(текстовый слой)
 - M2 Legal facts: паттерновый + LLM экстракторы, evidence, статусы
-- M3 Rule engine: 6 правил Общей части УК с регрессионными тестами
+- M3 Rule engine: 8 правил Общей части УК и УПК с регрессионными тестами
 - M4 Legal sources: NormStore с временными редакциями и SHA-256
 - M5 Legal RAG: лексический поиск с обязательным цитированием
-- M6 Comparable cases: база 22 синтетических дел, строгий отбор с причинами
+- M6 Comparable cases: база 26 синтетических дел, строгий отбор с причинами
 - M7 Analytics: описательная статистика + распределение признаков
 - M8 UI: прогрессивное раскрытие, коррекция фактов человеком
 - M9 Evaluation: P/R/F1 + evidence + unsupported; Recall@5/MRR/nDCG@10;
@@ -22,9 +22,10 @@
 - [x] Модель угроз (docs/SECURITY.md) со статусами мер
 - [x] docs/PRIVACY.md, DEPLOYMENT.md, DEVELOPMENT.md
 - [x] Dockerfile + docker-compose (локальный профиль)
-- [ ] pip-audit / dependabot в CI (поставки: supply-chain)
+- [x] pip-audit / dependabot в CI — блокирующий режим (зависимости чисты)
 - [x] structured request-id логирование стадий конвейера
   (`logging_utils`, без текстов документов)
+- [x] право на забвение: DELETE документа/отчёта через API (каскад)
 
 ## Далее по приоритету
 
