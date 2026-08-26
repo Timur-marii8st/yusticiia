@@ -142,6 +142,18 @@ function div(className, text) {
   return el;
 }
 
+// Единая точка обращения к API: подставляет токен (если задан) и
+// показывает форму входа при 401.
+function apiFetch(url, options = {}) {
+  const token = sessionStorage.getItem("so-token");
+  const headers = { ...(options.headers || {}) };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return fetch(url, { ...options, headers }).then((response) => {
+    if (response.status === 401) $("auth-box").hidden = false;
+    return response;
+  });
+}
+
 function factValueLabel(fact) {
   const value = fact.value;
   if (fact.type === "qualification" && typeof value === "object" && value !== null) {
@@ -155,7 +167,7 @@ function factValueLabel(fact) {
 
 async function updateFact(analysisId, factId, body) {
   clearError();
-  const response = await fetch(`/api/analyses/${analysisId}/facts/${factId}`, {
+  const response = await apiFetch(`/api/analyses/${analysisId}/facts/${factId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -494,7 +506,7 @@ async function submitNewFact() {
     showError("Вставьте точную цитату из документа.");
     return;
   }
-  const response = await fetch(`/api/analyses/${box.dataset.analysisId}/facts`, {
+  const response = await apiFetch(`/api/analyses/${box.dataset.analysisId}/facts`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ type, value, quote }),
@@ -511,7 +523,7 @@ async function analyzeDocument(docId) {
   const body = {};
   const applicableAt = $("applicable-at").value;
   if (applicableAt) body.applicable_at = applicableAt;
-  const response = await fetch(`/api/documents/${docId}/analyze`, {
+  const response = await apiFetch(`/api/documents/${docId}/analyze`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -529,7 +541,7 @@ async function submit() {
   try {
     let docId;
     if (documentText) {
-      const response = await fetch("/api/documents", {
+      const response = await apiFetch("/api/documents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ filename: "pasted_document.txt", text: documentText }),
@@ -544,7 +556,7 @@ async function submit() {
       }
       const form = new FormData();
       form.append("file", input.files[0]);
-      const response = await fetch("/api/documents/upload", { method: "POST", body: form });
+      const response = await apiFetch("/api/documents/upload", { method: "POST", body: form });
       if (!response.ok) throw new Error((await response.json()).detail || `HTTP ${response.status}`);
       docId = (await response.json()).document_id;
     }
@@ -609,7 +621,7 @@ async function runSearch() {
   list.innerHTML = "";
   if (!query) return;
   try {
-    const response = await fetch(
+    const response = await apiFetch(
       `/api/search?q=${encodeURIComponent(query)}&limit=10`
     );
     if (!response.ok) {
@@ -629,6 +641,17 @@ async function runSearch() {
 
 $("analyze-btn").addEventListener("click", submit);
 $("print-btn").addEventListener("click", () => window.print());
+$("auth-save").addEventListener("click", () => {
+  const value = $("auth-token").value.trim();
+  if (value) {
+    sessionStorage.setItem("so-token", value);
+    $("auth-token").value = "";
+    $("auth-box").hidden = true;
+  }
+});
+$("auth-token").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") $("auth-save").click();
+});
 $("demo-btn").addEventListener("click", loadDemo);
 $("doc-text").addEventListener("input", (e) => {
   documentText = e.target.value;

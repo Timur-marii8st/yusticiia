@@ -18,6 +18,19 @@
   </header>
 
   <main>
+    <div id="auth-box" class="panel" hidden>
+      <h1>Доступ защищён</h1>
+      <p class="hint">
+        Введите токен доступа (общий секрет развёртывания). Он хранится
+        только в текущей сессии браузера.
+      </p>
+      <div class="controls">
+        <input type="password" id="auth-token" size="36"
+          placeholder="Токен доступа…">
+        <button id="auth-save" class="primary">Сохранить</button>
+      </div>
+    </div>
+
     <section class="panel" id="upload-panel">
       <h1>Документ</h1>
       <p class="hint">

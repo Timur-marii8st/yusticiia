@@ -22,6 +22,8 @@ class AppConfig:
     rag_mode: str = "lexical"  # "lexical" | "hybrid" (ADR-003)
     embeddings_provider: str = "hashing"  # "hashing" | "openai_compatible"
     embedding_model: str = ""
+    #: Общий секрет для /api/*; пусто — авторизация выключена (loopback-MVP).
+    auth_token: str = ""
 
     @property
     def store_dir(self) -> Path:
@@ -64,6 +66,7 @@ def load_config() -> AppConfig:
         rag_mode=_env("SO_RAG_MODE", "lexical") or "lexical",
         embeddings_provider=_env("SO_EMBEDDINGS_PROVIDER", "hashing") or "hashing",
         embedding_model=_env("SO_EMBEDDING_MODEL"),
+        auth_token=_env("SO_AUTH_TOKEN"),
     )
 
 

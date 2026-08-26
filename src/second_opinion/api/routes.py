@@ -44,7 +44,7 @@ class FactAddPayload(BaseModel):
     quote: str = Field(min_length=1)
 
 
-def create_app(pipeline: AnalysisPipeline) -> FastAPI:
+def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
     app = FastAPI(
         title="Второе мнение",
         version=__version__,
@@ -57,6 +57,26 @@ def create_app(pipeline: AnalysisPipeline) -> FastAPI:
     from ..api.deps import build_legal_rag
 
     rag = build_legal_rag(pipeline.norm_store)
+
+    # -- авторизация (опционально) -------------------------------------------
+    #
+    # Включается общим секретом SO_AUTH_TOKEN. Защищаются только /api/*:
+    # /health нужен проверкам живости, статика и UI не содержат данных.
+    if auth_token:
+
+        @app.middleware("http")
+        async def _require_token(request, call_next):  # noqa: ANN202
+            path = request.url.path
+            if path.startswith("/api"):
+                header = request.headers.get("authorization", "")
+                if header != f"Bearer {auth_token}":
+                    from fastapi.responses import JSONResponse
+
+                    return JSONResponse(
+                        status_code=401,
+                        content={"detail": "требуется авторизация"},
+                    )
+            return await call_next(request)
 
     # -- служебные ----------------------------------------------------------
 
