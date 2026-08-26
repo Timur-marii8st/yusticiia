@@ -108,6 +108,23 @@ def create_app(pipeline: AnalysisPipeline) -> FastAPI:
             "sha256": document.sha256,
         }
 
+    @app.delete("/api/documents/{document_id}")
+    def delete_document(document_id: str) -> dict:
+        """Удалить документ и все отчёты по нему (право на забвение)."""
+        try:
+            pipeline.delete_document(document_id)
+        except DocumentNotFound as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return {"deleted": document_id}
+
+    @app.delete("/api/analyses/{analysis_id}")
+    def delete_analysis(analysis_id: str) -> dict:
+        try:
+            pipeline.delete_analysis(analysis_id)
+        except AnalysisNotFound as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return {"deleted": analysis_id}
+
     @app.post("/api/documents/{document_id}/analyze")
     def analyze(document_id: str, payload: AnalyzePayload | None = None) -> dict:
         try:
