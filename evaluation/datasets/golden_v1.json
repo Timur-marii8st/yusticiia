@@ -107,6 +107,62 @@
         "punishment_term",
         "date_of_offense"
       ]
+    },
+    {
+      "id": "sample-158-group-minor-dependents",
+      "path": "data/fixtures/sample_documents/sample_158_group_minor_dependents.txt",
+      "expected_types": [
+        "qualification",
+        "defendant_age",
+        "date_of_offense",
+        "guilty_plea",
+        "surrender_or_confession",
+        "restitution",
+        "group_offense",
+        "minor_dependents"
+      ]
+    },
+    {
+      "id": "sample-111-recidivism",
+      "path": "data/fixtures/sample_documents/sample_111_recidivism.txt",
+      "expected_types": [
+        "qualification",
+        "defendant_age",
+        "date_of_offense",
+        "prior_convictions",
+        "aggravating_recidivism",
+        "guilty_plea",
+        "punishment_type",
+        "punishment_term"
+      ]
+    },
+    {
+      "id": "sample-reconciliation-158-part1",
+      "path": "data/fixtures/sample_documents/sample_reconciliation_158_part1.txt",
+      "expected_types": [
+        "qualification",
+        "defendant_age",
+        "date_of_offense",
+        "guilty_plea",
+        "minor_dependents"
+      ]
+    },
+    {
+      "id": "sample-161-special-surrender-health",
+      "path": "data/fixtures/sample_documents/sample_161_special_surrender_health.txt",
+      "expected_types": [
+        "qualification",
+        "defendant_age",
+        "date_of_offense",
+        "guilty_plea",
+        "surrender_or_confession",
+        "restitution",
+        "special_procedure",
+        "health_factor",
+        "punishment_type",
+        "punishment_term",
+        "suspended_sentence"
+      ]
     }
   ]
 }
