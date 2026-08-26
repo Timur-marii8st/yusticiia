@@ -24,6 +24,11 @@ pg = [
     "psycopg[binary]>=3.1",
     "pgvector>=0.3",
 ]
+ocr = [
+    "pytesseract>=0.3.10",
+    "pdf2image>=1.16",
+    "Pillow>=10",
+]
 
 [project.scripts]
 second-opinion = "second_opinion.cli:main"

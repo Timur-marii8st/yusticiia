@@ -85,7 +85,7 @@ second-opinion analyze data/fixtures/sample_documents/sample_228_attempt_violati
 ```
 src/second_opinion/
     domain/            # Pydantic-модели: факты, нормы, оценки, отчёт
-    ingestion/         # парсеры TXT/MD/DOCX/PDF(текстовый слой)
+    ingestion/         # парсеры TXT/MD/DOCX/PDF(текстовый слой + опциональный OCR)
     fact_extraction/   # паттерновый + LLM экстракторы, сборка обстоятельств
     legal_sources/     # NormStore: нормы с временными редакциями, SHA-256
     rule_engine/       # детерминированные проверки (ст. 60–73 УК РФ)

@@ -61,6 +61,42 @@ def parse_docx(filename: str, content: bytes) -> Document:
     return _new_document(filename, "application/docx", text, [])
 
 
+def _ocr_available() -> bool:
+    try:
+        import pdf2image  # noqa: F401
+        import pytesseract  # noqa: F401
+        from PIL import Image  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
+def _ocr_pdf_pages(content: bytes) -> list[str]:
+    """Распознать текст со скана PDF через Tesseract (русский)."""
+    try:
+        import pdf2image
+        import pytesseract
+    except ImportError as exc:
+        raise ParseError(
+            "PDF без текстового слоя: для OCR установите зависимости "
+            "группы 'ocr' (pytesseract, pdf2image, Pillow) и системные "
+            "пакеты tesseract-ocr и poppler"
+        ) from exc
+    try:
+        images = pdf2image.convert_from_bytes(content, dpi=200)
+    except Exception as exc:
+        raise ParseError(f"не удалось растеризовать PDF для OCR: {exc}") from exc
+    texts: list[str] = []
+    for image in images:
+        try:
+            text = pytesseract.image_to_string(image, lang="rus+eng")
+        except Exception as exc:
+            raise ParseError(f"ошибка OCR: {exc}") from exc
+        texts.append(text or "")
+    return texts
+
+
 def parse_pdf(filename: str, content: bytes) -> Document:
     try:
         import io
@@ -76,7 +112,25 @@ def parse_pdf(filename: str, content: bytes) -> Document:
     for page in reader.pages:
         pages.append(page.extract_text() or "")
     if not any(p.strip() for p in pages):
-        raise ParseError("PDF не содержит текстового слоя (скан без OCR)")
+        # Попытка OCR-фолбэка, если зависимости доступны
+        if _ocr_available():
+            try:
+                ocr_pages = _ocr_pdf_pages(content)
+            except ParseError:
+                raise
+            except Exception as exc:
+                raise ParseError(f"PDF без текстового слоя (OCR не удался: {exc})") from exc
+            if any(p.strip() for p in ocr_pages):
+                pages = ocr_pages
+            else:
+                raise ParseError(
+                    "PDF не содержит текстового слоя и OCR не дал результата"
+                )
+        else:
+            raise ParseError(
+                "PDF не содержит текстового слоя (скан без OCR). "
+                "Установите tesseract-ocr + зависимости группы 'ocr' для распознавания"
+            )
     page_offsets: list[int] = []
     cursor = 0
     for page_text in pages:
