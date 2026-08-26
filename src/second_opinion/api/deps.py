@@ -31,8 +31,8 @@ def load_cases(fixtures_dir: Path) -> list[ComparableCase]:
 
 
 def build_legal_rag(norm_store: NormStore):
-    """Собрать поисковик по конфигурации: лексический или гибридный
-    (ADR-003). Гибридный режим включается явно через ``SO_RAG_MODE``."""
+    """Собрать поисковик по конфигурации: лексический, гибридный или
+    гибридный c pgvector (ADR-003, ADR-006)."""
     from ..config import load_config
     from ..legal_rag import (
         HashingTfidfEmbedder,
@@ -41,14 +41,33 @@ def build_legal_rag(norm_store: NormStore):
     )
 
     config = load_config()
-    if config.rag_mode != "hybrid":
+    if config.rag_mode not in ("hybrid", "hybrid_pgvector"):
         return LegalRag(norm_store)
+
     if config.embeddings_provider == "openai_compatible":
         embedder = OpenAICompatibleEmbeddingProvider(
             config.openai_base_url, config.openai_api_key, config.embedding_model
         )
     else:
         embedder = HashingTfidfEmbedder()
+
+    if config.rag_mode == "hybrid_pgvector":
+        if config.storage_backend != "postgres" or not config.database_url:
+            # Конфигурация неполная — fallback к in-memory гибриду
+            return LegalRag(norm_store, embedder=embedder)
+        try:
+            from ..storage.vector import PgVectorNormStore
+
+            vector_store = PgVectorNormStore(
+                config.database_url, embedder=embedder
+            )
+            vector_store.sync(norm_store)
+            return LegalRag(
+                norm_store, embedder=embedder, vector_store=vector_store
+            )
+        except Exception:  # noqa: BLE001
+            return LegalRag(norm_store, embedder=embedder)
+
     return LegalRag(norm_store, embedder=embedder)
 
 

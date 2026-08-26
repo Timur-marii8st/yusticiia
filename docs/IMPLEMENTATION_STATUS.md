@@ -1,9 +1,9 @@
 # IMPLEMENTATION_STATUS
 
-Обновлено: 2026-08-26 (итерация 13: PostgreSQL-бэкенд (JSONB) за
-интерфейсом репозиториев, профиль `postgres` в compose, интеграционные
-тесты против реального PostgreSQL; ранее: авторизация API, конкурентная
-надёжность, печать/JSON, право на забвение, добавление фактов, M9, M10).
+Обновлено: 2026-08-26 (итерация 14: pgvector поверх PostgreSQL для
+семантики норм — `hybrid_pgvector` (RRF + ANN `<=>`), образ
+`pgvector/pgvector:pg16`, gated-тесты; ранее: JSONB-бэкенд, авторизация,
+конкурентная надёжность, печать/JSON, право на забвение, M9, M10).
 
 ## Working
 
@@ -134,8 +134,13 @@
 - **PostgreSQL-бэкенд (ADR-006):** `PostgresJsonRepository` (JSONB) за тем же
   интерфейсом, что файловый; выбор `SO_STORAGE_BACKEND=file|postgres` +
   `SO_DATABASE_URL`; `docker-compose --profile postgres` поднимает
-  `postgres:16-alpine`; интеграционные тесты — против реального PostgreSQL
+  `pgvector/pgvector:pg16`; интеграционные тесты — против реального PostgreSQL
   (`SO_TEST_DATABASE_URL`, skip без него). Аудит-журнал остаётся файловым.
+- **pgvector для семантики (ADR-006, ADR-003):** `PgVectorNormStore` хранит
+  эмбеддинги норм в `norm_vectors vector(1024)` + HNSW (cosine), sync всех
+  редакций; `SO_RAG_MODE=hybrid_pgvector` — RRF-фьюжн лексики и ANN
+  (`embedding <=> query`); docker-образ включает расширение `vector`;
+  gated-тесты pgvector — skip без БД.
 - **Документация:** README, PRODUCT_VISION, ARCHITECTURE,
   LEGAL_SAFETY_PRINCIPLES, DOMAIN_MODEL, IMPLEMENTATION_PLAN,
   CURRENT_STATE, ADR-001…007, CI (GitHub Actions: lint + tests + audit).
@@ -190,8 +195,7 @@
 
 ## Not implemented
 
-- OCR; эмбеддинги/реранкинг по умолчанию (гибридный режим реализован как
-  опция, ADR-003); личный кабинет; pgvector (векторный поиск).
+- OCR; личный кабинет (эмбеддинги/реранкинг — опции `hybrid`/`hybrid_pgvector`, ADR-003).
 
 ## Tests
 

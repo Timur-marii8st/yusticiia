@@ -22,6 +22,7 @@ dev = [
 ]
 pg = [
     "psycopg[binary]>=3.1",
+    "pgvector>=0.3",
 ]
 
 [project.scripts]

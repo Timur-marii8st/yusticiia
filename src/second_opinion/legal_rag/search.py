@@ -94,9 +94,11 @@ class LegalRag:
         self,
         norm_store: NormStore,
         embedder: EmbeddingProvider | None = None,
+        vector_store=None,  # PgVectorNormStore, опционально
     ) -> None:
         self._store = norm_store
         self._embedder = embedder
+        self._vector_store = vector_store
 
     def search(
         self,
@@ -184,13 +186,28 @@ class LegalRag:
         self, hits: list[SearchHit], query: str, limit: int
     ) -> list[SearchHit]:
         """Гибридный реранкинг: Reciprocal Rank Fusion лексического и
-        семантического ранжирований (ADR-003)."""
-        query_vector = self._embedder.embed([query])[0]
-        texts = [f"{hit.title} {hit.ref} {hit.fragment}" for hit in hits]
-        vectors = self._embedder.embed(texts)
-        similarities = [
-            cosine(query_vector, vector) for vector in vectors
-        ]
+        семантического ранжирований (ADR-003).
+
+        Если подключён pgvector-store, семантические близости берутся из БД
+        (ANN-поиск), иначе — in-memory косинус.
+        """
+        # Попытка взять семантику из pgvector (если настроен и синхронизирован)
+        similarities: list[float] | None = None
+        if self._vector_store is not None:
+            try:
+                similarities = self._vector_store.rank(query, hits)
+                if len(similarities) != len(hits):
+                    similarities = None
+            except Exception:  # noqa: BLE001
+                similarities = None
+        if similarities is None:
+            assert self._embedder is not None
+            query_vector = self._embedder.embed([query])[0]
+            texts = [f"{hit.title} {hit.ref} {hit.fragment}" for hit in hits]
+            vectors = self._embedder.embed(texts)
+            similarities = [
+                cosine(query_vector, vector) for vector in vectors
+            ]
 
         lexical_ranking = sorted(
             range(len(hits)), key=lambda i: (-hits[i].score, hits[i].norm_id)
