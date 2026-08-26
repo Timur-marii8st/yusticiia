@@ -10,16 +10,30 @@
       "title": "Кража (без квалифицирующих признаков) — санкция: черновик фикстуры",
       "versions": [
         {
-          "version_id": "v-current",
+          "version_id": "v-1996",
           "norm_id": "uk-rf:art-158-part-1",
-          "text": "ЧЕРНОВИК ФИКСТУРЫ (сверить с официальным источником): ч. 1 ст. 158 УК РФ — лишение свободы на срок до двух лет.",
+          "text": "ЧЕРНОВИК ФИКСТУРЫ (сверить с официальным источником): ч. 1 ст. 158 УК РФ — лишение свободы на срок до двух лет (редакция 1996–2011).",
           "sanctions": [
             { "punishment_type": "imprisonment", "min_months": null, "max_months": 24 }
           ],
           "effective_from": "1996-07-01",
+          "effective_to": "2011-12-06",
+          "source_url": "http://www.consultant.ru/document/cons_doc_LAW_10699/",
+          "retrieved_at": "2026-08-26",
+          "sha256": "AUTOFILL",
+          "verification_status": "draft"
+        },
+        {
+          "version_id": "v-2011",
+          "norm_id": "uk-rf:art-158-part-1",
+          "text": "ЧЕРНОВИК ФИКСТУРЫ (сверить с официальным источником): ч. 1 ст. 158 УК РФ — лишение свободы на срок до двух лет (действующая редакция с 07.12.2011).",
+          "sanctions": [
+            { "punishment_type": "imprisonment", "min_months": null, "max_months": 24 }
+          ],
+          "effective_from": "2011-12-07",
           "effective_to": null,
           "source_url": "http://www.consultant.ru/document/cons_doc_LAW_10699/",
-          "retrieved_at": "2026-08-25",
+          "retrieved_at": "2026-08-26",
           "sha256": "AUTOFILL",
           "verification_status": "draft"
         }

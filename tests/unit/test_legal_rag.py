@@ -24,7 +24,10 @@ def test_special_procedure_query_finds_art62(norm_store: NormStore) -> None:
 def test_suspended_query_finds_art73(norm_store: NormStore) -> None:
     hits = LegalRag(norm_store).search("условное осуждение восемь лет")
     assert hits
-    assert hits[0].norm_id == "uk-rf:art-73"
+    # После добавления разъяснения Пленума по ст. 73 оба источника
+    # релевантны; проверяем, что норма УК в топ-2.
+    top_ids = [hit.norm_id for hit in hits[:2]]
+    assert "uk-rf:art-73" in top_ids
 
 
 def test_article_number_query(norm_store: NormStore) -> None:

@@ -4,6 +4,41 @@
 разработке (конкурс «Алгоритм правосудия. Второе мнение»); версии
 условны.
 
+## 0.15 — корпус Пленума и исторические редакции (2026-08-26)
+
+- Два разъяснения Пленума ВС РФ № 58 (п. 1 к ст. 60, п. 34 к ст. 73) как
+  черновые фикстуры; поиск по источникам теперь покрывает ППВС.
+- Историческая редакция ст. 158 ч. 1 (1996–2011 / с 07.12.2011) как демо
+  временных интервалов реальных норм; датасет retrieval 13 → 15 запросов,
+  temporal 4 → 6 кейсов (метрики lexical 1.0/0.893, hybrid 0.933/0.833).
+
+## 0.14 — pgvector для семантики норм (2026-08-26)
+
+- `PgVectorNormStore` (pgvector HNSW, `vector(1024)`, cosine): sync всех
+  редакций, `rank`/`vector_search` через `<=>`; образ
+  `pgvector/pgvector:pg16`; `SO_RAG_MODE=hybrid_pgvector` (RRF + ANN).
+- Гибридный реранкинг теперь опционально через БД, fallback in-memory;
+  gated-тесты pgvector — skip без `SO_TEST_DATABASE_URL`.
+
+## 0.13 — PostgreSQL-бэкенд документов/отчётов (2026-08-26)
+
+- `PostgresJsonRepository` (JSONB) за тем же интерфейсом, что файловый;
+  выбор `SO_STORAGE_BACKEND=file|postgres` + `SO_DATABASE_URL`;
+  `docker-compose --profile postgres` (+ healthcheck); gated-тесты против
+  реального PostgreSQL.
+
+## 0.12 — авторизация API и производительность (2026-08-26)
+
+- Опциональная Bearer-авторизация `SO_AUTH_TOKEN` для `/api/*` (401 без
+  токена; `/health`/статика/UI открыты); форма входа в UI (sessionStorage).
+- Смок-тест большого документа ~175 тыс. символов (<1 с, порог 15 с против
+  регрессий).
+
+## 0.11 — надёжность хранилища и UX отчёта (2026-08-26)
+
+- Тесты конкурентного `ingest`/`analyze` (threadpool FastAPI); печатная
+  версия `@media print` + выгрузка JSON отчёта; `docs/API.md`.
+
 ## 0.10 — право на забвение и supply-chain (2026-08-26)
 
 - `DELETE /api/documents/{id}` (каскад отчётов) и `DELETE /api/analyses/{id}`

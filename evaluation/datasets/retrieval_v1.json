@@ -25,7 +25,7 @@
     {
       "id": "q05",
       "query": "условное осуждение при лишении свободы до восьми лет",
-      "relevant": ["uk-rf:art-73"]
+      "relevant": ["uk-rf:art-73", "ppvs-rf:n58-p34"]
     },
     {
       "id": "q06",
@@ -67,6 +67,16 @@
       "query": "взятка должностному лицу через посредника",
       "relevant": [],
       "expect_empty": true
+    },
+    {
+      "id": "q14",
+      "query": "практика назначения наказания пленум верховного суда разъяснение к статье 60",
+      "relevant": ["ppvs-rf:n58-p1"]
+    },
+    {
+      "id": "q15",
+      "query": "условное осуждение пленум верховного суда разъяснение к статье 73",
+      "relevant": ["ppvs-rf:n58-p34"]
     }
   ],
   "temporal_cases": [
@@ -89,6 +99,16 @@
       "norm_id": "uk-rf:art-999-synthetic",
       "applicable_at": "2026-08-26",
       "expected_version_id": "v2024"
+    },
+    {
+      "norm_id": "uk-rf:art-158-part-1",
+      "applicable_at": "2005-01-01",
+      "expected_version_id": "v-1996"
+    },
+    {
+      "norm_id": "uk-rf:art-158-part-1",
+      "applicable_at": "2015-01-01",
+      "expected_version_id": "v-2011"
     }
   ]
 }
