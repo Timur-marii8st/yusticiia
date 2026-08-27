@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .. import __version__
+from ..auth.routes import router as auth_router
 from ..domain.cases import ComparableCase
 from ..ingestion.parser import ParseError
 from ..legal_sources.store import NoApplicableVersionError, NormNotFoundError
@@ -19,6 +20,7 @@ from ..pipeline import (
     AnalysisPipeline,
     DocumentNotFound,
     FactNotFound,
+    FactValidationError,
 )
 
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
@@ -54,14 +56,18 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
         ),
     )
     app.state.pipeline = pipeline
+
+    # Подключаем роутер аутентификации
+
+    app.include_router(auth_router)
+
+    # Создаём экземпляр LegalRag для поиска по источникам
     from ..api.deps import build_legal_rag
 
     rag = build_legal_rag(pipeline.norm_store)
 
-    # -- авторизация (опционально) -------------------------------------------
-    #
-    # Включается общим секретом SO_AUTH_TOKEN. Защищаются только /api/*:
-    # /health нужен проверкам живости, статика и UI не содержат данных.
+    # Поддержка обратной совместимости: если задан SO_AUTH_TOKEN, включаем
+    # простую Bearer-проверку для старых клиентов (помимо JWT)
     if auth_token:
 
         @app.middleware("http")
@@ -167,7 +173,6 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
     def add_fact(analysis_id: str, payload: FactAddPayload) -> dict:
         """Судья добавляет обстоятельство «с нуля»: тип + значение + цитата
         из документа. Цитата обязана дословно находиться в тексте."""
-        from ..pipeline import FactValidationError
 
         try:
             report = pipeline.add_fact(
