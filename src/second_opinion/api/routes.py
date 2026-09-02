@@ -10,7 +10,6 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .. import __version__
-from ..auth.routes import router as auth_router
 from ..domain.cases import ComparableCase
 from ..ingestion.parser import ParseError
 from ..legal_sources.store import NoApplicableVersionError, NormNotFoundError
@@ -22,6 +21,7 @@ from ..pipeline import (
     FactNotFound,
     FactValidationError,
 )
+from .auth_routes import router as auth_router
 
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
 

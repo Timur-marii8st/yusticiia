@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,21 @@ FIXTURES_DIR = PROJECT_ROOT / "data" / "fixtures"
 SAMPLE_CLEAN = FIXTURES_DIR / "sample_documents" / "sample_158_special_clean.txt"
 SAMPLE_VIOLATION = FIXTURES_DIR / "sample_documents" / "sample_228_attempt_violation.txt"
 SAMPLE_NEGATIVE = FIXTURES_DIR / "sample_documents" / "sample_negative_appeal.txt"
+
+
+@pytest.fixture()
+def sample_clean_text() -> str:
+    return SAMPLE_CLEAN.read_text(encoding="utf-8")
+
+
+@pytest.fixture()
+def sample_violation_text() -> str:
+    return SAMPLE_VIOLATION.read_text(encoding="utf-8")
+
+
+@pytest.fixture()
+def sample_negative_text() -> str:
+    return SAMPLE_NEGATIVE.read_text(encoding="utf-8")
 
 
 @pytest.fixture()
@@ -35,16 +51,38 @@ def pipeline(tmp_path):
     return build_pipeline(config)
 
 
-@pytest.fixture()
-def sample_clean_text() -> str:
-    return SAMPLE_CLEAN.read_text(encoding="utf-8")
+@pytest.fixture(autouse=True)
+def reset_auth_service(monkeypatch):
+    """Сброс глобального auth_service перед каждым тестом.
 
+    Создаём заново AuthService с предзаполненным админом, чтобы тесты
+    авторизации могли выполнять логин под `admin@example.com / admin123`.
+    SO_AUTH_TOKEN задаётся в 32+ байт, чтобы JWT-предупреждение
+    pyjwt (RFC 7518) не шумело в прогоне; кэш load_config сбрасывается.
+    """
+    monkeypatch.setenv("SO_AUTH_TOKEN", "test-secret-key-with-at-least-32-bytes-for-hmac")
+    from second_opinion.config import reset_config_cache
 
-@pytest.fixture()
-def sample_violation_text() -> str:
-    return SAMPLE_VIOLATION.read_text(encoding="utf-8")
+    reset_config_cache()
 
+    from second_opinion.auth.service import AuthService, pwd_context
+    from second_opinion.domain.users import User, UserRole
 
-@pytest.fixture()
-def sample_negative_text() -> str:
-    return SAMPLE_NEGATIVE.read_text(encoding="utf-8")
+    auth = AuthService()
+    auth._users["admin-001"] = User(
+        user_id="admin-001",
+        email="admin@example.com",
+        full_name="Admin User",
+        role=UserRole.ADMIN,
+        is_active=True,
+        password_hash=pwd_context.hash("admin123"),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+    import second_opinion.auth.service
+
+    second_opinion.auth.service._auth_service = auth
+    yield
+    second_opinion.auth.service._auth_service = None
+    reset_config_cache()

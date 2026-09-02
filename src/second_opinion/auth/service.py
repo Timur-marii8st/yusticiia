@@ -76,6 +76,10 @@ class AuthService:
             user.last_login = datetime.now(UTC)
             user.updated_at = datetime.now(UTC)
 
+    def delete_user(self, user_id: str) -> bool:
+        """Удалить пользователя; вернуть True, если он существовал."""
+        return self._users.pop(user_id, None) is not None
+
     # --- Работа с токенами ---
 
     def _create_token(
