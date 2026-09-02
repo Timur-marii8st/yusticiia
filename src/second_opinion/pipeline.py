@@ -19,6 +19,16 @@ from .ingestion.parser import parse_document
 from .legal_sources.store import NormStore
 from .llm.provider import LLMProvider
 from .logging_utils import StageTimer, log_stage
+from .metrics import (
+    ANALYSES_FAILED_TOTAL,
+    ANALYSES_TOTAL,
+    ANALYZE_DURATION_SECONDS,
+    EXTRACT_DURATION_SECONDS,
+    RETRIEVAL_DURATION_SECONDS,
+    RULE_ENGINE_DURATION_SECONDS,
+    RULE_EVALUATIONS,
+    get_metrics,
+)
 from .retrieval.case_retrieval import CaseRetriever
 from .rule_engine.engine import ENGINE_VERSION, RuleEngine
 from .storage.repositories import JsonFileRepository
@@ -155,6 +165,7 @@ class AnalysisPipeline:
         self._engine = rule_engine or RuleEngine()
         self._pattern_extractor = PatternFactExtractor()
         self._llm_extractor = LLMFactExtractor(llm_provider, audit)
+        self.auth_service = None  # Опциональный сервис аутентификации
 
     @property
     def norm_store(self) -> NormStore:
@@ -193,79 +204,37 @@ class AnalysisPipeline:
     def analyze(
         self, document_id: str, applicable_at: str | None = None
     ) -> AnalysisReport:
-        document = self.get_document(document_id)
         request_id = uuid.uuid4().hex
-
-        timer = StageTimer()
-        pattern_facts = self._pattern_extractor.extract(document)
-        known_keys = {(f.type.value, _value_key(f.value)) for f in pattern_facts}
-        llm_facts = self._llm_extractor.extract(document, known_keys)
-        facts = pattern_facts + llm_facts
-        log_stage(
-            request_id,
-            "fact_extraction",
-            duration_ms=timer.elapsed_ms(),
-            document_id=document_id,
-            pattern_facts=len(pattern_facts),
-            llm_facts=len(llm_facts),
-        )
-
-        # Предварительный вывод — чтобы узнать извлечённую дату.
-        preliminary = build_case_facts(_active_facts(facts))
-        resolved_date, assumed = self._resolve_applicable_at(
-            applicable_at, preliminary.applicable_at
-        )
-        log_stage(
-            request_id,
-            "applicable_date",
-            document_id=document_id,
-            applicable_at=resolved_date.isoformat(),
-            assumed=assumed,
-        )
-
-        (case_facts, evaluations, norms_applied, matches, analytics) = self._derive(
-            _active_facts(facts), resolved_date, request_id
-        )
-
-        report = AnalysisReport(
-            analysis_id=uuid.uuid4().hex,
-            document_id=document_id,
-            applicable_at=resolved_date.isoformat(),
-            applicable_at_assumed=assumed,
-            facts=facts,
-            case_facts=case_facts,
-            evaluations=evaluations,
-            norms_applied=norms_applied,
-            comparable_cases=matches,
-            analytics=analytics,
-            disclaimers=list(DEFAULT_DISCLAIMERS),
-        )
-        self._analyses.save(report)
-        log_stage(
-            request_id,
-            "analysis_complete",
-            duration_ms=timer.elapsed_ms(),
-            document_id=document_id,
-            analysis_id=report.analysis_id,
-            facts=len(facts),
-            evaluations=_count_statuses(evaluations),
-            comparable_cases=len(matches),
-        )
-        self._audit.log(
-            operation="analysis_complete",
-            component="pipeline",
-            request_id=request_id,
-            input_hash=document.sha256,
-            output_hash=_hash_report(report),
-            rule_version=ENGINE_VERSION,
-            details={
-                "document_id": document_id,
-                "analysis_id": report.analysis_id,
-                "facts": len(facts),
-                "evaluations": _count_statuses(evaluations),
-            },
-        )
-        return report
+        metrics = get_metrics()
+        with metrics.time_histogram(ANALYZE_DURATION_SECONDS):
+            try:
+                document = self.get_document(document_id)
+                facts, resolved_date, assumed = self._prepare(
+                    document, applicable_at, request_id
+                )
+                derived = self._derive(_active_facts(facts), resolved_date, request_id)
+                report = AnalysisReport(
+                    analysis_id=uuid.uuid4().hex,
+                    document_id=document_id,
+                    applicable_at=resolved_date.isoformat(),
+                    applicable_at_assumed=assumed,
+                    facts=facts,
+                    disclaimers=list(DEFAULT_DISCLAIMERS),
+                )
+                self._persist_report(
+                    report,
+                    document,
+                    derived,
+                    timer=StageTimer(),
+                    request_id=request_id,
+                )
+                if metrics.enabled:
+                    metrics.counter(ANALYSES_TOTAL).inc()
+                return report
+            except Exception:
+                if metrics.enabled:
+                    metrics.counter(ANALYSES_FAILED_TOTAL).inc()
+                raise
 
     def get_analysis(self, analysis_id: str) -> AnalysisReport | None:
         return self._analyses.get(analysis_id)
@@ -352,20 +321,9 @@ class AnalysisPipeline:
             status_changed = True
 
         request_id = uuid.uuid4().hex
-        resolved_date = (
-            date.fromisoformat(report.applicable_at)
-            if report.applicable_at
-            else date.today()
-        )
-        (case_facts, evaluations, norms_applied, matches, analytics) = self._derive(
-            _active_facts(report.facts), resolved_date, request_id
-        )
-        report.case_facts = case_facts
-        report.evaluations = evaluations
-        report.norms_applied = norms_applied
-        report.comparable_cases = matches
-        report.analytics = analytics
-
+        resolved_date = self._date_from_report(report)
+        derived = self._derive(_active_facts(report.facts), resolved_date, request_id)
+        self._apply_derived(report, derived)
         self._analyses.save(report)
         self._audit.log(
             operation="fact_update",
@@ -442,20 +400,9 @@ class AnalysisPipeline:
         )
 
         request_id = uuid.uuid4().hex
-        resolved_date = (
-            date.fromisoformat(report.applicable_at)
-            if report.applicable_at
-            else date.today()
-        )
-        (case_facts, evaluations, norms_applied, matches, analytics) = self._derive(
-            _active_facts(report.facts), resolved_date, request_id
-        )
-        report.case_facts = case_facts
-        report.evaluations = evaluations
-        report.norms_applied = norms_applied
-        report.comparable_cases = matches
-        report.analytics = analytics
-
+        resolved_date = self._date_from_report(report)
+        derived = self._derive(_active_facts(report.facts), resolved_date, request_id)
+        self._apply_derived(report, derived)
         self._analyses.save(report)
         self._audit.log(
             operation="fact_add",
@@ -473,6 +420,48 @@ class AnalysisPipeline:
 
     # -- общий вывод ----------------------------------------------------------
 
+    def _prepare(
+        self,
+        document: Document,
+        applicable_at: str | None,
+        request_id: str,
+    ) -> tuple[list[LegalFact], date, bool]:
+        """Шаг 1 конвейера: извлечь факты и резолвить юридически значимую дату.
+
+        Возвращает ``(facts, resolved_date, assumed)``. Не пишет в отчёт и
+        не вызывает бизнес-логику, кроме экстракторов и валидации даты.
+        """
+        timer = StageTimer()
+        metrics = get_metrics()
+        with metrics.time_histogram(EXTRACT_DURATION_SECONDS):
+            pattern_facts = self._pattern_extractor.extract(document)
+            known_keys = {(f.type.value, _value_key(f.value)) for f in pattern_facts}
+            llm_facts = self._llm_extractor.extract(document, known_keys)
+        facts = pattern_facts + llm_facts
+        if metrics.enabled:
+            metrics.counter("second_opinion_facts_extracted_total").inc(len(facts))
+        log_stage(
+            request_id,
+            "fact_extraction",
+            duration_ms=timer.elapsed_ms(),
+            document_id=document.document_id,
+            pattern_facts=len(pattern_facts),
+            llm_facts=len(llm_facts),
+        )
+
+        preliminary = build_case_facts(_active_facts(facts))
+        resolved_date, assumed = self._resolve_applicable_at(
+            applicable_at, preliminary.applicable_at
+        )
+        log_stage(
+            request_id,
+            "applicable_date",
+            document_id=document.document_id,
+            applicable_at=resolved_date.isoformat(),
+            assumed=assumed,
+        )
+        return facts, resolved_date, assumed
+
     def _derive(
         self, facts: list[LegalFact], applicable_at: date, request_id: str
     ) -> tuple[
@@ -482,15 +471,20 @@ class AnalysisPipeline:
         list[CaseMatch],
         AnalyticsSummary,
     ]:
+        """Шаг 2: правила + поиск практики + аналитика + счётчики метрик."""
         case_facts = build_case_facts(facts)
         rules_timer = StageTimer()
-        evaluations = self._engine.evaluate(
-            case_facts,
-            self._norm_store,
-            applicable_at,
-            audit=self._audit,
-            request_id=request_id,
-        )
+        metrics = get_metrics()
+        with metrics.time_histogram(RULE_ENGINE_DURATION_SECONDS):
+            evaluations = self._engine.evaluate(
+                case_facts,
+                self._norm_store,
+                applicable_at,
+                audit=self._audit,
+                request_id=request_id,
+            )
+        if metrics.enabled:
+            metrics.counter(RULE_EVALUATIONS).inc(len(evaluations))
         log_stage(
             request_id,
             "rule_engine",
@@ -508,7 +502,10 @@ class AnalysisPipeline:
                 seen.add(key)
                 norms_applied.append(norm_ref)
         retrieval_timer = StageTimer()
-        matches = self._retriever.search(case_facts)
+        with metrics.time_histogram(RETRIEVAL_DURATION_SECONDS):
+            matches = self._retriever.search(case_facts)
+        if metrics.enabled:
+            metrics.counter("second_opinion_comparable_cases_total").inc(len(matches))
         log_stage(
             request_id,
             "case_retrieval",
@@ -518,6 +515,73 @@ class AnalysisPipeline:
         )
         analytics = compute_analytics([match.case for match in matches])
         return case_facts, evaluations, norms_applied, matches, analytics
+
+    def _apply_derived(
+        self,
+        report: AnalysisReport,
+        derived: tuple[
+            CaseFacts,
+            list[RuleEvaluation],
+            list[NormRef],
+            list[CaseMatch],
+            AnalyticsSummary,
+        ],
+    ) -> None:
+        """Записать результат ``_derive`` в существующий отчёт (in-place)."""
+        case_facts, evaluations, norms_applied, matches, analytics = derived
+        report.case_facts = case_facts
+        report.evaluations = evaluations
+        report.norms_applied = norms_applied
+        report.comparable_cases = matches
+        report.analytics = analytics
+
+    def _persist_report(
+        self,
+        report: AnalysisReport,
+        document: Document,
+        derived: tuple[
+            CaseFacts,
+            list[RuleEvaluation],
+            list[NormRef],
+            list[CaseMatch],
+            AnalyticsSummary,
+        ],
+        *,
+        timer: StageTimer,
+        request_id: str,
+    ) -> None:
+        """Шаг 3 конвейера: применить derived, сохранить, залогировать.
+
+        Используется только из ``analyze`` (новые отчёты). Для пересчёта
+        существующего отчёта (``update_fact``/``add_fact``) — отдельный
+        путь без таймера ``analyze_complete``.
+        """
+        self._apply_derived(report, derived)
+        self._analyses.save(report)
+        log_stage(
+            request_id,
+            "analysis_complete",
+            duration_ms=timer.elapsed_ms(),
+            document_id=document.document_id,
+            analysis_id=report.analysis_id,
+            facts=len(report.facts),
+            evaluations=_count_statuses(report.evaluations),
+            comparable_cases=len(report.comparable_cases),
+        )
+        self._audit.log(
+            operation="analysis_complete",
+            component="pipeline",
+            request_id=request_id,
+            input_hash=document.sha256,
+            output_hash=_hash_report(report),
+            rule_version=ENGINE_VERSION,
+            details={
+                "document_id": document.document_id,
+                "analysis_id": report.analysis_id,
+                "facts": len(report.facts),
+                "evaluations": _count_statuses(report.evaluations),
+            },
+        )
 
     def _resolve_applicable_at(
         self, explicit: str | None, extracted: str | None
@@ -529,6 +593,15 @@ class AnalysisPipeline:
             except ValueError:
                 pass
         return date.today(), True
+
+    def _date_from_report(self, report: AnalysisReport) -> date:
+        """Восстановить дату из уже сохранённого отчёта (для пересчёта)."""
+        if report.applicable_at:
+            try:
+                return date.fromisoformat(report.applicable_at)
+            except ValueError:
+                pass
+        return date.today()
 
 
 def _active_facts(facts: list[LegalFact]) -> list[LegalFact]:
