@@ -87,20 +87,22 @@ src/second_opinion/
     domain/            # Pydantic-модели: факты, нормы, оценки, отчёт
     ingestion/         # парсеры TXT/MD/DOCX/PDF(текстовый слой + опциональный OCR)
     fact_extraction/   # паттерновый + LLM экстракторы, сборка обстоятельств
-    legal_sources/     # NormStore: нормы с временными редакциями, SHA-256
+    legal_sources/     # NormStore: нормы с версиями, SHA-256
     rule_engine/       # детерминированные проверки (ст. 60–73 УК РФ)
     legal_rag/         # лексический поиск по базе источников (с цитированием)
     retrieval/         # поиск сопоставимых дел (структурные фильтры)
     analytics/         # описательная статистика
     llm/               # провайдеро-независимый LLM-слой (мок по умолчанию)
     audit/             # JSONL аудит-журнал (версии моделей/промптов/правил)
-    api/               # FastAPI + статический экран анализа
+    auth/              # JWT-сервис (in-memory user store, MVP)
+    api/               # FastAPI + auth_routes (login/refresh/me/users/...)
+    storage/           # файловые и Postgres-репозитории за интерфейсом
     static/            # UI (vanilla JS, без шага сборки)
     prompts/           # версионируемые промпты (часть пакета)
 data/fixtures/         # фикстуры: нормы (draft), СИНТЕТИЧЕСКИЕ дела, образцы
-tests/                 # unit + integration
+tests/                 # unit + integration (242 зелёных)
 evaluation/            # метрики и датасеты (make eval)
-docs/                  # документация и ADR
+docs/                  # документация, ADR и AUDIT_REPORT.md
 ```
 
 ## Тестирование

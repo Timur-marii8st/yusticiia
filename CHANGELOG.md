@@ -4,6 +4,46 @@
 разработке (конкурс «Алгоритм правосудия. Второе мнение»); версии
 условны.
 
+## 0.18 — метрики конвейера, ревёрт R-009 (2026-09-02)
+
+- `src/second_opinion/metrics.py` — внутренние метрики конвейера
+  (счётчики, гистограммы; потокобезопасно, без внешних зависимостей).
+  Включается через `SO_METRICS_ENABLED=1`. Интегрировано в
+  `pipeline.analyze` — обёртки вокруг стадий extract/rule_engine/
+  retrieval/analyze; per-rule `RULE_EVALUATIONS`.
+- `tests/unit/test_metrics.py` (8 тестов) + `tests/integration/
+  test_metrics_pipeline.py` (4 теста).
+- R-009 (`SpecialProcedureTenYearLimitRule`) **откачен** — правило
+  требовало юридической сверки точной статьи УПК и порога санкции,
+  регрессионных тестов не было (нарушение AGENTS.md). ENGINE_VERSION
+  1.2.0 → 1.1.0. `data/fixtures/norms/upk_rf_special_procedure.json`
+  очищен от битого хвоста (текст ст. 314 был в неверной кодировке).
+- `.gitignore`: добавлены `.last_eval.json`, `.eval_stdout.json`,
+  `.eval_stderr.txt` (артефакты прогона `make eval`).
+- Итог: **242 теста зелёных**, 7 skipped (gated), ruff зелёный,
+  `make eval` exit 0; метрики прежние (macro-F1=0.978, evidence=1.0,
+  Recall@5=1.0/0.933, MRR=0.893/0.833, nDCG=0.921/0.875,
+  citation_integrity=1.0, temporal=1.0).
+
+## 0.17 — уборка по итогам аудита (2026-08-30)
+
+- `ruff check` зелёный (0 ошибок): удалены `tests/integration/test_debug_auth.py`,
+  `debug_login.py`, `chat-gpt-answer.md`, переэкспорт `src/second_opinion/auth/routes.py`.
+- `auth_routes.py` переписан: исправлен сломанный `POST /auth/users` (обращался
+  к несуществующей `credentials`), B008 на `Depends` устранён через
+  `Annotated[AuthService, Depends(get_auth_service)]`, добавлен `POST /auth/users`
+  с моделью `CreateUserRequest`, `PATCH /auth/users/{id}`, `DELETE /auth/users/{id}`.
+- `AuthService.delete_user` добавлен (раньше DELETE эндпоинт падал бы в
+  рантайме).
+- 15 admin-тестов в `test_auth_admin.py` закрывают регрессию.
+- `test_auth.py` очищен от неиспользуемых импортов и дубликатов.
+- `conftest.py` подменяет `SO_AUTH_TOKEN` на 32+ байт, чтобы JWT-предупреждение
+  pyjwt (RFC 7518) не шумело.
+- `pyproject.toml`: `per-file-ignores` для `domain/users.py` (`UP042` —
+  совместимость с Pydantic v2, миграция на `StrEnum` — отдельная задача).
+- `docs/AUDIT_REPORT.md` — комплексный аудит проекта.
+- Итог: **233 теста зелёных**, 7 skipped (gated), 1 warning (внешний starlette/httpx).
+
 ## 0.16 — OCR для сканированных PDF (2026-08-26)
 
 - Опциональный OCR-фолбэк для PDF без текстового слоя: Tesseract

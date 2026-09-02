@@ -1,8 +1,15 @@
 # IMPLEMENTATION_STATUS
 
-Обновлено: 2026-08-26 (итерация 16: OCR-фолбэк для сканированных PDF
-(опционально, Tesseract + poppler; mock-тесты), корпус Пленума и
-исторические редакции; ранее: pgvector, JSONB-бэкенд, авторизация, M9, M10).
+Обновлено: 2026-09-02 (итерация 0.18: внутренние метрики конвейера
+`src/second_opinion/metrics.py` + интеграция в pipeline; 242 теста
+зелёных, 7 skipped (gated); ruff зелёный; `make eval` exit 0,
+macro-F1=0.978, evidence=1.0, Recall@5=1.0 (lexical), MRR=0.893,
+nDCG@0.921, citation_integrity=1.0, temporal=1.0. R-009 откачен —
+правило требовало юридической сверки, регрессионные тесты отсутствовали,
+нарушало AGENTS.md. ENGINE_VERSION 1.2.0 → 1.1.0). Ранее: 2026-08-30
+(уборка после аудита: ruff зелёный, 233 теста зелёных, исправлен
+сломанный `POST /auth/users`, добавлены admin-тесты, удалены debug-файлы
+и переэкспорт `auth/routes.py`). Подробности — в `docs/AUDIT_REPORT.md`.
 
 ## Working
 
@@ -85,11 +92,12 @@
   перечисления, квалификация); факт создаётся VERIFIED с методом `user` и
   сразу участвует в пересчёте проверок. Форма «Добавить обстоятельство» —
   в UI с вводом значения по типу.
-- **Проведена полная проверка:** 214 тестов зелёных (+3 gated postgres/pgvector, 1 gated OCR — skip без зависимостей); `ruff check` чистый;
-  `second-opinion eval`: macro-F1 = 1.0 на 8 образцах (включая негативный
-  контроль и временный), evidence correctness = 1.0,
-  `unsupported_claim_rate` = 0, Recall@5/MRR/nDCG в обоих режимах поиска
-  выше порогов; `pip-audit` — без известных уязвимостей (CI блокирующий).
+- **Проведена полная проверка:** 242 теста зелёных (+6 gated postgres/pgvector, 1 gated OCR — skip без зависимостей); `ruff check` чистый;
+  `second-opinion eval`: macro-F1 = 0.978 (порог 0.80), evidence correctness
+  = 1.0, `unsupported_claim_rate` = 0, Recall@5 = 1.0 (lexical) / 0.933
+  (hybrid), MRR = 0.893/0.833, nDCG@10 = 0.921/0.875, citation_integrity
+  = 1.0 в обоих режимах, temporal accuracy = 1.0; `pip-audit` — без
+  известных уязвимостей (CI блокирующий).
 - **UI:** статический экран анализа (прогрессивное раскрытие: обстоятельство
   → цитата → правило → норма → редакция), раздаётся приложением. Проверен
   смоук-тестом через HTTP (index/js/css/демо-документ отдаются). У каждого
@@ -123,6 +131,14 @@
   теряются и не повреждаются, идентификаторы уникальны.
 - **UX отчёта:** печатная версия (@media print — только содержательные
   разделы), кнопка «Печать отчёта» и выгрузка JSON отчёта.
+- **Метрики конвейера (M10, 0.18):** `src/second_opinion/metrics.py` —
+  внутренний реестр счётчиков и гистограмм (потокобезопасно, без внешних
+  зависимостей). Метрики: `analyses_total`, `analyses_failed_total`,
+  гистограммы `extract/analyze/retrieval/rule_engine_duration_seconds`,
+  per-rule `rule_evaluations`. Включение через `SO_METRICS_ENABLED=1`
+  (по умолчанию выключено). Интегрировано в `pipeline.analyze`; снимок
+  доступен через `MetricsRegistry.snapshot()`. Покрыто unit + e2e
+  тестами (12 тестов).
 - **Документация API:** docs/API.md — справочник эндпоинтов с инвариантами;
   CHANGELOG.md — история итераций.
 - **Авторизация (опционально):** `SO_AUTH_TOKEN` включает Bearer-проверку
