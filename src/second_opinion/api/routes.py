@@ -90,6 +90,20 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
     def health() -> dict:
         return {"status": "ok", "version": __version__}
 
+    @app.get("/metrics")
+    def metrics() -> dict:
+        """Снимок внутренних метрик конвейера.
+
+        Включается через ``SO_METRICS_ENABLED=1``. Если выключено,
+        возвращается ``{"enabled": false}`` без накопления значений.
+        """
+        from ..metrics import get_metrics
+
+        registry = get_metrics()
+        if not registry.enabled:
+            return {"enabled": False}
+        return {"enabled": True, "metrics": registry.snapshot()}
+
     # -- документы ----------------------------------------------------------
 
     @app.post("/api/documents")

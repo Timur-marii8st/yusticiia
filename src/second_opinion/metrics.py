@@ -183,11 +183,14 @@ def get_metrics() -> MetricsRegistry:
 
 
 def reset_metrics_for_tests() -> None:
-    """Сбросить глобальный реестр (используется в тестах)."""
+    """Сбросить глобальный реестр (используется в тестах).
+
+    Удаляет реестр полностью, чтобы следующий ``get_metrics()`` создал
+    новый инстанс с актуальным значением ``SO_METRICS_ENABLED``.
+    """
     global _global_registry
     with _global_lock:
-        if _global_registry is not None:
-            _global_registry.reset()
+        _global_registry = None
 
 
 # Имена метрик, которые используются в pipeline. Зафиксированы

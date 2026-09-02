@@ -71,12 +71,18 @@ def test_time_histogram_measures_block() -> None:
 
 
 def test_global_registry_resets_between_tests() -> None:
+    """reset_metrics_for_tests пересоздаёт реестр — следующий get_metrics()
+    возвращает свежий экземпляр со сброшенными счётчиками."""
     reset_metrics_for_tests()
     reg = get_metrics()
     reg.counter("test_only_total").inc(5)
     assert reg.counter("test_only_total").get() == 5
     reset_metrics_for_tests()
-    assert reg.counter("test_only_total").get() == 0
+    # Следующее обращение к get_metrics() должно вернуть новый инстанс,
+    # в котором нет счётчика "test_only_total" (или он нулевой).
+    reg2 = get_metrics()
+    assert reg2 is not reg
+    assert reg2.counter("test_only_total").get() == 0
 
 
 def test_metric_help_texts_present_for_named_metrics() -> None:

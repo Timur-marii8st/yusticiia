@@ -27,6 +27,40 @@ def test_health(client) -> None:
     assert response.json()["status"] == "ok"
 
 
+def test_metrics_disabled_by_default(client) -> None:
+    response = client.get("/metrics")
+    assert response.status_code == 200
+    body = response.json()
+    assert body == {"enabled": False}
+
+
+def test_metrics_enabled_after_increments(pipeline, monkeypatch) -> None:
+    from second_opinion.metrics import (
+        ANALYSES_TOTAL,
+        reset_metrics_for_tests,
+    )
+
+    monkeypatch.setenv("SO_METRICS_ENABLED", "1")
+    reset_metrics_for_tests()
+    try:
+        from second_opinion.api.routes import create_app
+
+        client = TestClient(create_app(pipeline))
+        # Прямой инкремент счётчика — снимок должен показать ненулевое значение.
+        from second_opinion.metrics import get_metrics
+
+        get_metrics().counter(ANALYSES_TOTAL, "test").inc()
+        response = client.get("/metrics")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["enabled"] is True
+        counters = body["metrics"]["counters"]
+        assert ANALYSES_TOTAL in counters
+        assert counters[ANALYSES_TOTAL] >= 1
+    finally:
+        reset_metrics_for_tests()
+
+
 def test_index_served(client) -> None:
     response = client.get("/")
     assert response.status_code == 200
