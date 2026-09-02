@@ -699,3 +699,4 @@ class RecidivismMitigatingConflictRule(LegalRule):
             facts_used=facts_used,
             norms_used=norms_used,
         )
+

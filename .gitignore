@@ -26,6 +26,9 @@ data/processed/*
 
 # Evaluation reports are generated artifacts
 evaluation/reports/
+.last_eval.json
+.eval_stdout.json
+.eval_stderr.txt
 
 # OS / editor
 .DS_Store
