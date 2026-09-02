@@ -100,7 +100,7 @@ src/second_opinion/
     static/            # UI (vanilla JS, без шага сборки)
     prompts/           # версионируемые промпты (часть пакета)
 data/fixtures/         # фикстуры: нормы (draft), СИНТЕТИЧЕСКИЕ дела, образцы
-tests/                 # unit + integration (242 зелёных)
+tests/                 # unit + integration (244 зелёных)
 evaluation/            # метрики и датасеты (make eval)
 docs/                  # документация, ADR и AUDIT_REPORT.md
 ```

@@ -106,14 +106,37 @@ ADR-004.
 Recall@K/MRR/nDCG поиска; полнота цитирования; корректность выбора редакции;
 регрессия Rule Engine; `unsupported_claim_rate` (целевое → 0).
 
+### Auth (`auth/`, `api/auth_routes.py`)
+`AuthService` (bcrypt, JWT access/refresh, in-memory `dict[str, User]`,
+`AuthUser`/`TokenPayload`/`TokenPair` модели), RBAC через `require_role`.
+Эндпоинты `/api/auth/{login,refresh,me,change-password,logout,users}`.
+MVP без БД; миграция на PostgreSQL — ROADMAP (нужны refresh-токены
+с ротацией, blacklist, истечение паролей).
+
+### Metrics (`metrics.py`)
+Внутренний `MetricsRegistry` (потокобезопасные счётчики и гистограммы;
+включается `SO_METRICS_ENABLED=1`). Снимок — `/metrics` endpoint.
+Метрики: `analyses_total`, `analyses_failed_total`, длительности
+`extract/analyze/retrieval/rule_engine_duration_seconds`, per-rule
+`rule_evaluations`. Без внешних зависимостей (без prometheus_client);
+прометей-совместимая модель данных.
+
 ## Технологический стек MVP
 
 - Python 3.11+, FastAPI, Pydantic v2, uvicorn.
-- Хранение: файловые репозитории (за интерфейсами) → целевой стек
-  PostgreSQL (+pgvector) в M5/M6. ADR-006.
-- Тесты: pytest; линт: ruff; CI: GitHub Actions (lint + tests).
+- Хранение: файловые репозитории (по умолчанию) или PostgreSQL
+  (`SO_STORAGE_BACKEND=postgres` + `SO_DATABASE_URL`, JSONB); pgvector
+  для семантики (`PgVectorNormStore`, `vector(1024)`, HNSW cosine,
+  `SO_RAG_MODE=hybrid_pgvector`). ADR-006.
+- Аутентификация: loopback-MVP через `SO_AUTH_TOKEN` (общий секрет)
+  и JWT (роли `judge`/`clerk`/`admin`, in-memory). Двухслойная модель —
+  работающая, но требует ADR-008 для формализации.
+- Тесты: pytest; линт: ruff; CI: GitHub Actions (lint + tests + eval +
+  pip-audit блокирующий).
 
 ## Развёртывание
 
-Одна команда: `make dev` (или `python -m second_opinion.cli serve`).
-Docker Compose появится вместе с PostgreSQL (M5+).
+Одна команда: `make dev` (или `.venv\Scripts\second-opinion serve`).
+Docker Compose (`docker compose up` / `--profile postgres up`) с
+healthcheck и публикацией только на loopback. Подробности —
+`docs/DEPLOYMENT.md`.

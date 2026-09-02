@@ -56,11 +56,14 @@ PostgreSQL — `SO_TEST_DATABASE_URL=... pytest -k postgres` (и `-k pgvector`).
 
 Для многопользовательского доступа обязательно:
 
-1. задать `SO_AUTH_TOKEN` (общий секрет): все `/api/*` требуют
-   `Authorization: Bearer <токен>`; `/health`, статика и UI остаются
-   открытыми — токен вводится в форме один раз за сессию браузера;
+1. задать `SO_AUTH_TOKEN` (общий секрет) **или** включить JWT
+   (`/api/auth/login` + хранение пользователей в БД): все `/api/*`
+   требуют `Authorization: Bearer <токен>`; `/health`, `/metrics`,
+   статика и UI остаются открытыми — токен вводится в форме один раз
+   за сессию браузера. JWT хранилище в текущей версии — in-memory
+   `AuthService` (MVP), для прода нужна БД;
 2. обратный прокси (nginx/Caddy) с TLS поверх токена;
-3. ограничение доступа сетью суда (VPN/инtranet);
+3. ограничение доступа сетью суда (VPN/intranet);
 4. регулярное резервное копирование `data/store/`;
 5. выделенный сервисный пользователь ОС с правами только на каталог данных.
 
@@ -80,13 +83,14 @@ PostgreSQL — `SO_TEST_DATABASE_URL=... pytest -k postgres` (и `-k pgvector`).
 | `SO_OPENAI_BASE_URL` | базовый URL OpenAI-совместимого API | `https://api.openai.com/v1` |
 | `SO_OPENAI_API_KEY` | ключ внешнего контура (никогда не коммитится) | пусто |
 | `SO_LLM_MODEL` | имя модели внешнего контура | `gpt-4o-mini` |
-| `SO_MAX_UPLOAD_BYTES` | лимит размера документа | 5242880 |
+| `SO_MAX_UPLOAD_BYTES` | лимит размера документа | 5242880 (5 МБ) |
 | `SO_RAG_MODE` | `lexical` \| `hybrid` \| `hybrid_pgvector` | `lexical` |
 | `SO_EMBEDDINGS_PROVIDER` | `hashing` \| `openai_compatible` | `hashing` |
 | `SO_EMBEDDING_MODEL` | модель эмбеддингов (openai_compatible) | пусто |
-| `SO_AUTH_TOKEN` | Bearer-токен для `/api/*` | пусто |
+| `SO_AUTH_TOKEN` | Bearer-токен для `/api/*` (loopback-MVP) | пусто |
 | `SO_STORAGE_BACKEND` | `file` \| `postgres` (ADR-006) | `file` |
 | `SO_DATABASE_URL` | DSN PostgreSQL при `postgres` | пусто |
+| `SO_METRICS_ENABLED` | `1` — включить сбор метрик (`/metrics`); иначе `{"enabled": false}` | `0` |
 
 Секреты задаются через окружение/секрет-хранилище, не через репозиторий.
 
@@ -94,6 +98,7 @@ PostgreSQL — `SO_TEST_DATABASE_URL=... pytest -k postgres` (и `-k pgvector`).
 
 ```bash
 curl http://127.0.0.1:8000/health          # {"status":"ok",...}
+curl http://127.0.0.1:8000/metrics        # {"enabled": false} или {"enabled": true, "metrics": {...}}
 curl "http://127.0.0.1:8000/api/search?q=покушение"
 ```
 

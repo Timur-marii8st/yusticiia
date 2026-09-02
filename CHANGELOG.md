@@ -4,6 +4,31 @@
 разработке (конкурс «Алгоритм правосудия. Второе мнение»); версии
 условны.
 
+## 0.19 — актуализация документации, /metrics endpoint (2026-09-02)
+
+- `GET /metrics` (без auth, loopback-MVP): снимок внутреннего
+  `MetricsRegistry`. Если `SO_METRICS_ENABLED != 1`, возвращает
+  `{"enabled": false}`. Тесты: `test_metrics_disabled_by_default`,
+  `test_metrics_enabled_after_increments`.
+- Документация приведена в соответствие с кодом:
+  - `docs/API.md` — добавлены эндпоинты `/api/auth/*` (login/refresh/me/
+    change-password/logout/users CRUD) и `/metrics`;
+  - `docs/DEVELOPMENT.md` — структура исходников (auth/, metrics.py,
+    pipeline.py, cli.py, config.py);
+  - `docs/DEPLOYMENT.md` — `SO_METRICS_ENABLED`, раздел JWT в сетевом
+    развёртывании, `curl /metrics` в проверке;
+  - `docs/ARCHITECTURE.md` — секции `auth/`, `metrics.py`; убраны
+    нерелевантные пометки «M5/M6» для PostgreSQL/Docker;
+  - `docs/SECURITY.md` п.6 — двухслойная авторизация (loopback-MVP +
+    JWT), п.8 — Dependabot и pip-audit-блокирующий закрыты;
+  - `docs/ROADMAP.md` — закрыты пункты OCR, PostgreSQL, JWT/RBAC,
+    метрики; в `Далее` — миграция user store в БД, ADR-008;
+  - `docs/IMPLEMENTATION_STATUS.md` — убрано «Личный кабинет» из
+    `Not implemented` (уже реализован 0.17); 242 → 244 теста;
+  - `docs/EVALUATION.md` — 24 → 37 регрессионных сценариев;
+  - `.env.example` — `SO_METRICS_ENABLED`.
+- `docs/AUDIT_REPORT.md` закоммичен ранее (0.17), ссылка из STATUS.
+
 ## 0.18 — метрики конвейера, ревёрт R-009 (2026-09-02)
 
 - `src/second_opinion/metrics.py` — внутренние метрики конвейера

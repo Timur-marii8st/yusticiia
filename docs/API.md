@@ -2,17 +2,23 @@
 
 Базовый адрес: `http://127.0.0.1:8000` (loopback). Все ответы — JSON.
 
-**Авторизация (опционально).** Если задан `SO_AUTH_TOKEN`, все `/api/*`
-требуют заголовок `Authorization: Bearer <токен>`; без него — `401`.
-`/health`, `/` и `/static/*` открыты всегда. Интерактивная спецификация:
-`/docs` (Swagger UI, генерируется FastAPI).
+**Авторизация.** Два независимых слоя:
+- `SO_AUTH_TOKEN` — общий Bearer-секрет для loopback-MVP. Если задан,
+  все `/api/*` требуют `Authorization: Bearer <токен>`; без него — `401`.
+  `/health`, `/metrics`, `/` и `/static/*` открыты всегда.
+- JWT (`/api/auth/login`) — персональные учётные записи. После `login`
+  все защищённые эндпоинты принимают `Authorization: Bearer <access_token>`.
+  Роли: `judge` (по умолчанию), `clerk`, `admin`. Роль `admin` обязательна
+  для `/api/auth/users` CRUD.
+
+Интерактивная спецификация: `/docs` (Swagger UI, генерируется FastAPI).
 
 ## Документы
 
 | Метод и путь | Назначение | Коды |
 |---|---|---|
 | `POST /api/documents` | создать документ из текста `{filename, text}` | 200; 400 — пусто/неподдерживаемый формат/превышен лимит |
-| `POST /api/documents/upload` | загрузить файл (multipart, поле `file`); TXT/MD/DOCX/PDF с текстовым слоем | 200; 400 |
+| `POST /api/documents/upload` | загрузить файл (multipart, поле `file`); TXT/MD/DOCX/PDF с текстовым слоем, опционально OCR для сканов | 200; 400 |
 | `GET /api/documents/{id}` | текст документа + SHA-256 | 200; 404 |
 | `DELETE /api/documents/{id}` | удалить документ **и все отчёты по нему** (каскад) | 200; 404 |
 
@@ -45,11 +51,30 @@
 |---|---|---|
 | `GET /api/cases?article=&part=&limit=` | синтетические дела базы (справочно) | 200 |
 
+## Аутентификация и управление пользователями
+
+| Метод и путь | Назначение | Коды |
+|---|---|---|
+| `POST /api/auth/login` | вход: `{"email", "password"}` → `{"user", "tokens": {access, refresh, expires_in}}` | 200; 401 |
+| `POST /api/auth/refresh` | обновить access-токен: `{"refresh_token"}` | 200; 401 |
+| `GET /api/auth/me` | текущий пользователь (по access-токену) | 200; 401 |
+| `POST /api/auth/change-password` | смена пароля: `{"current_password", "new_password"}` | 200; 400; 401 |
+| `POST /api/auth/logout` | выход (клиент обязан удалить токены; in-memory blacklist) | 200; 401 |
+| `GET /api/auth/users` | список пользователей (только admin) | 200; 401; 403 |
+| `POST /api/auth/users` | создать пользователя (admin): `{"email", "password", "full_name", "role"}` | 201; 400 (дубликат email, слабый пароль); 401; 403 |
+| `PATCH /api/auth/users/{user_id}` | обновить пользователя (admin): `{"full_name?", "role?", "is_active?", "password?"}` | 200; 401; 403; 404 |
+| `DELETE /api/auth/users/{user_id}` | удалить пользователя (admin) | 204; 401; 403; 404 |
+
+Хранилище пользователей — `AuthService` in-memory (`dict[str, User]`). MVP:
+один процесс, без транзакций и без восстановления после рестарта (см.
+`docs/ROADMAP.md` и `SECURITY.md` п. 6). Миграция на PostgreSQL — ADR-006.
+
 ## Служебные
 
 | Метод и путь | Назначение |
 |---|---|
-| `GET /health` | `{"status": "ok", "version": …}` |
+| `GET /health` | `{"status": "ok", "version": …}` (открыт без auth) |
+| `GET /metrics` | снимок внутренних метрик конвейера. Если `SO_METRICS_ENABLED != 1` — `{"enabled": false}`. Иначе `{"enabled": true, "metrics": {"counters": {...}, "histograms": {...}}}`. Открыт без auth (loopback-MVP). |
 | `/`, `/static/*` | UI анализа |
 
 ## Инварианты (действуют на всех эндпоинтах)
@@ -61,3 +86,4 @@
 3. Текст документа — недоверенные данные (prompt injection не меняет
    поведение системы).
 4. Статистика по делам — только описательная.
+5. Любой auth-эндпоинт `users` (CRUD) требует роль `admin`.
