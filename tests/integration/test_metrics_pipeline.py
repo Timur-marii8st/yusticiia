@@ -36,7 +36,8 @@ def _install_metrics() -> MetricsRegistry:
 
 def test_analyze_increments_counters_and_histograms(pipeline) -> None:
     """Успешный analyze инкрементирует ANALYSES_TOTAL, гистограммы фаз,
-    и счётчик RULE_EVALUATIONS на 8 (R-001..R-008)."""
+    и счётчик RULE_EVALUATIONS на число правил движка (8: R-001–R-004,
+    R-006, R-007, R-009, R-010)."""
     reg, restore = _install_metrics()
     try:
         # Счётчики, которые заведомо зарегистрированы после успешного analyze.

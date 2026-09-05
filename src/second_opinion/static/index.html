@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+  <a class="skip-link" href="#upload-panel">Перейти к форме анализа</a>
   <header class="topbar">
     <div class="brand">
       <span class="brand-name">Второе мнение</span>
@@ -25,10 +26,14 @@
         только в текущей сессии браузера.
       </p>
       <div class="controls">
-        <input type="password" id="auth-token" size="36"
-          placeholder="Токен доступа…">
+        <label class="visually-hidden" for="auth-token">Токен доступа</label>
+        <input type="password" id="auth-token" size="36" autocomplete="off"
+          placeholder="Токен доступа…" aria-describedby="auth-hint">
         <button id="auth-save" class="primary">Сохранить</button>
       </div>
+      <p class="hint" id="auth-hint">
+        Токен нужен, только если развёртывание защищено общим секретом.
+      </p>
     </div>
 
     <section class="panel" id="upload-panel">
@@ -37,6 +42,7 @@
         Вставьте текст проекта судебного акта или выберите файл
         (TXT, MD, DOCX, PDF с текстовым слоем).
       </p>
+      <label class="visually-hidden" for="doc-text">Текст проекта судебного акта</label>
       <textarea id="doc-text" rows="10"
         placeholder="Текст проекта судебного акта…"></textarea>
       <div class="controls">
@@ -51,7 +57,7 @@
         <button id="analyze-btn" class="primary">Проанализировать</button>
         <button id="demo-btn" class="secondary">Демо-образец</button>
       </div>
-      <div id="upload-error" class="error" hidden></div>
+      <div id="upload-error" class="error" role="alert" aria-live="assertive" hidden></div>
     </section>
 
     <div id="results" hidden>
@@ -73,12 +79,14 @@
         <details class="add-fact-box" id="add-fact-box" hidden>
           <summary>Добавить обстоятельство вручную</summary>
           <div class="controls">
+            <label class="visually-hidden" for="new-fact-type">Тип обстоятельства</label>
             <select id="new-fact-type"></select>
           </div>
           <div class="controls">
             <span id="new-fact-value-input"></span>
           </div>
           <div class="controls">
+            <label class="visually-hidden" for="new-fact-quote">Точная цитата из документа</label>
             <textarea id="new-fact-quote" rows="3"
               placeholder="Точная цитата из документа (скопируйте без изменений)…"></textarea>
           </div>
@@ -104,12 +112,13 @@
           с редакцией и реквизитами. Если ничего не найдено, система не додумывает.
         </p>
         <div class="controls">
+          <label class="visually-hidden" for="search-query">Поиск по базе норм</label>
           <input type="search" id="search-query"
             placeholder="Например: предел наказания при покушении" size="42">
           <button id="search-btn" class="secondary">Найти</button>
         </div>
-        <div id="search-error" class="error" hidden></div>
-        <ul id="search-results" class="items"></ul>
+        <div id="search-error" class="error" role="alert" aria-live="assertive" hidden></div>
+        <ul id="search-results" class="items" aria-live="polite"></ul>
       </section>
 
       <section class="panel">

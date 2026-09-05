@@ -94,7 +94,7 @@ def test_hybrid_empty_query_returns_empty(hybrid_rag: LegalRag) -> None:
 
 
 def test_hybrid_no_results_for_absent_topic(hybrid_rag: LegalRag) -> None:
-    assert hybrid_rag.search("взятка должностному лицу") == []
+    assert hybrid_rag.search("шпионаж государственная измена диверсия") == []
 
 
 def test_hybrid_respects_limit(hybrid_rag: LegalRag) -> None:

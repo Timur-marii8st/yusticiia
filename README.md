@@ -99,8 +99,8 @@ src/second_opinion/
     storage/           # файловые и Postgres-репозитории за интерфейсом
     static/            # UI (vanilla JS, без шага сборки)
     prompts/           # версионируемые промпты (часть пакета)
-data/fixtures/         # фикстуры: нормы (draft), СИНТЕТИЧЕСКИЕ дела, образцы
-tests/                 # unit + integration (244 зелёных)
+data/fixtures/         # нормы (verified 03.09.2026) + демо, СИНТЕТИЧЕСКИЕ дела, образцы
+tests/                 # unit + integration (271 зелёный)
 evaluation/            # метрики и датасеты (make eval)
 docs/                  # документация, ADR и AUDIT_REPORT.md
 ```
@@ -159,8 +159,11 @@ second-opinion eval     # или: make eval
 
 ## Статус данных (важно)
 
-- Нормы в `data/fixtures/norms/` — черновые (`verification_status: draft`):
-  перед демонстрацией обязательна сверка с официальным источником.
+- Нормы в `data/fixtures/norms/` — сверены юристом по КонсультантПлюс
+  03.09.2026 (`verification_status: verified`; синтетическая демо-норма
+  ст. 999 — исключение). Это точные изложения со ссылкой на первоисточник,
+  а не официальный текст: перед судебной демонстрацией — контрольная
+  сверка с КП.
 - Дела в `data/fixtures/cases/` — СИНТЕТИЧЕСКИЕ и явно маркируются.
 
 ## Запуск в Docker

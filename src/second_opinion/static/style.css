@@ -13,6 +13,35 @@
 
 * { box-sizing: border-box; }
 
+/* Доступность: skip-link и скрытые подписи. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background: var(--accent);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 0 0 6px 0;
+  z-index: 100;
+}
+.skip-link:focus { left: 0; }
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0; border: 0;
+  clip: rect(0 0 0 0);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* Видимый фокус для клавиатурной навигации. */
+a:focus-visible, button:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible, summary:focus-visible,
+.fact-title:focus-visible, .eval-title:focus-visible, .case-title:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
 body {
   margin: 0;
   background: var(--bg);
@@ -156,10 +185,31 @@ table.stats td, table.stats th {
 }
 table.stats th { background: #f2f5f8; font-weight: 600; }
 
-.report-actions { display: flex; gap: 8px; margin-bottom: 10px; }
+.report-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 .report-actions a.secondary {
   display: inline-block; text-decoration: none;
   padding: 6px 14px;
+}
+
+/* Адаптивность: узкие экраны (планшет/телефон). */
+@media (max-width: 720px) {
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 12px 16px;
+  }
+  .brand-sub { margin-left: 0; }
+  main { margin: 12px auto; padding: 0 12px 40px; }
+  .panel { padding: 14px 14px; }
+  .card .kv { flex-wrap: wrap; }
+  .card .kv .k { min-width: 0; flex: 1 1 100%; }
+  .detail { margin-left: 0; }
+  .controls button, .controls input[type="search"],
+  .controls input[type="date"] { max-width: 100%; }
+  #search-query { width: 100%; }
+  table.stats { display: block; overflow-x: auto; }
+  textarea { font-size: 14px; }
 }
 
 /* Печатная версия отчёта: только содержательный анализ. */

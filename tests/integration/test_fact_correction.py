@@ -79,16 +79,16 @@ def test_value_correction_recomputes_rules(pipeline) -> None:
     term = _fact(report, FactType.PUNISHMENT_TERM)
     assert term.value == 18.0
 
-    # Судья исправил срок на 25 мес.: особый порядок + п. «к» → предел 1/3 (20 мес.)
-    updated = pipeline.update_fact(report.analysis_id, term.id, value=25.0)
+    # Судья исправил срок на 45 мес.: особый порядок → предел 2/3 (40 мес.)
+    updated = pipeline.update_fact(report.analysis_id, term.id, value=45.0)
     corrected = next(f for f in updated.facts if f.id == term.id)
     assert corrected.status is FactStatus.VERIFIED
     assert corrected.extraction_method is ExtractionMethod.USER
 
-    r005 = next(e for e in updated.evaluations if e.rule_id == "R-005")
-    assert r005.status.value == "FAIL"
-    assert r005.numbers["term_months"] == 25.0
-    assert updated.case_facts.sentence.term_months == 25.0
+    r003 = next(e for e in updated.evaluations if e.rule_id == "R-003")
+    assert r003.status.value == "FAIL"
+    assert r003.numbers["term_months"] == 45.0
+    assert updated.case_facts.sentence.term_months == 45.0
 
 
 def test_unknown_statuses_and_ids_rejected(pipeline) -> None:

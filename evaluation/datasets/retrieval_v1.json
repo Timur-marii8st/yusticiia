@@ -25,7 +25,7 @@
     {
       "id": "q05",
       "query": "условное осуждение при лишении свободы до восьми лет",
-      "relevant": ["uk-rf:art-73", "ppvs-rf:n58-p34"]
+      "relevant": ["uk-rf:art-73"]
     },
     {
       "id": "q06",
@@ -64,7 +64,7 @@
     },
     {
       "id": "q13",
-      "query": "взятка должностному лицу через посредника",
+      "query": "шпионаж государственная измена диверсия",
       "relevant": [],
       "expect_empty": true
     },
@@ -75,8 +75,23 @@
     },
     {
       "id": "q15",
-      "query": "условное осуждение пленум верховного суда разъяснение к статье 73",
+      "query": "порядок исчисления пределов наказания две трети смягчающие неоконченное преступление",
       "relevant": ["ppvs-rf:n58-p34"]
+    },
+    {
+      "id": "q16",
+      "query": "особый порядок несовершеннолетний выделение дела общий порядок",
+      "relevant": ["upk-rf:art-420", "ppvs-rf:n60-p7"]
+    },
+    {
+      "id": "q17",
+      "query": "две трети особый порядок наиболее строгое наказание шестьдесят вторая",
+      "relevant": ["uk-rf:art-62", "ppvs-rf:n60-p13"]
+    },
+    {
+      "id": "q18",
+      "query": "приготовление покушение особый порядок последовательность применения",
+      "relevant": ["uk-rf:art-66", "ppvs-rf:n60-p14"]
     }
   ],
   "temporal_cases": [
@@ -103,12 +118,22 @@
     {
       "norm_id": "uk-rf:art-158-part-1",
       "applicable_at": "2005-01-01",
-      "expected_version_id": "v-1996"
+      "expected_version_id": "v-2003"
     },
     {
       "norm_id": "uk-rf:art-158-part-1",
       "applicable_at": "2015-01-01",
-      "expected_version_id": "v-2011"
+      "expected_version_id": "v-2003"
+    },
+    {
+      "norm_id": "uk-rf:art-62",
+      "applicable_at": "2005-01-01",
+      "expected_version_id": "v-1997"
+    },
+    {
+      "norm_id": "uk-rf:art-62",
+      "applicable_at": "2015-01-01",
+      "expected_version_id": "v-2009"
     }
   ]
 }

@@ -264,16 +264,18 @@ class StageLimitRule(_BaseSanctionRule):
 
 
 class SpecialProcedureLimitRule(_BaseSanctionRule):
-    """Особый порядок: срок не более 2/3 максимума санкции (ст. 62 ч. 2 УК РФ)."""
+    """Особый порядок: срок не более 2/3 максимума санкции (ч. 5 ст. 62 УК РФ, ч. 7 ст. 316 УПК РФ)."""
 
     rule_id = "R-003"
     version = "1.0.0"
-    title = "Предел при особом порядке (ст. 62 ч. 2 УК РФ)"
+    title = "Предел при особом порядке (ч. 5 ст. 62 УК РФ, ч. 7 ст. 316 УПК РФ)"
     description = (
         "При постановлении приговора в особом порядке (гл. 40 УПК РФ) наказание "
-        "не может превышать 2/3 максимального срока наиболее строгого вида наказания."
+        "не может превышать 2/3 максимального срока наиболее строгого вида наказания "
+        "(ч. 7 ст. 316 УПК РФ, материально-правовой дубль — ч. 5 ст. 62 УК РФ; "
+        "см. п. 13 ППВС № 60)."
     )
-    norm_refs = ["uk-rf:art-62"]
+    norm_refs = ["uk-rf:art-62", "upk-rf:art-316"]
 
     def evaluate(self, context) -> RuleEvaluation:
         case: CaseFacts = context.case_facts
@@ -287,7 +289,7 @@ class SpecialProcedureLimitRule(_BaseSanctionRule):
             return self._evaluation(
                 status=RuleStatus.PASS,
                 headline=f"{self.title}: не применимо",
-                explanation="Дело рассмотрено не в особом порядке; ограничение ст. 62 ч. 2 УК РФ не применяется.",
+                explanation="Дело рассмотрено не в особом порядке; ограничение ч. 5 ст. 62 УК РФ (ч. 7 ст. 316 УПК РФ) не применяется.",
             )
         early, data = self._prepare(context)
         if early is not None:
@@ -295,7 +297,8 @@ class SpecialProcedureLimitRule(_BaseSanctionRule):
         limit = data["max_months"] * 2 / 3
         term = float(case.sentence.term_months or 0)
         norms_used = self._norm_refs(data["version"], data["norm"].ref) + [
-            NormRef(norm_id="uk-rf:art-62", version_id="", ref="УК РФ ст. 62 ч. 2")
+            _versioned_ref(context, "uk-rf:art-62", "УК РФ ст. 62 ч. 5"),
+            _versioned_ref(context, "upk-rf:art-316", "УПК РФ ст. 316 ч. 7"),
         ]
         facts_used = [
             f.id
@@ -417,48 +420,63 @@ class MitigatingTwoThirdsRule(_BaseSanctionRule):
         )
 
 
-class CombinedLimitRule(_BaseSanctionRule):
-    """Одновременно ч. 1 и ч. 2 ст. 62 УК РФ: срок не более 1/3 максимума (ч. 3 ст. 62)."""
+class SequentialLimitRule(_BaseSanctionRule):
+    """Неоконченное преступление в особом порядке: M × доля ст. 66 × 2/3 (п. 14 ППВС № 60)."""
 
-    rule_id = "R-005"
+    rule_id = "R-010"
     version = "1.0.0"
-    title = "Совокупный предел ст. 62 ч. 1 и ч. 2 УК РФ"
+    title = "Комбинированный предел: неоконченное в особом порядке"
     description = (
-        "При одновременном наличии условий ч. 1 и ч. 2 ст. 62 УК РФ наказание "
-        "не может превышать 1/3 максимума санкции (ч. 3 ст. 62 УК РФ)."
+        "При неоконченном преступлении, рассмотренном в особом порядке, "
+        "пределы применяются последовательно: сначала ст. 66 УК РФ, затем "
+        "2/3 ч. 5 ст. 62 УК РФ (п. 14 ППВС № 60). Покушение: M × 3/4 × 2/3; "
+        "приготовление: M × 1/2 × 2/3."
     )
-    norm_refs = ["uk-rf:art-62"]
+    norm_refs = ["uk-rf:art-66", "uk-rf:art-62", "ppvs-rf:n60-p14"]
+
+    _FRACTIONS = {
+        OffenseStage.ATTEMPT.value: (0.75, "покушение"),
+        OffenseStage.PREPARATION.value: (0.5, "приготовление"),
+    }
 
     def evaluate(self, context) -> RuleEvaluation:
         case: CaseFacts = context.case_facts
-        has_ik = bool(case.mitigating_codes() & MITIGATING_IK_CODES)
-        if not (case.procedural.special_procedure and has_ik and not case.has_aggravating):
+        stage = case.offense.stage
+        if stage not in self._FRACTIONS:
             return self._evaluation(
                 status=RuleStatus.PASS,
                 headline=f"{self.title}: не применимо",
-                explanation=(
-                    "Условия ч. 1 и ч. 2 ст. 62 УК РФ не выполняются одновременно; "
-                    "предел ч. 3 ст. 62 УК РФ не применяется."
-                ),
+                explanation="Преступление квалифицировано как оконченное; комбинированный предел не применяется.",
+            )
+        if case.procedural.special_procedure is None:
+            return self._unknown(
+                ["признак рассмотрения дела в особом порядке"],
+                "Неоконченное преступление обнаружено, но признак особого порядка "
+                "не извлечён; комбинированную проверку выполнить нельзя.",
+            )
+        if not case.procedural.special_procedure:
+            return self._evaluation(
+                status=RuleStatus.PASS,
+                headline=f"{self.title}: не применимо",
+                explanation="Дело рассмотрено не в особом порядке; применяется только предел ст. 66 УК РФ (см. R-002).",
             )
         early, data = self._prepare(context)
         if early is not None:
             return early
-        limit = data["max_months"] / 3
+        fraction, stage_title = self._FRACTIONS[stage]
+        limit = data["max_months"] * fraction * 2 / 3
         term = float(case.sentence.term_months or 0)
         norms_used = self._norm_refs(data["version"], data["norm"].ref) + [
-            NormRef(norm_id="uk-rf:art-62", version_id="", ref="УК РФ ст. 62 ч. 3")
+            _versioned_ref(context, "uk-rf:art-66", "УК РФ ст. 66"),
+            _versioned_ref(context, "uk-rf:art-62", "УК РФ ст. 62 ч. 5"),
+            _versioned_ref(context, "ppvs-rf:n60-p14", "ППВС № 60 п. 14"),
         ]
         facts_used = [
             f.id
-            for f in _facts_of_type(case, FactType.SPECIAL_PROCEDURE)
+            for f in _facts_of_type(case, FactType.OFFENSE_STAGE)
+            + _facts_of_type(case, FactType.SPECIAL_PROCEDURE)
             + _facts_of_type(case, FactType.PUNISHMENT_TERM)
             + _facts_of_type(case, FactType.QUALIFICATION)
-        ] + [
-            fact_id
-            for mitigating in case.mitigating
-            if mitigating.code in MITIGATING_IK_CODES
-            for fact_id in mitigating.fact_ids
         ]
         numbers = {
             "term_months": term,
@@ -470,8 +488,9 @@ class CombinedLimitRule(_BaseSanctionRule):
                 status=RuleStatus.FAIL,
                 headline=f"{self.title}: возможно нарушение предела",
                 explanation=(
-                    f"Особый порядок + смягчающие пп. «и»/«к»: назначено {term:.0f} мес. "
-                    f"при пределе {limit:.0f} мес. (1/3 от {data['max_months']:.0f} мес.)."
+                    f"Стадия — {stage_title}, особый порядок: назначено {term:.0f} мес. "
+                    f"при пределе {limit:.0f} мес. ({fraction:.0%} × 2/3 от максимума "
+                    f"санкции {data['max_months']:.0f} мес.)."
                 ),
                 facts_used=facts_used,
                 norms_used=norms_used,
@@ -480,7 +499,10 @@ class CombinedLimitRule(_BaseSanctionRule):
         return self._evaluation(
             status=RuleStatus.PASS,
             headline=f"{self.title}: предел соблюдён",
-            explanation=f"Назначено {term:.0f} мес. при пределе {limit:.0f} мес.",
+            explanation=(
+                f"Стадия — {stage_title}, особый порядок: назначено {term:.0f} мес. "
+                f"при пределе {limit:.0f} мес."
+            ),
             facts_used=facts_used,
             norms_used=norms_used,
             numbers=numbers,
@@ -488,19 +510,20 @@ class CombinedLimitRule(_BaseSanctionRule):
 
 
 class SuspendedLimitRule(LegalRule):
-    """Условное осуждение возможно при лишении свободы до 8 лет (ст. 73 ч. 3 УК РФ)."""
+    """Условное осуждение возможно при лишении свободы до 8 лет (ч. 1 ст. 73 УК РФ)."""
 
     rule_id = "R-006"
     version = "1.0.0"
-    title = "Предел условного осуждения (ст. 73 ч. 3 УК РФ)"
+    title = "Предел условного осуждения (ч. 1 ст. 73 УК РФ)"
     description = (
-        "Условное осуждение назначается при лишении свободы на срок до 8 лет."
+        "Условное осуждение назначается при лишении свободы на срок до 8 лет "
+        "(ч. 1 ст. 73 УК РФ)."
     )
     norm_refs = ["uk-rf:art-73"]
 
     def evaluate(self, context) -> RuleEvaluation:
         case: CaseFacts = context.case_facts
-        norm_ref = NormRef(norm_id="uk-rf:art-73", version_id="", ref="УК РФ ст. 73 ч. 3")
+        norm_ref = NormRef(norm_id="uk-rf:art-73", version_id="", ref="УК РФ ст. 73 ч. 1")
         if case.sentence.suspended is None:
             return self._unknown(
                 ["признак условного осуждения"],
@@ -556,12 +579,13 @@ class MinorSpecialProcedureRule(LegalRule):
 
     rule_id = "R-007"
     version = "1.0.0"
-    title = "Особый порядок и несовершеннолетие (ч. 2 ст. 420 УПК РФ)"
+    title = "Особый порядок и несовершеннолетие (ч. 2 ст. 420 УПК РФ, п. 7 ППВС № 60)"
     description = (
-        "Особый порядок судебного разбирательства не применяется по уголовным "
-        "делам о преступлениях, совершённых лицом до достижения 18 лет."
+        "Производство по делам о преступлениях несовершеннолетних ведется "
+        "в общем порядке (ч. 2 ст. 420 УПК РФ); невыделенное дело с участием "
+        "несовершеннолетнего рассматривается в общем порядке (п. 7 ППВС № 60)."
     )
-    norm_refs = ["upk-rf:art-420"]
+    norm_refs = ["upk-rf:art-420", "ppvs-rf:n60-p7"]
 
     def evaluate(self, context) -> RuleEvaluation:
         case: CaseFacts = context.case_facts
@@ -583,7 +607,8 @@ class MinorSpecialProcedureRule(LegalRule):
                 explanation="Дело рассматривалось без особого порядка.",
                 facts_used=facts_used,
                 norms_used=[
-                    _versioned_ref(context, "upk-rf:art-420", "УПК РФ ст. 420 ч. 2")
+                    _versioned_ref(context, "upk-rf:art-420", "УПК РФ ст. 420 ч. 2"),
+                    _versioned_ref(context, "ppvs-rf:n60-p7", "ППВС № 60 п. 7"),
                 ],
             )
 
@@ -597,7 +622,8 @@ class MinorSpecialProcedureRule(LegalRule):
                 "недопустимость по возрасту нельзя.",
             )
         norms_used = [
-            _versioned_ref(context, "upk-rf:art-420", "УПК РФ ст. 420 ч. 2")
+            _versioned_ref(context, "upk-rf:art-420", "УПК РФ ст. 420 ч. 2"),
+            _versioned_ref(context, "ppvs-rf:n60-p7", "ППВС № 60 п. 7"),
         ]
         numbers = {"age": float(age)}
         if age < 18:
@@ -606,10 +632,11 @@ class MinorSpecialProcedureRule(LegalRule):
                 headline=f"{self.title}: возможно нарушение",
                 explanation=(
                     f"Дело рассмотрено в особом порядке, при этом из документа "
-                    f"следует возраст {age} год(а)/лет. По ч. 2 ст. 420 УПК РФ "
-                    "особый порядок не применяется к делам о преступлениях "
-                    "несовершеннолетних. Проверьте возраст лица на момент "
-                    "деяния и дату его достижения совершеннолетия."
+                    f"следует возраст {age} год(а)/лет. Ч. 2 ст. 420 УПК РФ требует "
+                    "производства по делам несовершеннолетних в общем порядке "
+                    "(с изъятиями гл. 50), а п. 7 ППВС № 60 — рассмотрения всего "
+                    "невыделенного дела в общем порядке. Проверьте возраст лица "
+                    "на момент деяния и дату его достижения совершеннолетия."
                 ),
                 facts_used=facts_used,
                 norms_used=norms_used,
@@ -629,74 +656,68 @@ class MinorSpecialProcedureRule(LegalRule):
         )
 
 
-class RecidivismMitigatingConflictRule(LegalRule):
-    """Рецидив не учитывается при смягчающих пп. «и»/«к» (ч. 2 ст. 63 УК РФ)."""
+class SentenceCompletenessRule(LegalRule):
+    """Полнота данных о наказании: вид и размер извлекаются только парой.
 
-    rule_id = "R-008"
+    Структурная проверка качества извлечения, а не нормативное ограничение:
+    если извлечён размер срока без вида наказания (или наоборот), проверки
+    пределов (R-001, R-002, R-006) не могут отработать корректно. Статус
+    WARNING подсвечивает неполноту, а не нарушение закона.
+    """
+
+    rule_id = "R-009"
     version = "1.0.0"
-    title = "Рецидив и смягчающие пп. «и»/«к» (ч. 2 ст. 63 УК РФ)"
+    title = "Полнота данных о наказании"
     description = (
-        "Если судом установлены смягчающие обстоятельства, предусмотренные "
-        "пунктами «и» и (или) «к» ч. 1 ст. 61 УК РФ, отягчающее обстоятельство "
-        "«рецидив преступлений» (п. «а» ч. 1 ст. 63 УК РФ) не учитывается "
-        "при назначении наказания."
+        "Вид назначенного наказания и его размер должны присутствовать "
+        "вместе: одиночный факт без пары означает неполное извлечение "
+        "и делает проверки пределов недостоверными."
     )
-    norm_refs = ["uk-rf:art-63", "uk-rf:art-61"]
+    norm_refs: list[str] = []
 
     def evaluate(self, context) -> RuleEvaluation:
         case: CaseFacts = context.case_facts
-        ik_codes = MITIGATING_IK_CODES & case.mitigating_codes()
-        recidivism_factors = [
-            factor for factor in case.aggravating if factor.code == "63.1.а"
+        has_type = case.sentence.punishment_type is not None
+        has_term = case.sentence.term_months is not None
+        facts_used = [
+            f.id
+            for f in _facts_of_type(case, FactType.PUNISHMENT_TYPE)
+            + _facts_of_type(case, FactType.PUNISHMENT_TERM)
         ]
-
-        facts_used = sorted(
-            {
-                fact_id
-                for factor in case.mitigating
-                if factor.code in ik_codes
-                for fact_id in factor.fact_ids
-            }
-            | {
-                fact_id
-                for factor in recidivism_factors
-                for fact_id in factor.fact_ids
-            }
-        )
-        norms_used = [
-            _versioned_ref(context, "uk-rf:art-63", "УК РФ ст. 63 ч. 2"),
-            _versioned_ref(context, "uk-rf:art-61", "УК РФ ст. 61 ч. 1"),
-        ]
-
-        if not recidivism_factors or not ik_codes:
-            missing_desc = (
-                "смягчающие обстоятельства пп. «и»/«к» не установлены"
-                if not ik_codes
-                else "отягчающее «рецидив» не установлен"
+        if has_type and has_term:
+            return self._evaluation(
+                status=RuleStatus.PASS,
+                headline=f"{self.title}: данные полные",
+                explanation=(
+                    "Вид и размер наказания извлечены; проверки пределов "
+                    "санкции работают по полным данным."
+                ),
+                facts_used=facts_used,
             )
+        if not has_type and not has_term:
             return self._evaluation(
                 status=RuleStatus.PASS,
                 headline=f"{self.title}: не применимо",
                 explanation=(
-                    f"Сочетание отсутствует ({missing_desc}); правило ч. 2 "
-                    "ст. 63 УК РФ не задействуется."
+                    "Данных о назначенном наказании в извлечённых фактах нет "
+                    "(например, процессуальный документ); проверять нечего."
                 ),
                 facts_used=facts_used,
-                norms_used=norms_used,
             )
-
-        ik_titles = ", ".join(sorted(ik_codes))
+        missing = (
+            "вид назначенного наказания"
+            if not has_type
+            else "размер назначенного наказания"
+        )
         return self._evaluation(
             status=RuleStatus.WARNING,
-            headline=f"{self.title}: требует внимания",
+            headline=f"{self.title}: неполные данные",
             explanation=(
-                f"Одновременно установлены смягчающие обстоятельства "
-                f"({ik_titles}) и отягчающее «рецидив преступлений». По "
-                "ч. 2 ст. 63 УК РФ это отягчающее обстоятельство в такой "
-                "ситуации НЕ учитывается при назначении наказания. Проверьте, "
-                "как оно отражено в мотивировке акта."
+                f"Извлечён только один элемент пары ({missing} отсутствует): "
+                "проверки пределов санкции по такому делу недостоверны. "
+                "Проверьте резолютивную часть акта вручную."
             ),
             facts_used=facts_used,
-            norms_used=norms_used,
+            missing=[missing],
         )
 

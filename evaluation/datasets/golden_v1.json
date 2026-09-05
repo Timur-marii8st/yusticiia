@@ -163,6 +163,39 @@
         "punishment_term",
         "suspended_sentence"
       ]
+    },
+    {
+      "id": "sample-163-jury-preparation",
+      "path": "data/fixtures/sample_documents/sample_163_jury_preparation.txt",
+      "expected_types": [
+        "qualification",
+        "defendant_age",
+        "date_of_offense",
+        "jury_trial",
+        "offense_stage",
+        "punishment_type",
+        "punishment_term"
+      ]
+    },
+    {
+      "id": "sample-112-minor-restitution-suspended",
+      "path": "data/fixtures/sample_documents/sample_112_minor_restitution_suspended.txt",
+      "expected_types": [
+        "qualification",
+        "defendant_age",
+        "date_of_offense",
+        "minor_dependents",
+        "guilty_plea",
+        "restitution",
+        "punishment_type",
+        "punishment_term",
+        "suspended_sentence"
+      ]
+    },
+    {
+      "id": "sample-negative-expertise",
+      "path": "data/fixtures/sample_documents/sample_negative_expertise_order.txt",
+      "expected_types": []
     }
   ]
 }

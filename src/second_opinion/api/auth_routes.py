@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr, Field
 
-from ..auth.service import AuthService, get_auth_service, pwd_context
+from ..auth.service import (
+    AccountLockedError,
+    AuthService,
+    PasswordExpiredError,
+    get_auth_service,
+)
 from ..domain.users import User, UserRole
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -85,6 +89,12 @@ class ChangePasswordRequest(BaseModel):
     new_password: str = Field(min_length=8, max_length=72)
 
 
+class LogoutPayload(BaseModel):
+    """Тело выхода: опционально отозвать refresh токен."""
+
+    refresh_token: str | None = None
+
+
 class CreateUserRequest(BaseModel):
     """Запрос на создание пользователя (admin)."""
 
@@ -114,7 +124,18 @@ async def login(
     auth_service: AuthSvc,
 ) -> dict:
     """Вход в систему (email + пароль)."""
-    user = auth_service.authenticate(payload.email, payload.password)
+    try:
+        user = auth_service.authenticate(payload.email, payload.password)
+    except PasswordExpiredError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        ) from exc
+    except AccountLockedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        ) from exc
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -178,28 +199,31 @@ async def change_password(
     auth_service: AuthSvc,
 ) -> dict:
     """Смена пароля текущим пользователем."""
-    if not pwd_context.verify(payload.current_password, user.password_hash):
+    try:
+        auth_service.change_password(user, payload.current_password, payload.new_password)
+    except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Текущий пароль неверен",
-        )
-
-    if payload.new_password == payload.current_password:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Новый пароль не должен совпадать с текущим",
-        )
-
-    user.password_hash = pwd_context.hash(payload.new_password)
-    user.updated_at = datetime.now(UTC)
-    auth_service._users[user.user_id] = user  # Сохраняем изменения (in-memory)
+            detail=str(exc),
+        ) from exc
 
     return {"message": "Пароль успешно изменён"}
 
 
 @router.post("/logout")
-async def logout(_user: CurrentUser) -> dict:
-    """Выход из системы (клиент должен удалить токены)."""
+async def logout(
+    _user: CurrentUser,
+    auth_service: AuthSvc,
+    payload: LogoutPayload | None = None,
+) -> dict:
+    """Выход из системы.
+
+    Без тела — как раньше (клиент удаляет токены сам). Если передан
+    ``refresh_token`` — он отзывается (blacklist, ротация его инвалидирует).
+    """
+    body_token = payload.refresh_token if payload else None
+    if body_token:
+        auth_service.revoke_refresh_token(body_token)
     return {"message": "Успешный выход"}
 
 
@@ -224,7 +248,7 @@ async def list_users(
     auth_service: AuthSvc,
 ) -> list[dict]:
     """Список всех пользователей (только admin)."""
-    return [_user_to_dict(u) for u in auth_service._users.values()]
+    return [_user_to_dict(u) for u in auth_service.list_users()]
 
 
 @router.post("/users", response_model=dict, status_code=status.HTTP_201_CREATED)
@@ -279,10 +303,31 @@ async def update_user(
     if payload.is_active is not None:
         user_obj.is_active = payload.is_active
     if payload.password:
-        user_obj.password_hash = pwd_context.hash(payload.password)
+        try:
+            updated = auth_service.set_password(user_id, payload.password)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+            ) from exc
+        # set_password уже сохранил; подтянем свежий объект
+        user_obj = updated if updated else user_obj
+        # прочие поля могли измениться выше — сохраняем их тоже
+        if payload.full_name is not None or payload.role is not None or payload.is_active is not None:
+            auth_service.save_user(user_obj)
+        return _user_to_dict(user_obj)
 
-    user_obj.updated_at = datetime.now(UTC)
+    auth_service.save_user(user_obj)
     return _user_to_dict(user_obj)
+
+
+@router.get("/audit", response_model=list[dict])
+async def login_audit(
+    _admin: Annotated[User, Depends(require_role(UserRole.ADMIN))],
+    auth_service: AuthSvc,
+    limit: int = 100,
+) -> list[dict]:
+    """Аудит входов (только admin, новые первыми, без паролей)."""
+    return [a.model_dump(mode="json") for a in auth_service.list_login_attempts(limit=limit)]
 
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

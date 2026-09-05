@@ -28,6 +28,15 @@ class AppConfig:
     storage_backend: str = "file"
     #: DSN PostgreSQL для storage_backend="postgres".
     database_url: str = ""
+    #: Максимальный возраст пароля в днях (0 — без ограничения).
+    #: При превышении вход отклоняется с требованием смены пароля.
+    password_max_age_days: int = 0
+    #: Глубина истории паролей (0 — не проверять повторы).
+    password_history_depth: int = 5
+    #: Максимум последовательных неудачных входов до блокировки (0 — без блокировки).
+    login_max_attempts: int = 5
+    #: Длительность блокировки входа в минутах.
+    login_lockout_minutes: int = 15
 
     @property
     def store_dir(self) -> Path:
@@ -73,6 +82,10 @@ def load_config() -> AppConfig:
         auth_token=_env("SO_AUTH_TOKEN"),
         storage_backend=_env("SO_STORAGE_BACKEND", "file") or "file",
         database_url=_env("SO_DATABASE_URL"),
+        password_max_age_days=int(_env("SO_PASSWORD_MAX_AGE_DAYS") or 0),
+        password_history_depth=int(_env("SO_PASSWORD_HISTORY_DEPTH") or 5),
+        login_max_attempts=int(_env("SO_LOGIN_MAX_ATTEMPTS") or 5),
+        login_lockout_minutes=int(_env("SO_LOGIN_LOCKOUT_MINUTES") or 15),
     )
 
 

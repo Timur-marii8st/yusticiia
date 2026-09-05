@@ -20,6 +20,7 @@ venv/
 # Runtime data (документы, отчёты анализа, аудит-журнал создаются приложением)
 data/store/
 data/raw/*
+data/raw_pravo/
 data/processed/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep

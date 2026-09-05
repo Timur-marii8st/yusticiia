@@ -29,7 +29,10 @@ def _months_from_tokens(tokens: list[tuple[int, str]]) -> float | None:
 
 
 _TERM_TOKEN = re.compile(
-    r"(\d+)\s+(лет|год(?:а|ов)?|мес(?:яцев|яца|ец)?\w*)", re.IGNORECASE
+    # Между числом и единицей типично стоит числительное прописью в скобках:
+    # «2 (два) года». Календарные годы («2025 года») отфильтровываются ниже.
+    r"(\d+)\s+(?:\([^)]*\)\s*)?(лет|год(?:а|ов)?|мес(?:яцев|яца|ец)?\w*)",
+    re.IGNORECASE,
 )
 
 
@@ -39,11 +42,14 @@ def _extract_term_months(window: str) -> tuple[float, int, int] | None:
     first_start: int | None = None
     last_end = -1
     for match in _TERM_TOKEN.finditer(window):
+        value, unit = int(match.group(1)), match.group(2).lower()
+        if 1900 <= value <= 2100 and unit.startswith(("год", "лет")):
+            continue  # календарный год, а не срок
         if last_end != -1 and match.start() - last_end > 10:
             break
         if first_start is None:
             first_start = match.start()
-        tokens.append((int(match.group(1)), match.group(2).lower()))
+        tokens.append((value, unit))
         last_end = match.end()
     months = _months_from_tokens(tokens) if tokens else None
     if not months or not tokens or first_start is None:

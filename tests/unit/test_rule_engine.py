@@ -205,28 +205,59 @@ def test_r004_not_applicable_without_ik(norm_store: NormStore) -> None:
     assert evaluation.status.value == "PASS"
 
 
-# -- R-005: совокупный предел ч. 3 ст. 62 --------------------------------------
+# -- R-010: неоконченное в особом порядке (п. 14 ППВС № 60) ---------------------
 
 
-def test_r005_combined_limit_fail(norm_store: NormStore) -> None:
+def test_r010_attempt_special_fail_over_combined_limit(norm_store: NormStore) -> None:
+    # ст. 158 ч. 2: макс 60; покушение в особом порядке ≤ 60 × 3/4 × 2/3 = 30
     evaluation = run(
-        norm_store, make_case(term=25, special=True, mitigating=("61.1.и",))
-    )["R-005"]
+        norm_store, make_case(stage="attempt", special=True, term=31)
+    )["R-010"]
     assert evaluation.status.value == "FAIL"
-    assert evaluation.numbers["limit_months"] == 20
+    assert evaluation.numbers["limit_months"] == 30
 
 
-def test_r005_combined_limit_pass_boundary(norm_store: NormStore) -> None:
+def test_r010_attempt_special_pass_boundary(norm_store: NormStore) -> None:
     evaluation = run(
-        norm_store, make_case(term=20, special=True, mitigating=("61.1.и",))
-    )["R-005"]
+        norm_store, make_case(stage="attempt", special=True, term=30)
+    )["R-010"]
     assert evaluation.status.value == "PASS"
 
 
-def test_r005_not_applicable_without_both_conditions(norm_store: NormStore) -> None:
-    evaluation = run(norm_store, make_case(term=25, special=True))["R-005"]
+def test_r010_preparation_special_limit(norm_store: NormStore) -> None:
+    # приготовление в особом порядке ≤ 60 × 1/2 × 2/3 = 20
+    ok = run(norm_store, make_case(stage="preparation", special=True, term=20))["R-010"]
+    assert ok.status.value == "PASS"
+    bad = run(norm_store, make_case(stage="preparation", special=True, term=21))["R-010"]
+    assert bad.status.value == "FAIL"
+    assert bad.numbers["limit_months"] == 20
+
+
+def test_r010_not_applicable_without_special(norm_store: NormStore) -> None:
+    evaluation = run(norm_store, make_case(stage="attempt", special=False))["R-010"]
     assert evaluation.status.value == "PASS"
     assert "не применимо" in evaluation.headline
+
+
+def test_r010_not_applicable_for_completed(norm_store: NormStore) -> None:
+    evaluation = run(norm_store, make_case(stage="completed", special=True))["R-010"]
+    assert evaluation.status.value == "PASS"
+
+
+def test_r010_unknown_when_procedure_missing(norm_store: NormStore) -> None:
+    evaluation = run(norm_store, make_case(stage="attempt", special=None))["R-010"]
+    assert evaluation.status.value == "UNKNOWN"
+    assert evaluation.missing
+
+
+def test_r010_cites_norm_versions(norm_store: NormStore) -> None:
+    evaluation = run(
+        norm_store, make_case(stage="attempt", special=True, term=31)
+    )["R-010"]
+    refs = {(n.norm_id, n.version_id) for n in evaluation.norms_used}
+    assert ("uk-rf:art-66", "v-current") in refs
+    assert ("uk-rf:art-62", "v-2009") in refs
+    assert ("ppvs-rf:n60-p14", "v-2021") in refs
 
 
 # -- R-006: условное осуждение --------------------------------------------------
@@ -264,7 +295,7 @@ def test_r006_unknown_without_suspended_fact(norm_store: NormStore) -> None:
 def test_conclusive_evaluation_cites_norm_version(norm_store: NormStore) -> None:
     evaluation = run(norm_store, make_case(term=66))["R-001"]
     refs = {(n.norm_id, n.version_id) for n in evaluation.norms_used}
-    assert ("uk-rf:art-158-part-2", "v-current") in refs
+    assert ("uk-rf:art-158-part-2", "v-2003") in refs
 
 
 def test_evaluation_records_used_fact_ids(norm_store: NormStore) -> None:
@@ -305,47 +336,40 @@ def test_r007_cites_upk_norm_version(norm_store: NormStore) -> None:
     evaluation = run(norm_store, make_case(special=True, age=17))["R-007"]
     refs = {(n.norm_id, n.version_id) for n in evaluation.norms_used}
     assert ("upk-rf:art-420", "v-current") in refs
+    assert ("ppvs-rf:n60-p7", "v-2021") in refs
 
 
-# -- R-008: рецидив и смягчающие пп. «и»/«к» ------------------------------------
+# -- R-008 удалено (см. CHANGELOG 0.22): ч. 2 ст. 63 УК РФ не устанавливает
+# специального соотношения рецидива и пп. «и»/«к»; корректное поведение
+# (рецидив блокирует ч. 1 ст. 62) уже покрыто тестом R-004
+# test_r004_not_applicable_with_aggravating. ------------------------------------
 
 
-def test_r008_recidivism_with_ik_mitigating_warns(norm_store: NormStore) -> None:
-    case = make_case(mitigating=("61.1.и",), aggravating=("63.1.а",))
-    evaluation = run(norm_store, case)["R-008"]
-    assert evaluation.status.value == "WARNING"
-    assert "не учитывается" in evaluation.explanation.lower()
-    # provenance: использованные факты указаны
-    assert evaluation.facts_used
+# -- R-009: полнота данных о наказании -------------------------------------------
 
 
-def test_r008_recidivism_only_passes(norm_store: NormStore) -> None:
-    case = make_case(aggravating=("63.1.а",))
-    evaluation = run(norm_store, case)["R-008"]
+def test_r009_complete_pair_passes(norm_store: NormStore) -> None:
+    evaluation = run(norm_store, make_case(term=18))["R-009"]
+    assert evaluation.status.value == "PASS"
+    assert "полные" in evaluation.headline
+    assert not evaluation.missing
+    assert evaluation.norms_used == []  # структурная проверка, нормы не толкует
+
+
+def test_r009_no_sentence_data_passes_as_not_applicable(norm_store: NormStore) -> None:
+    evaluation = run(norm_store, make_case(term=None, punishment_type=None))["R-009"]
     assert evaluation.status.value == "PASS"
     assert "не применимо" in evaluation.headline
 
 
-def test_r008_other_aggravating_without_ik_passes(norm_store: NormStore) -> None:
-    case = make_case(aggravating=("63.1.м",))
-    evaluation = run(norm_store, case)["R-008"]
-    assert evaluation.status.value == "PASS"
+def test_r009_term_without_type_warns(norm_store: NormStore) -> None:
+    evaluation = run(norm_store, make_case(term=18, punishment_type=None))["R-009"]
+    assert evaluation.status.value == "WARNING"
+    assert evaluation.missing == ["вид назначенного наказания"]
+    assert evaluation.facts_used  # присутствующий факт срока указан
 
 
-def test_r008_ik_without_recidivism_passes(norm_store: NormStore) -> None:
-    case = make_case(mitigating=("61.1.к",))
-    evaluation = run(norm_store, case)["R-008"]
-    assert evaluation.status.value == "PASS"
-
-
-def test_r008_non_ik_mitigating_with_recidivism_passes(norm_store: NormStore) -> None:
-    case = make_case(mitigating=("61.2",), aggravating=("63.1.а",))
-    evaluation = run(norm_store, case)["R-008"]
-    assert evaluation.status.value == "PASS"
-
-
-def test_r008_cites_art63_version(norm_store: NormStore) -> None:
-    case = make_case(mitigating=("61.1.и",), aggravating=("63.1.а",))
-    evaluation = run(norm_store, case)["R-008"]
-    refs = {(n.norm_id, n.version_id) for n in evaluation.norms_used}
-    assert ("uk-rf:art-63", "v-current") in refs
+def test_r009_type_without_term_warns(norm_store: NormStore) -> None:
+    evaluation = run(norm_store, make_case(term=None))["R-009"]
+    assert evaluation.status.value == "WARNING"
+    assert evaluation.missing == ["размер назначенного наказания"]

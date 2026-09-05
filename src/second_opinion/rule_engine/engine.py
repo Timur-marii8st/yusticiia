@@ -8,27 +8,27 @@ from ..domain.rules import RuleEvaluation
 from ..legal_sources.store import NormStore
 from .context import RuleContext
 from .rules import (
-    CombinedLimitRule,
     MinorSpecialProcedureRule,
     MitigatingTwoThirdsRule,
-    RecidivismMitigatingConflictRule,
     SanctionRangeRule,
+    SentenceCompletenessRule,
+    SequentialLimitRule,
     SpecialProcedureLimitRule,
     StageLimitRule,
     SuspendedLimitRule,
 )
 
-ENGINE_VERSION = "1.1.0"
+ENGINE_VERSION = "2.0.0"
 
 DEFAULT_RULES = (
     SanctionRangeRule,
     StageLimitRule,
     SpecialProcedureLimitRule,
     MitigatingTwoThirdsRule,
-    CombinedLimitRule,
+    SequentialLimitRule,
     SuspendedLimitRule,
     MinorSpecialProcedureRule,
-    RecidivismMitigatingConflictRule,
+    SentenceCompletenessRule,
 )
 
 

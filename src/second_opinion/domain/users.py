@@ -28,6 +28,14 @@ class User(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     last_login: datetime | None = None
+    #: Момент последней смены пароля (для истечения по SO_PASSWORD_MAX_AGE_DAYS).
+    password_changed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    #: Хэши предыдущих паролей (глубина — SO_PASSWORD_HISTORY_DEPTH).
+    password_history: list[str] = Field(default_factory=list)
+    #: Счётчик последовательных неудачных входов (сбрасывается успехом).
+    failed_login_attempts: int = 0
+    #: Вход заблокирован до момента (SO_LOGIN_MAX_ATTEMPTS / SO_LOGIN_LOCKOUT_MINUTES).
+    locked_until: datetime | None = None
 
     # Хэш пароля (не хранится в открытом виде)
     password_hash: str = ""
@@ -42,6 +50,8 @@ class TokenPayload(BaseModel):
     exp: datetime
     iat: datetime
     type: str = "access"  # "access" или "refresh"
+    #: Уникальный идентификатор токена (для ротации/blacklist refresh).
+    jti: str = Field(default_factory=lambda: uuid4().hex)
 
 
 class TokenPair(BaseModel):
@@ -76,3 +86,14 @@ class UserProfile(BaseModel):
     is_active: bool
     created_at: datetime
     last_login: datetime | None = None
+
+
+class LoginAttempt(BaseModel):
+    """Запись аудита входов (без паролей)."""
+
+    attempt_id: str = Field(default_factory=lambda: uuid4().hex)
+    email: EmailStr
+    user_id: str | None = None
+    success: bool = False
+    reason: str = ""
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

@@ -85,7 +85,9 @@ def test_fragments_come_from_stored_versions(norm_store: NormStore) -> None:
 
 def test_code_filter(norm_store: NormStore) -> None:
     hits = LegalRag(norm_store).search("наказание", code="УПК РФ")
-    assert hits == []
+    assert hits
+    assert all(hit.norm_id.startswith("upk-rf:") for hit in hits)
+    assert LegalRag(norm_store).search("наказание", code="ГПК РФ") == []
 
 
 def test_article_filter(norm_store: NormStore) -> None:

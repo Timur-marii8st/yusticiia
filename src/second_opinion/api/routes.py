@@ -66,8 +66,9 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
 
     rag = build_legal_rag(pipeline.norm_store)
 
-    # Поддержка обратной совместимости: если задан SO_AUTH_TOKEN, включаем
-    # простую Bearer-проверку для старых клиентов (помимо JWT)
+    # Двухслойная авторизация (ADR-008): если задан SO_AUTH_TOKEN, /api/*
+    # принимает общий секрет ИЛИ валидный JWT access-токен. /auth/login и
+    # /auth/refresh остаются открытыми (иначе вход невозможен).
     if auth_token:
 
         @app.middleware("http")
@@ -75,13 +76,24 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
             path = request.url.path
             if path.startswith("/api"):
                 header = request.headers.get("authorization", "")
-                if header != f"Bearer {auth_token}":
-                    from fastapi.responses import JSONResponse
+                if header == f"Bearer {auth_token}":
+                    return await call_next(request)
+                # Второй слой: JWT access-токен персональной учётки.
+                if header.startswith("Bearer "):
+                    from ..auth.service import get_auth_service
 
-                    return JSONResponse(
-                        status_code=401,
-                        content={"detail": "требуется авторизация"},
-                    )
+                    auth_service = get_auth_service()
+                    payload = auth_service.decode_token(header.split(" ", 1)[1])
+                    if payload and payload.type == "access":
+                        user = auth_service.get_user(payload.sub)
+                        if user and user.is_active:
+                            return await call_next(request)
+                from fastapi.responses import JSONResponse
+
+                return JSONResponse(
+                    status_code=401,
+                    content={"detail": "требуется авторизация"},
+                )
             return await call_next(request)
 
     # -- служебные ----------------------------------------------------------

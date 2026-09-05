@@ -1,41 +1,41 @@
 {
   "code": "УК РФ",
   "source_document": "Уголовный кодекс Российской Федерации от 13.06.1996 № 63-ФЗ",
-  "note": "ФИКСТУРЫ ДЛЯ РАЗРАБОТКИ/ТЕСТОВ. Значения санкций — черновые (verification_status: draft): перед любой демонстрацией сверить с официальным источником. Санкции отражают максимум лишения свободы по статье.",
+  "note": "Сверено юристом по КонсультантПлюс 03.09.2026 (редакция УК от 04.08.2026): максимумы лишения свободы — verification_status: verified. Исторические границы максимумов — по отчёту сверки. Промежуточные diffs альтернативных видов (ФЗ № 26-ФЗ) и дореформенная конструкция ст. 228 сознательно не реконструированы.",
   "norms": [
     {
       "norm_id": "uk-rf:art-158-part-1",
       "article": 158,
       "part": 1,
-      "title": "Кража (без квалифицирующих признаков) — санкция: черновик фикстуры",
+      "title": "Кража (без квалифицирующих признаков) — санкция",
       "versions": [
         {
           "version_id": "v-1996",
           "norm_id": "uk-rf:art-158-part-1",
-          "text": "ЧЕРНОВИК ФИКСТУРЫ (сверить с официальным источником): ч. 1 ст. 158 УК РФ — лишение свободы на срок до двух лет (редакция 1996–2011).",
+          "text": "Ч. 1 ст. 158 УК РФ в редакции 1996–2003 (сверено 03.09.2026): лишение свободы на срок до трех лет (36 мес.).",
           "sanctions": [
-            { "punishment_type": "imprisonment", "min_months": null, "max_months": 24 }
+            { "punishment_type": "imprisonment", "min_months": null, "max_months": 36 }
           ],
           "effective_from": "1996-07-01",
-          "effective_to": "2011-12-06",
-          "source_url": "http://www.consultant.ru/document/cons_doc_LAW_10699/",
-          "retrieved_at": "2026-08-26",
+          "effective_to": "2003-12-15",
+          "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/57b5c7b83fcd2cf40cabe2042f2d8f04ed6875ad/",
+          "retrieved_at": "2026-09-03",
           "sha256": "AUTOFILL",
-          "verification_status": "draft"
+          "verification_status": "verified"
         },
         {
-          "version_id": "v-2011",
+          "version_id": "v-2003",
           "norm_id": "uk-rf:art-158-part-1",
-          "text": "ЧЕРНОВИК ФИКСТУРЫ (сверить с официальным источником): ч. 1 ст. 158 УК РФ — лишение свободы на срок до двух лет (действующая редакция с 07.12.2011).",
+          "text": "Ч. 1 ст. 158 УК РФ (ред. ФЗ от 08.12.2003 № 162-ФЗ; сверено 03.09.2026): «лишением свободы на срок до двух лет» (24 мес.); денежные санкции переведены из МРОТ в рубли. ФЗ от 07.03.2011 № 26-ФЗ либерализовал нижние пределы отдельных альтернатив без увеличения максимума 2 года; ФЗ от 07.12.2011 № 420-ФЗ добавил альтернативы (обязательные работы до 360 ч., ограничение свободы и принудительные работы).",
           "sanctions": [
             { "punishment_type": "imprisonment", "min_months": null, "max_months": 24 }
           ],
-          "effective_from": "2011-12-07",
+          "effective_from": "2003-12-16",
           "effective_to": null,
-          "source_url": "http://www.consultant.ru/document/cons_doc_LAW_10699/",
-          "retrieved_at": "2026-08-26",
+          "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/57b5c7b83fcd2cf40cabe2042f2d8f04ed6875ad/",
+          "retrieved_at": "2026-09-03",
           "sha256": "AUTOFILL",
-          "verification_status": "draft"
+          "verification_status": "verified"
         }
       ]
     },
@@ -43,21 +43,35 @@
       "norm_id": "uk-rf:art-158-part-2",
       "article": 158,
       "part": 2,
-      "title": "Кража с квалифицирующими признаками — санкция: черновик фикстуры",
+      "title": "Кража с квалифицирующими признаками — санкция",
       "versions": [
         {
-          "version_id": "v-current",
+          "version_id": "v-1996",
           "norm_id": "uk-rf:art-158-part-2",
-          "text": "ЧЕРНОВИК ФИКСТУРЫ (сверить с официальным источником): ч. 2 ст. 158 УК РФ — лишение свободы на срок до пяти лет.",
+          "text": "Ч. 2 ст. 158 УК РФ в редакции 1996–2003 (сверено 03.09.2026): лишение свободы на срок до шести лет (72 мес.).",
+          "sanctions": [
+            { "punishment_type": "imprisonment", "min_months": null, "max_months": 72 }
+          ],
+          "effective_from": "1996-07-01",
+          "effective_to": "2003-12-15",
+          "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/57b5c7b83fcd2cf40cabe2042f2d8f04ed6875ad/",
+          "retrieved_at": "2026-09-03",
+          "sha256": "AUTOFILL",
+          "verification_status": "verified"
+        },
+        {
+          "version_id": "v-2003",
+          "norm_id": "uk-rf:art-158-part-2",
+          "text": "Ч. 2 ст. 158 УК РФ (ред. ФЗ от 08.12.2003 № 162-ФЗ; сверено 03.09.2026): «лишением свободы на срок до пяти лет» (60 мес.). ФЗ от 07.12.2011 № 420-ФЗ добавил обязательные работы до 480 ч., принудительные работы до 5 лет и факультативное ограничение свободы; максимум лишения свободы 5 лет сохранен.",
           "sanctions": [
             { "punishment_type": "imprisonment", "min_months": null, "max_months": 60 }
           ],
-          "effective_from": "1996-07-01",
+          "effective_from": "2003-12-16",
           "effective_to": null,
-          "source_url": "http://www.consultant.ru/document/cons_doc_LAW_10699/",
-          "retrieved_at": "2026-08-25",
+          "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/57b5c7b83fcd2cf40cabe2042f2d8f04ed6875ad/",
+          "retrieved_at": "2026-09-03",
           "sha256": "AUTOFILL",
-          "verification_status": "draft"
+          "verification_status": "verified"
         }
       ]
     },
@@ -65,21 +79,35 @@
       "norm_id": "uk-rf:art-159-part-1",
       "article": 159,
       "part": 1,
-      "title": "Мошенничество — санкция: черновик фикстуры",
+      "title": "Мошенничество — санкция",
       "versions": [
         {
-          "version_id": "v-current",
+          "version_id": "v-1996",
           "norm_id": "uk-rf:art-159-part-1",
-          "text": "ЧЕРНОВИК ФИКСТУРЫ (сверить с официальным источником): ч. 1 ст. 159 УК РФ — лишение свободы на срок до двух лет.",
+          "text": "Ч. 1 ст. 159 УК РФ в редакции 1996–2003 (сверено 03.09.2026): лишение свободы на срок до трех лет (36 мес.).",
+          "sanctions": [
+            { "punishment_type": "imprisonment", "min_months": null, "max_months": 36 }
+          ],
+          "effective_from": "1996-07-01",
+          "effective_to": "2003-12-15",
+          "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/8012ecdf64b7c9cfd62e90d7f55f9b5b7b72b755/",
+          "retrieved_at": "2026-09-03",
+          "sha256": "AUTOFILL",
+          "verification_status": "verified"
+        },
+        {
+          "version_id": "v-2003",
+          "norm_id": "uk-rf:art-159-part-1",
+          "text": "Ч. 1 ст. 159 УК РФ (ред. ФЗ от 08.12.2003 № 162-ФЗ; сверено 03.09.2026): «лишением свободы на срок до двух лет» (24 мес.); новая рублевая шкала штрафа. ФЗ от 07.12.2011 № 420-ФЗ добавил альтернативы (обязательные работы до 360 ч.); максимум 2 года сохранен. Постановление КС РФ от 29.06.2026 № 43-П числовые санкции чч. 1–2 не меняет.",
           "sanctions": [
             { "punishment_type": "imprisonment", "min_months": null, "max_months": 24 }
           ],
-          "effective_from": "1996-07-01",
+          "effective_from": "2003-12-16",
           "effective_to": null,
-          "source_url": "http://www.consultant.ru/document/cons_doc_LAW_10699/",
-          "retrieved_at": "2026-08-25",
+          "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/8012ecdf64b7c9cfd62e90d7f55f9b5b7b72b755/",
+          "retrieved_at": "2026-09-03",
           "sha256": "AUTOFILL",
-          "verification_status": "draft"
+          "verification_status": "verified"
         }
       ]
     },
@@ -87,21 +115,35 @@
       "norm_id": "uk-rf:art-159-part-2",
       "article": 159,
       "part": 2,
-      "title": "Мошенничество группой лиц либо с причинением значительного ущерба — санкция: черновик фикстуры",
+      "title": "Мошенничество группой лиц либо с причинением значительного ущерба — санкция",
       "versions": [
         {
-          "version_id": "v-current",
+          "version_id": "v-1996",
           "norm_id": "uk-rf:art-159-part-2",
-          "text": "ЧЕРНОВИК ФИКСТУРЫ (сверить с официальным источником): ч. 2 ст. 159 УК РФ — лишение свободы на срок до пяти лет.",
+          "text": "Ч. 2 ст. 159 УК РФ в редакции 1996–2003 (сверено 03.09.2026): лишение свободы на срок до шести лет (72 мес.).",
+          "sanctions": [
+            { "punishment_type": "imprisonment", "min_months": null, "max_months": 72 }
+          ],
+          "effective_from": "1996-07-01",
+          "effective_to": "2003-12-15",
+          "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/8012ecdf64b7c9cfd62e90d7f55f9b5b7b72b755/",
+          "retrieved_at": "2026-09-03",
+          "sha256": "AUTOFILL",
+          "verification_status": "verified"
+        },
+        {
+          "version_id": "v-2003",
+          "norm_id": "uk-rf:art-159-part-2",
+          "text": "Ч. 2 ст. 159 УК РФ (ред. ФЗ от 08.12.2003 № 162-ФЗ; сверено 03.09.2026): «лишением свободы на срок до пяти лет» (60 мес.). ФЗ от 07.12.2011 № 420-ФЗ добавил принудительные работы до 5 лет, обязательные до 480 ч. и факультативное ограничение свободы; максимум 5 лет сохранен.",
           "sanctions": [
             { "punishment_type": "imprisonment", "min_months": null, "max_months": 60 }
           ],
-          "effective_from": "1996-07-01",
+          "effective_from": "2003-12-16",
           "effective_to": null,
-          "source_url": "http://www.consultant.ru/document/cons_doc_LAW_10699/",
-          "retrieved_at": "2026-08-25",
+          "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/8012ecdf64b7c9cfd62e90d7f55f9b5b7b72b755/",
+          "retrieved_at": "2026-09-03",
           "sha256": "AUTOFILL",
-          "verification_status": "draft"
+          "verification_status": "verified"
         }
       ]
     },
@@ -109,21 +151,21 @@
       "norm_id": "uk-rf:art-228-part-1",
       "article": 228,
       "part": 1,
-      "title": "Незаконные приобретение/хранение наркотических средств (значительный размер) — санкция: черновик фикстуры",
+      "title": "Незаконные приобретение/хранение наркотических средств (значительный размер) — санкция",
       "versions": [
         {
           "version_id": "v-current",
           "norm_id": "uk-rf:art-228-part-1",
-          "text": "ЧЕРНОВИК ФИКСТУРЫ (сверить с официальным источником): ч. 1 ст. 228 УК РФ — лишение свободы на срок до трёх лет.",
+          "text": "Ч. 1 ст. 228 УК РФ (ред. от 04.08.2026, сверено 03.09.2026): «лишением свободы на срок до трех лет» (36 мес.). Принудительных работ в санкции ч. 1 нет. Дореформенная конструкция ст. 228 (до 2004) сознательно не моделируется как версия нынешних частей: состав и градация размеров менялись (ФЗ от 08.12.2003 № 162-ФЗ, ФЗ от 01.03.2012 № 18-ФЗ).",
           "sanctions": [
             { "punishment_type": "imprisonment", "min_months": null, "max_months": 36 }
           ],
           "effective_from": "1996-07-01",
           "effective_to": null,
-          "source_url": "http://www.consultant.ru/document/cons_doc_LAW_10699/",
-          "retrieved_at": "2026-08-25",
+          "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/a109722731a0509e104278d1b2d2f589beee330f/",
+          "retrieved_at": "2026-09-03",
           "sha256": "AUTOFILL",
-          "verification_status": "draft"
+          "verification_status": "verified"
         }
       ]
     },
@@ -131,21 +173,21 @@
       "norm_id": "uk-rf:art-228-part-2",
       "article": 228,
       "part": 2,
-      "title": "То же деяние в крупном размере — санкция: черновик фикстуры",
+      "title": "То же деяние в крупном размере — санкция",
       "versions": [
         {
           "version_id": "v-current",
           "norm_id": "uk-rf:art-228-part-2",
-          "text": "ЧЕРНОВИК ФИКСТУРЫ (сверить с официальным источником): ч. 2 ст. 228 УК РФ — лишение свободы на срок до десяти лет.",
+          "text": "Ч. 2 ст. 228 УК РФ в нынешней трехуровневой градации (ред. ФЗ от 01.03.2012 № 18-ФЗ; сверено 03.09.2026): «лишением свободы на срок от трех до десяти лет» (36–120 мес.), факультативно штраф до 500 000 руб. либо доход до 3 лет и ограничение свободы до 1 года.",
           "sanctions": [
             { "punishment_type": "imprisonment", "min_months": 36, "max_months": 120 }
           ],
           "effective_from": "1996-07-01",
           "effective_to": null,
-          "source_url": "http://www.consultant.ru/document/cons_doc_LAW_10699/",
-          "retrieved_at": "2026-08-25",
+          "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/a109722731a0509e104278d1b2d2f589beee330f/",
+          "retrieved_at": "2026-09-03",
           "sha256": "AUTOFILL",
-          "verification_status": "draft"
+          "verification_status": "verified"
         }
       ]
     },
@@ -153,21 +195,21 @@
       "norm_id": "uk-rf:art-161-part-1",
       "article": 161,
       "part": 1,
-      "title": "Грабёж — санкция: черновик фикстуры",
+      "title": "Грабёж — санкция",
       "versions": [
         {
           "version_id": "v-current",
           "norm_id": "uk-rf:art-161-part-1",
-          "text": "ЧЕРНОВИК ФИКСТУРЫ (сверить с официальным источником): ч. 1 ст. 161 УК РФ — лишение свободы на срок до четырёх лет.",
+          "text": "Ч. 1 ст. 161 УК РФ (ред. от 04.08.2026, сверено 03.09.2026): «лишением свободы на срок до четырех лет» (48 мес.); «ограничением свободы на срок от двух до четырех лет» (24–48 мес.). Максимум лишения свободы 4 года не менялся с 1997.",
           "sanctions": [
             { "punishment_type": "imprisonment", "min_months": null, "max_months": 48 }
           ],
           "effective_from": "1996-07-01",
           "effective_to": null,
-          "source_url": "http://www.consultant.ru/document/cons_doc_LAW_10699/",
-          "retrieved_at": "2026-08-25",
+          "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/8727611b42df79f2b3ef8d2f3b68fea711ed0c7a/",
+          "retrieved_at": "2026-09-03",
           "sha256": "AUTOFILL",
-          "verification_status": "draft"
+          "verification_status": "verified"
         }
       ]
     },
@@ -175,21 +217,21 @@
       "norm_id": "uk-rf:art-161-part-2",
       "article": 161,
       "part": 2,
-      "title": "Грабёж с квалифицирующими признаками — санкция: черновик фикстуры",
+      "title": "Грабёж с квалифицирующими признаками — санкция",
       "versions": [
         {
           "version_id": "v-current",
           "norm_id": "uk-rf:art-161-part-2",
-          "text": "ЧЕРНОВИК ФИКСТУРЫ (сверить с официальным источником): ч. 2 ст. 161 УК РФ — лишение свободы на срок до семи лет.",
+          "text": "Ч. 2 ст. 161 УК РФ (ред. от 04.08.2026, сверено 03.09.2026): «лишением свободы на срок до семи лет» (84 мес.), факультативно штраф до 10 000 руб. (или доход до 1 мес.) и ограничение свободы до 1 года. Максимум 7 лет не менялся с 1997.",
           "sanctions": [
             { "punishment_type": "imprisonment", "min_months": null, "max_months": 84 }
           ],
           "effective_from": "1996-07-01",
           "effective_to": null,
-          "source_url": "http://www.consultant.ru/document/cons_doc_LAW_10699/",
-          "retrieved_at": "2026-08-26",
+          "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/8727611b42df79f2b3ef8d2f3b68fea711ed0c7a/",
+          "retrieved_at": "2026-09-03",
           "sha256": "AUTOFILL",
-          "verification_status": "draft"
+          "verification_status": "verified"
         }
       ]
     },
@@ -197,21 +239,79 @@
       "norm_id": "uk-rf:art-111-part-1",
       "article": 111,
       "part": 1,
-      "title": "Умышленное причинение тяжкого вреда здоровью — санкция: черновик фикстуры",
+      "title": "Умышленное причинение тяжкого вреда здоровью — санкция",
       "versions": [
         {
-          "version_id": "v-current",
+          "version_id": "v-1996",
           "norm_id": "uk-rf:art-111-part-1",
-          "text": "ЧЕРНОВИК ФИКСТУРЫ (сверить с официальным источником): ч. 1 ст. 111 УК РФ — лишение свободы на срок до восьми лет.",
+          "text": "Ч. 1 ст. 111 УК РФ в редакции 1997–2011 (сверено 03.09.2026): лишение свободы на срок от двух до восьми лет (24–96 мес.).",
+          "sanctions": [
+            { "punishment_type": "imprisonment", "min_months": 24, "max_months": 96 }
+          ],
+          "effective_from": "1996-07-01",
+          "effective_to": "2011-03-10",
+          "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/e7204e825c8e87b5c7be210b06a0cde61cd60a3c/",
+          "retrieved_at": "2026-09-03",
+          "sha256": "AUTOFILL",
+          "verification_status": "verified"
+        },
+        {
+          "version_id": "v-2011",
+          "norm_id": "uk-rf:art-111-part-1",
+          "text": "Ч. 1 ст. 111 УК РФ (ред. ФЗ от 07.03.2011 № 26-ФЗ, действует с 11.03.2011; сверено 03.09.2026): нижний предел исключен — «наказывается лишением свободы на срок до восьми лет» (макс. 96 мес.).",
           "sanctions": [
             { "punishment_type": "imprisonment", "min_months": null, "max_months": 96 }
           ],
+          "effective_from": "2011-03-11",
+          "effective_to": null,
+          "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/e7204e825c8e87b5c7be210b06a0cde61cd60a3c/",
+          "retrieved_at": "2026-09-03",
+          "sha256": "AUTOFILL",
+          "verification_status": "verified"
+        }
+      ]
+    },
+    {
+      "norm_id": "uk-rf:art-112-part-1",
+      "article": 112,
+      "part": 1,
+      "title": "Умышленное причинение средней тяжести вреда здоровью — санкция",
+      "versions": [
+        {
+          "version_id": "v-current",
+          "norm_id": "uk-rf:art-112-part-1",
+          "text": "Ч. 1 ст. 112 УК РФ (ред. от 04.08.2026, сверено 03.09.2026): «ограничением свободы на срок до трех лет… либо лишением свободы на срок до трех лет» (макс. 36 мес.). Нижние пределы в санкции не установлены.",
+          "sanctions": [
+            { "punishment_type": "imprisonment", "min_months": null, "max_months": 36 }
+          ],
           "effective_from": "1996-07-01",
           "effective_to": null,
-          "source_url": "http://www.consultant.ru/document/cons_doc_LAW_10699/",
-          "retrieved_at": "2026-08-25",
+          "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/de03992e5fb9ce601f30ccc9ac4cea6a01e8fbf4/",
+          "retrieved_at": "2026-09-03",
           "sha256": "AUTOFILL",
-          "verification_status": "draft"
+          "verification_status": "verified"
+        }
+      ]
+    },
+    {
+      "norm_id": "uk-rf:art-163-part-1",
+      "article": 163,
+      "part": 1,
+      "title": "Вымогательство — санкция",
+      "versions": [
+        {
+          "version_id": "v-current",
+          "norm_id": "uk-rf:art-163-part-1",
+          "text": "Ч. 1 ст. 163 УК РФ (ред. от 04.08.2026, сверено 03.09.2026): «лишением свободы на срок до четырех лет со штрафом в размере до восьмидесяти тысяч рублей либо без такового» (макс. 48 мес.). Нижнего предела лишения свободы нет.",
+          "sanctions": [
+            { "punishment_type": "imprisonment", "min_months": null, "max_months": 48 }
+          ],
+          "effective_from": "1996-07-01",
+          "effective_to": null,
+          "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/3cf93ca64f2a009e75430fc6394b66a3642ba176/",
+          "retrieved_at": "2026-09-03",
+          "sha256": "AUTOFILL",
+          "verification_status": "verified"
         }
       ]
     }

@@ -48,7 +48,8 @@
 - каждая редакция несёт SHA-256, `source_document`, `source_url`,
   `retrieved_at`, `verification_status`; целостность цитирования
   контролируется метрикой `citation_integrity` (=1.0) в `make eval`;
-- фикстуры помечены `draft`/synthetic и юридически сверяются перед
+- фикстуры несут `verification_status` (`verified` после сверки 03.09.2026;
+  синтетика помечена отдельно) и юридически сверяются перед
   демонстрацией (см. docs/DATA_SOURCES.md).
 
 Отстаточный риск: целостность хранилища сейчас = целостность файлов в
@@ -102,15 +103,20 @@
   `Authorization: Bearer <токен>`; `/health`, `/metrics`, статика и UI
   открыты. Токен закрывает базу для сетевого развёртывания за обратным
   прокси, но не заменяет персональные учётные записи.
-- **JWT (итерация 0.17):** `/api/auth/login` (email+пароль) →
+- **JWT (итерация 0.17):** `/auth/login` (email+пароль) →
   access/refresh-токены; роли `judge` / `clerk` / `admin`; CRUD
-  пользователей (`/api/auth/users`) только под `admin`. Хранилище —
-  `AuthService` in-memory `dict[str, User]` (MVP, без БД).
+  пользователей (`/auth/users`) только под `admin`. Хранилище —
+  `UserStore`: in-memory по умолчанию, PostgreSQL при
+  `SO_STORAGE_BACKEND=postgres` (0.20: ротация refresh с blacklist,
+  `SO_PASSWORD_MAX_AGE_DAYS`, аудит `GET /auth/audit`).
+- **Сосуществование слоёв (ADR-008, 0.21):** при заданном `SO_AUTH_TOKEN`
+  `/api/*` принимает общий секрет **или** валидный JWT access-токен;
+  `/auth/login` и `/auth/refresh` открыты всегда.
 
-Перед многопользовательским production-режимом нужен перенос
-пользователей в БД (ADR-006: `PostgresJsonRepository` /
-`PostgresUserRepository`), refresh-токены с ротацией и blacklist,
-истечение паролей, аудит входов (см. ROADMAP).
+Перед многопользовательским production-режимом проверьте: пользователи в
+БД, ротация/blacklist refresh, истечение паролей и аудит входов — всё
+реализовано (0.20); остался мониторинг попыток входа (rate-limit — в
+ROADMAP).
 
 ### 7. Логирование чувствительного текста — закрыто
 

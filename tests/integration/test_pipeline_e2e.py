@@ -18,7 +18,7 @@ def test_clean_sample_end_to_end(pipeline) -> None:
     assert statuses["R-002"] == "PASS"  # оконченное
     assert statuses["R-003"] == "PASS"  # 18 ≤ 40 (2/3 от 60)
     assert statuses["R-004"] == "PASS"  # 18 ≤ 40
-    assert statuses["R-005"] == "PASS"  # 18 ≤ 20 (1/3 от 60)
+    assert statuses["R-010"] == "PASS"  # оконченное: комбинированный предел не применим
     assert statuses["R-006"] == "PASS"  # условное при 18 мес.
 
     assert report.applicable_at == "2025-03-15"
@@ -106,17 +106,21 @@ def test_minor_with_special_procedure_flags_r007(pipeline) -> None:
     assert set(statuses["R-007"].facts_used) <= fact_ids
 
 
-def test_recidivism_with_ik_mitigating_warns_r008(pipeline) -> None:
-    """Рецидив + явка с повинной/возмещение: R-008 обязан предупредить."""
+def test_recidivism_blocks_lenient_two_thirds_rule(pipeline) -> None:
+    """Рецидив + явка с повинной/возмещение: ч. 1 ст. 62 неприменима
+    (есть отягчающее), R-001 при этом PASS. Проверено юр. сверкой 03.09.2026:
+    ч. 2 ст. 63 не содержит «неучёта рецидива», прежний R-008 удалён."""
     path = FIXTURES_DIR / "sample_documents" / "sample_recidivism_mitigating_warning.txt"
     _, report = _analysis(pipeline, path)
     statuses = _evaluations_by_id(report)
-    assert statuses["R-008"].status.value == "WARNING"
+    assert "R-008" not in statuses
+    assert statuses["R-004"].status.value == "PASS"  # не применимо из-за отягчающих
+    assert "отягчающ" in statuses["R-004"].explanation.lower()
     assert statuses["R-001"].status.value == "PASS"  # 14 мес. ≤ 84 (ч. 2 ст. 161)
 
 
 def test_suspended_boundary_exactly_eight_years_passes_r006(pipeline) -> None:
-    """Условное осуждение ровно при 96 мес.: граница ч. 3 ст. 73 включена."""
+    """Условное осуждение ровно при 96 мес.: граница ч. 1 ст. 73 включена."""
     path = FIXTURES_DIR / "sample_documents" / "sample_suspended_boundary_73.txt"
     _, report = _analysis(pipeline, path)
     evaluation = next(e for e in report.evaluations if e.rule_id == "R-006")

@@ -128,11 +128,30 @@ function badge(status) {
   span.textContent =
     status === "PASS" ? "✓" : status === "WARNING" ? "⚠" : status === "FAIL" ? "✗" : "?";
   span.title = status;
+  // Скринридер должен слышать статус, а не символ.
+  span.setAttribute("role", "img");
+  span.setAttribute("aria-label", status);
   return span;
 }
 
-function toggleDetail(detail) {
-  detail.classList.toggle("hidden");
+function toggleDetail(detail, trigger) {
+  const hidden = detail.classList.toggle("hidden");
+  if (trigger) trigger.setAttribute("aria-expanded", String(!hidden));
+}
+
+// Раскрытие списка: клик мышью + Enter/Space с клавиатуры (a11y).
+function wireDisclosure(title, detail) {
+  title.setAttribute("role", "button");
+  title.setAttribute("tabindex", "0");
+  title.setAttribute("aria-expanded", "false");
+  const toggle = () => toggleDetail(detail, title);
+  title.addEventListener("click", toggle);
+  title.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      toggle();
+    }
+  });
 }
 
 function div(className, text) {
@@ -246,7 +265,7 @@ function renderFact(fact, analysisId, usedIn) {
     detail.appendChild(actions);
   }
 
-  title.addEventListener("click", () => toggleDetail(detail));
+  wireDisclosure(title, detail);
   li.appendChild(title);
   li.appendChild(detail);
   return li;
@@ -300,7 +319,7 @@ function renderEvaluation(ev, factsById) {
 
   detail.appendChild(div("meta", `Правило: ${ev.rule_id} (версия ${ev.rule_version})`));
 
-  title.addEventListener("click", () => toggleDetail(detail));
+  wireDisclosure(title, detail);
   li.appendChild(title);
   li.appendChild(detail);
   return li;
@@ -331,7 +350,7 @@ function renderCase(match) {
   detail.appendChild(div("", c.summary));
   detail.appendChild(reasons);
 
-  title.addEventListener("click", () => toggleDetail(detail));
+  wireDisclosure(title, detail);
   li.appendChild(title);
   li.appendChild(detail);
   return li;
@@ -607,7 +626,7 @@ function renderSearchHit(hit) {
   meta.appendChild(div("", `Совпавшие термины: ${hit.matched_terms.join(", ")}`));
   detail.appendChild(meta);
 
-  title.addEventListener("click", () => toggleDetail(detail));
+  wireDisclosure(title, detail);
   li.appendChild(title);
   li.appendChild(detail);
   return li;

@@ -133,3 +133,37 @@ def test_no_group_words_no_fact() -> None:
     assert FactType.GROUP_OFFENSE not in {
         f.type for f in _facts("Он единолично совершил кражу из квартиры.")
     }
+
+
+# -- срок наказания: скобочная форма и календарные годы ------------------------
+
+
+def test_term_with_parenthesized_number_word() -> None:
+    text = "Суд решил назначить наказание в виде лишения свободы на срок 2 (два) года."
+    term = _by_type(_facts(text), FactType.PUNISHMENT_TERM)[0]
+    assert term.value == 24.0
+
+
+def test_term_one_year_with_parenthesized_word() -> None:
+    text = "назначить наказание в виде лишения свободы на срок 1 (один) год."
+    term = _by_type(_facts(text), FactType.PUNISHMENT_TERM)[0]
+    assert term.value == 12.0
+
+
+def test_calendar_year_is_not_a_term() -> None:
+    """Регрессия: «2025 года» в окне приговора не должно давать 24300 мес."""
+    text = (
+        "Признать виновным и назначить наказание в виде лишения свободы "
+        "на срок 1 (один) год. Срок наказания исчислять с 4 марта 2025 года."
+    )
+    terms = _by_type(_facts(text), FactType.PUNISHMENT_TERM)
+    assert len(terms) == 1
+    assert terms[0].value == 12.0
+
+
+def test_year_alone_gives_no_term() -> None:
+    text = (
+        "назначить наказание в виде лишения свободы. "
+        "Срок наказания исчислять с 20 октября 2025 года."
+    )
+    assert not _by_type(_facts(text), FactType.PUNISHMENT_TERM)
