@@ -133,6 +133,20 @@ def _analyze(file_path: Path, applicable_at: str | None) -> int:
     return 0
 
 
+def _norms_coverage(strict: bool) -> int:
+    """Отчёт о редакционном покрытии норм."""
+    from .legal_sources.coverage import analyze_store, format_report, needs_legal_review
+    from .legal_sources.store import NormStore
+
+    config = load_config()
+    store = NormStore.from_directory(config.fixtures_dir / "norms")
+    coverages = analyze_store(store)
+    print(format_report(coverages))
+    if strict and needs_legal_review(coverages):
+        return 1
+    return 0
+
+
 def _eval() -> int:
     from .config import PROJECT_ROOT
 
@@ -164,6 +178,16 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("eval", help="запуск evaluation-набора")
 
+    coverage_p = sub.add_parser(
+        "norms-coverage",
+        help="отчёт о редакционном покрытии норм (что требует юридической сверки)",
+    )
+    coverage_p.add_argument(
+        "--strict",
+        action="store_true",
+        help="ненулевой код выхода, если есть нормы без зафиксированной истории",
+    )
+
     admin_p = sub.add_parser(
         "create-admin",
         help="завести первого администратора (бутстрап личного кабинета)",
@@ -186,6 +210,8 @@ def main(argv: list[str] | None = None) -> int:
         return _analyze(args.file, args.applicable_at)
     if args.command == "eval":
         return _eval()
+    if args.command == "norms-coverage":
+        return _norms_coverage(args.strict)
     if args.command == "create-admin":
         return _create_admin(args.email, args.full_name, args.password)
     return 2

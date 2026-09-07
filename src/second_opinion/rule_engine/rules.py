@@ -6,6 +6,26 @@ from ..domain.norms import NormRef, NormVersion
 from ..domain.rules import LegalRule, RuleEvaluation
 from ..legal_sources.store import NoApplicableVersionError, NormNotFoundError
 
+#: Нормы, на которые ссылаются правила движка. Ошибка в выборе их
+#: редакции превращается в ошибочный вывод о наказании, поэтому их
+#: редакционное покрытие проверяется отдельно (legal_sources/coverage).
+#: Совпадение с фактическими ссылками в коде держит
+#: tests/unit/test_norm_coverage.py — список не должен разъезжаться.
+REFERENCED_NORM_IDS = frozenset(
+    {
+        "uk-rf:art-60",
+        "uk-rf:art-61",
+        "uk-rf:art-62",
+        "uk-rf:art-64",
+        "uk-rf:art-66",
+        "uk-rf:art-73",
+        "upk-rf:art-316",
+        "upk-rf:art-420",
+        "ppvs-rf:n60-p7",
+        "ppvs-rf:n60-p14",
+    }
+)
+
 IMPRISONMENT = PunishmentType.IMPRISONMENT.value
 MITIGATING_IK_CODES = {"61.1.и", "61.1.к"}
 SUSPENDED_MAX_MONTHS = 8 * 12  # ст. 73 ч. 3 УК РФ

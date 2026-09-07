@@ -159,6 +159,7 @@ second-opinion eval     # или: make eval
 - [docs/RULE_ENGINE.md](docs/RULE_ENGINE.md) — реестр правил и как добавлять новые
 - [docs/LEGAL_RAG.md](docs/LEGAL_RAG.md) — поиск по базе источников
 - [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md) — источники данных и процесс наполнения
+- [docs/NORM_COVERAGE.md](docs/NORM_COVERAGE.md) — полнота редакционной истории норм
 - [docs/EVALUATION.md](docs/EVALUATION.md) — метрики и пороги
 - [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) — план (M0–M10)
 - [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md) — фактический статус
