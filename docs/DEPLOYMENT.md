@@ -56,16 +56,23 @@ PostgreSQL — `SO_TEST_DATABASE_URL=... pytest -k postgres` (и `-k pgvector`).
 
 Для многопользовательского доступа обязательно:
 
-1. задать `SO_AUTH_TOKEN` (общий секрет) **или** включить JWT
-   (`/api/auth/login` + хранение пользователей в БД): все `/api/*`
-   требуют `Authorization: Bearer <токен>`; `/health`, `/metrics`,
-   статика и UI остаются открытыми — токен вводится в форме один раз
-   за сессию браузера. JWT хранилище в текущей версии — in-memory
-   `AuthService` (MVP), для прода нужна БД;
+1. задать `SO_AUTH_TOKEN` (общий секрет) **и** `SO_JWT_SECRET` (ключ
+   подписи персональных токенов, ≥32 байт): все `/api/*` требуют
+   `Authorization: Bearer <токен>`; `/health`, `/metrics`, статика и UI
+   остаются открытыми — токен вводится в форме один раз за сессию
+   браузера. Это два **разных** секрета: общий Bearer раздаётся
+   операторам, и знание его не должно позволять подписать токен с ролью
+   `admin`. Без `SO_JWT_SECRET` ключ подписи случаен и живёт до
+   перезапуска — выданные токены после рестарта недействительны.
+   Пользователи хранятся в файлах (`<data>/store/auth`) либо в
+   PostgreSQL при `SO_STORAGE_BACKEND=postgres`;
 2. обратный прокси (nginx/Caddy) с TLS поверх токена;
 3. ограничение доступа сетью суда (VPN/intranet);
 4. регулярное резервное копирование `data/store/`;
 5. выделенный сервисный пользователь ОС с правами только на каталог данных.
+
+При `SO_REQUIRE_AUTH=1` сервер откажется стартовать на внешнем адресе
+с пустым `SO_AUTH_TOKEN`; без этого флага выводится предупреждение.
 
 Без выполнения п. 1–3 сетевое развертывание запрещено моделью угроз.
 Токен-режим закрывает базовый уровень доступа, но не заменяет
@@ -88,6 +95,9 @@ PostgreSQL — `SO_TEST_DATABASE_URL=... pytest -k postgres` (и `-k pgvector`).
 | `SO_EMBEDDINGS_PROVIDER` | `hashing` \| `openai_compatible` | `hashing` |
 | `SO_EMBEDDING_MODEL` | модель эмбеддингов (openai_compatible) | пусто |
 | `SO_AUTH_TOKEN` | Bearer-токен для `/api/*` (loopback-MVP) | пусто |
+| `SO_JWT_SECRET` | ключ подписи JWT личных учёток, ≥32 байт | пусто (эфемерный) |
+| `SO_REQUIRE_AUTH` | `1` — не стартовать на внешнем адресе без `SO_AUTH_TOKEN` | `0` |
+| `SO_ADMIN_PASSWORD` | пароль для `create-admin` (разовый, для бутстрапа) | пусто |
 | `SO_STORAGE_BACKEND` | `file` \| `postgres` (ADR-006) | `file` |
 | `SO_DATABASE_URL` | DSN PostgreSQL при `postgres` | пусто |
 | `SO_METRICS_ENABLED` | `1` — включить сбор метрик (`/metrics`); иначе `{"enabled": false}` | `0` |

@@ -24,6 +24,12 @@ class AppConfig:
     embedding_model: str = ""
     #: Общий секрет для /api/*; пусто — авторизация выключена (loopback-MVP).
     auth_token: str = ""
+    #: Секрет подписи JWT (SO_JWT_SECRET). Пусто — эфемерный ключ на процесс:
+    #: токены действительны только до перезапуска. Захардкоженного значения
+    #: нет и быть не должно — иначе подделывается токен любой роли.
+    jwt_secret: str = ""
+    #: Требовать авторизацию жёстко: при пустом auth_token сервер не стартует.
+    require_auth: bool = False
     #: Носитель документов/отчётов: "file" (по умолчанию) | "postgres" (ADR-006).
     storage_backend: str = "file"
     #: DSN PostgreSQL для storage_backend="postgres".
@@ -80,6 +86,8 @@ def load_config() -> AppConfig:
         embeddings_provider=_env("SO_EMBEDDINGS_PROVIDER", "hashing") or "hashing",
         embedding_model=_env("SO_EMBEDDING_MODEL"),
         auth_token=_env("SO_AUTH_TOKEN"),
+        jwt_secret=_env("SO_JWT_SECRET"),
+        require_auth=_env("SO_REQUIRE_AUTH") in ("1", "true", "yes"),
         storage_backend=_env("SO_STORAGE_BACKEND", "file") or "file",
         database_url=_env("SO_DATABASE_URL"),
         password_max_age_days=int(_env("SO_PASSWORD_MAX_AGE_DAYS") or 0),

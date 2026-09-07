@@ -2,14 +2,23 @@
 
 from __future__ import annotations
 
+import logging
+import secrets
 from datetime import UTC, datetime, timedelta
 
 import jwt
 from passlib.context import CryptContext
 
-from ..config import load_config
+from ..config import AppConfig, load_config
 from ..domain.users import LoginAttempt, TokenPair, TokenPayload, User, UserRole
-from .repository import InMemoryUserStore, PostgresUserStore, UserStore
+from .repository import (
+    InMemoryUserStore,
+    JsonFileUserStore,
+    PostgresUserStore,
+    UserStore,
+)
+
+logger = logging.getLogger(__name__)
 
 # Контекст для хеширования паролей (bcrypt)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -18,6 +27,43 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
+
+#: Минимум для HMAC-SHA256 (RFC 7518 §3.2: ключ не короче размера хэша).
+MIN_JWT_SECRET_BYTES = 32
+#: Первый администратор — самая привилегированная учётка в системе.
+MIN_ADMIN_PASSWORD_LENGTH = 12
+#: Предел bcrypt: всё сверх 72 байт молча отбрасывается.
+MAX_PASSWORD_BYTES = 72
+
+
+def resolve_jwt_secret(config: AppConfig) -> str:
+    """Ключ подписи JWT: только из ``SO_JWT_SECRET`` либо эфемерный.
+
+    Захардкоженного значения по умолчанию быть не может: зная его, кто
+    угодно выпускает себе токен с ``role: admin``. Если секрет не задан,
+    берётся случайный на время жизни процесса — подделать нельзя, но
+    выданные токены не переживут перезапуск, о чём пишем в лог.
+
+    ``SO_AUTH_TOKEN`` здесь намеренно не используется: общий Bearer для
+    ``/api/*`` раздаётся операторам, и знание его не должно давать
+    возможности подписать токен любой роли.
+    """
+    secret = config.jwt_secret
+    if secret:
+        if len(secret.encode("utf-8")) < MIN_JWT_SECRET_BYTES:
+            raise ValueError(
+                f"SO_JWT_SECRET короче {MIN_JWT_SECRET_BYTES} байт — "
+                "для HS256 это недопустимо слабый ключ "
+                "(сгенерировать: python -c \"import secrets;"
+                "print(secrets.token_urlsafe(48))\")"
+            )
+        return secret
+    logger.warning(
+        "SO_JWT_SECRET не задан — используется случайный ключ на время "
+        "жизни процесса: все выданные токены станут недействительны после "
+        "перезапуска. Для постоянной работы задайте SO_JWT_SECRET."
+    )
+    return secrets.token_urlsafe(48)
 
 
 class PasswordExpiredError(ValueError):
@@ -44,7 +90,7 @@ class AuthService:
         login_lockout_minutes: int | None = None,
     ):
         self._config = load_config()
-        self._secret_key = self._config.auth_token or "dev-secret-change-in-production"
+        self._secret_key = resolve_jwt_secret(self._config)
         self._store: UserStore = store or self._default_store()
         cfg = self._config
         self._password_max_age_days = (
@@ -67,9 +113,16 @@ class AuthService:
         if cfg.storage_backend == "postgres" and cfg.database_url:
             try:
                 return PostgresUserStore(cfg.database_url)
-            except Exception:  # noqa: BLE001 — fallback к in-memory
+            except Exception as exc:  # noqa: BLE001 — fallback к in-memory
+                # Молчаливый откат прятал отказ БД: оператор узнавал о нём,
+                # когда пользователи «исчезали» после перезапуска.
+                logger.warning(
+                    "PostgresUserStore недоступен (%s) — временный переход на "
+                    "in-memory: пользователи не переживут перезапуск",
+                    exc,
+                )
                 return InMemoryUserStore()
-        return InMemoryUserStore()
+        return JsonFileUserStore(cfg.store_dir / "auth")
 
     # Совместимость: старый код/тесты обращались к ``auth._users`` напрямую.
     # Для in-memory возвращаем живой словарь; для Postgres — read-only снимок
@@ -354,13 +407,53 @@ def reset_auth_service() -> None:
     _auth_service = None
 
 
-def create_default_admin() -> None:
-    """Создать администратора по умолчанию (для демо/разработки)."""
-    auth = get_auth_service()
-    if not auth.get_user_by_email("admin@court.local"):
-        auth.create_user(
-            email="admin@court.local",
-            password="admin123",  # В продакшене — только через безопасную генерацию!
-            full_name="Системный администратор",
-            role=UserRole.ADMIN,
+class AdminAlreadyExistsError(ValueError):
+    """В системе уже есть активный администратор."""
+
+
+def validate_admin_password(password: str) -> None:
+    """Проверить пароль первого администратора.
+
+    Требования жёстче, чем у обычной учётки (``min_length=8`` в API):
+    это единственная запись, через которую заводятся все остальные.
+    """
+    length = len(password.encode("utf-8"))
+    if len(password) < MIN_ADMIN_PASSWORD_LENGTH:
+        raise ValueError(
+            f"пароль администратора короче {MIN_ADMIN_PASSWORD_LENGTH} символов"
         )
+    if length > MAX_PASSWORD_BYTES:
+        raise ValueError(
+            f"пароль длиннее {MAX_PASSWORD_BYTES} байт — bcrypt отбросит остаток"
+        )
+
+
+def bootstrap_admin(
+    email: str,
+    password: str,
+    full_name: str = "Системный администратор",
+) -> User:
+    """Завести первого администратора.
+
+    Без этого личный кабинет недостижим: ``POST /auth/users`` сам требует
+    роль ``admin``, то есть первую учётку через API не создать. Пароля по
+    умолчанию нет намеренно — он задаётся оператором.
+
+    Повторный вызов при уже существующем активном администраторе
+    отклоняется: заводить следующих админов следует через API, где
+    действие попадает в аудит.
+    """
+    auth = get_auth_service()
+    existing = [u for u in auth.list_users() if u.role is UserRole.ADMIN and u.is_active]
+    if existing:
+        raise AdminAlreadyExistsError(
+            "активный администратор уже существует "
+            f"({existing[0].email}) — создавайте учётки через POST /auth/users"
+        )
+    validate_admin_password(password)
+    return auth.create_user(
+        email=email,
+        password=password,
+        full_name=full_name,
+        role=UserRole.ADMIN,
+    )

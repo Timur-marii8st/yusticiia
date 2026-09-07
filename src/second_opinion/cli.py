@@ -8,8 +8,95 @@ from pathlib import Path
 from .config import load_config
 
 
+def _is_loopback(host: str) -> bool:
+    """Привязка видна только с самой машины?"""
+    import ipaddress
+
+    if host in ("localhost", ""):
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        # Имя хоста вместо адреса — считаем внешним: безопаснее ошибиться
+        # в сторону предупреждения.
+        return False
+
+
+def _check_bind_safety(host: str) -> int:
+    """Проверить связку «адрес привязки ↔ авторизация».
+
+    При пустом ``SO_AUTH_TOKEN`` весь ``/api/*`` открыт: на loopback это
+    осознанный режим демонстрации, на внешнем адресе — публичный доступ к
+    текстам судебных актов. Вернуть код выхода (0 — можно продолжать).
+    """
+    config = load_config()
+    if config.auth_token or _is_loopback(host):
+        return 0
+    message = (
+        f"привязка к {host} без SO_AUTH_TOKEN: /api/* будет доступен из сети "
+        "без авторизации, включая тексты документов"
+    )
+    if config.require_auth:
+        print(f"ОШИБКА: {message}", file=sys.stderr)
+        print("Задайте SO_AUTH_TOKEN либо снимите SO_REQUIRE_AUTH.", file=sys.stderr)
+        return 2
+    print(f"ВНИМАНИЕ: {message}.", file=sys.stderr)
+    print(
+        "Задайте SO_AUTH_TOKEN, а для отказа от запуска без него — "
+        "SO_REQUIRE_AUTH=1.",
+        file=sys.stderr,
+    )
+    return 0
+
+
+def _create_admin(email: str, full_name: str, password: str | None) -> int:
+    """Завести первого администратора (бутстрап личного кабинета)."""
+    import getpass
+    import os
+
+    from .auth.service import AdminAlreadyExistsError, bootstrap_admin
+
+    password = password or os.environ.get("SO_ADMIN_PASSWORD") or ""
+    if not password:
+        if not sys.stdin.isatty():
+            print(
+                "ОШИБКА: пароль не задан. Передайте --password, задайте "
+                "SO_ADMIN_PASSWORD или запустите в интерактивном терминале.",
+                file=sys.stderr,
+            )
+            return 2
+        password = getpass.getpass("Пароль администратора: ")
+        if password != getpass.getpass("Повторите пароль: "):
+            print("ОШИБКА: пароли не совпадают.", file=sys.stderr)
+            return 2
+
+    try:
+        user = bootstrap_admin(email=email, password=password, full_name=full_name)
+    except AdminAlreadyExistsError as exc:
+        print(f"ОШИБКА: {exc}", file=sys.stderr)
+        return 1
+    except ValueError as exc:
+        print(f"ОШИБКА: {exc}", file=sys.stderr)
+        return 2
+
+    config = load_config()
+    print(f"Администратор создан: {user.email} (user_id={user.user_id})")
+    print(f"Хранилище: {config.storage_backend} ({config.store_dir / 'auth'})")
+    if not config.jwt_secret:
+        print(
+            "ВНИМАНИЕ: SO_JWT_SECRET не задан — выданные токены станут "
+            "недействительны после перезапуска сервера.",
+            file=sys.stderr,
+        )
+    return 0
+
+
 def _serve(host: str, port: int) -> int:
     import uvicorn
+
+    code = _check_bind_safety(host)
+    if code != 0:
+        return code
 
     uvicorn.run(
         "second_opinion.api.app:make_app",
@@ -77,6 +164,21 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("eval", help="запуск evaluation-набора")
 
+    admin_p = sub.add_parser(
+        "create-admin",
+        help="завести первого администратора (бутстрап личного кабинета)",
+    )
+    admin_p.add_argument("--email", required=True)
+    admin_p.add_argument("--full-name", default="Системный администратор")
+    admin_p.add_argument(
+        "--password",
+        default=None,
+        help=(
+            "пароль; по умолчанию берётся из SO_ADMIN_PASSWORD либо "
+            "запрашивается в терминале (в историю оболочки не попадает)"
+        ),
+    )
+
     args = parser.parse_args(argv)
     if args.command == "serve":
         return _serve(args.host, args.port)
@@ -84,6 +186,8 @@ def main(argv: list[str] | None = None) -> int:
         return _analyze(args.file, args.applicable_at)
     if args.command == "eval":
         return _eval()
+    if args.command == "create-admin":
+        return _create_admin(args.email, args.full_name, args.password)
     return 2
 
 
