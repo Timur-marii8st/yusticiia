@@ -10,6 +10,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .. import __version__
+from ..auth.rate_limit import LoginRateLimiter
+from ..config import load_config
 from ..domain.cases import ComparableCase
 from ..ingestion.parser import ParseError
 from ..legal_sources.store import NoApplicableVersionError, NormNotFoundError
@@ -68,6 +70,12 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
         ),
     )
     app.state.pipeline = pipeline
+    # Лимитер привязан к приложению, а не к модулю: иначе экземпляры
+    # делили бы счётчики между собой.
+    _config = load_config()
+    app.state.login_rate_limiter = LoginRateLimiter(
+        _config.login_rate_limit, _config.login_rate_window_seconds
+    )
 
     # Подключаем роутер аутентификации
 

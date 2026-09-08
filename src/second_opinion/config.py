@@ -43,6 +43,12 @@ class AppConfig:
     login_max_attempts: int = 5
     #: Длительность блокировки входа в минутах.
     login_lockout_minutes: int = 15
+    #: Попыток входа с одного клиента за окно (0 — без ограничения).
+    #: Блокировка учётки считает неудачи по пользователю и потому не
+    #: сдерживает перебор по списку адресов — этот лимит считает по клиенту.
+    login_rate_limit: int = 20
+    #: Ширина окна для login_rate_limit, секунды.
+    login_rate_window_seconds: int = 60
 
     @property
     def store_dir(self) -> Path:
@@ -94,6 +100,8 @@ def load_config() -> AppConfig:
         password_history_depth=int(_env("SO_PASSWORD_HISTORY_DEPTH") or 5),
         login_max_attempts=int(_env("SO_LOGIN_MAX_ATTEMPTS") or 5),
         login_lockout_minutes=int(_env("SO_LOGIN_LOCKOUT_MINUTES") or 15),
+        login_rate_limit=int(_env("SO_LOGIN_RATE_LIMIT") or 20),
+        login_rate_window_seconds=int(_env("SO_LOGIN_RATE_WINDOW_SECONDS") or 60),
     )
 
 

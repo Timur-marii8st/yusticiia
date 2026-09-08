@@ -62,6 +62,34 @@ def get_current_user(
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
+def _client_key(request: Request) -> str:
+    """Адрес клиента. За обратным прокси все запросы придут с одного
+    адреса — там лимит должен стоять на самом прокси; доверять
+    ``X-Forwarded-For`` без списка доверенных прокси нельзя, его
+    подделывает кто угодно."""
+    return request.client.host if request.client else "unknown"
+
+
+def _enforce_login_rate_limit(request: Request) -> None:
+    """Отклонить вход, если с этого клиента их слишком много.
+
+    Блокировка учётной записи считает неудачи по пользователю и потому
+    молчит при переборе по списку адресов: каждая попытка приходится на
+    новый email.
+    """
+    limiter = getattr(request.app.state, "login_rate_limiter", None)
+    if limiter is None:
+        return
+    retry_after = limiter.retry_after(_client_key(request))
+    if retry_after is None:
+        return
+    raise HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail="Слишком много попыток входа — повторите позже",
+        headers={"Retry-After": str(retry_after)},
+    )
+
+
 class LoginRequest(BaseModel):
     """Запрос на вход."""
 
@@ -115,8 +143,10 @@ def require_role(*allowed_roles: UserRole):
 async def login(
     payload: LoginRequest,
     auth_service: AuthSvc,
+    request: Request,
 ) -> LoginResponse:
     """Вход в систему (email + пароль)."""
+    _enforce_login_rate_limit(request)
     try:
         user = auth_service.authenticate(payload.email, payload.password)
     except PasswordExpiredError as exc:

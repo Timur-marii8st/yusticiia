@@ -74,7 +74,7 @@
 
 | Метод и путь | Назначение | Коды |
 |---|---|---|
-| `POST /auth/login` | вход: `{"email", "password"}` → `{"user", "tokens": {access, refresh, expires_in}}` | 200; 401; 403 — срок пароля истёк (`SO_PASSWORD_MAX_AGE_DAYS`) или вход заблокирован (`SO_LOGIN_MAX_ATTEMPTS`) |
+| `POST /auth/login` | вход: `{"email", "password"}` → `{"user", "tokens": {access, refresh, expires_in}}` | 200; 401; 403 — срок пароля истёк (`SO_PASSWORD_MAX_AGE_DAYS`) или вход заблокирован (`SO_LOGIN_MAX_ATTEMPTS`); 429 — превышен лимит попыток с клиента (`SO_LOGIN_RATE_LIMIT`), в ответе `Retry-After` |
 | `POST /auth/refresh` | обновить access-токен **с ротацией**: `{"refresh_token"}` → новая пара; старый refresh отзывается, повтор — 401 | 200; 401 |
 | `GET /auth/me` | текущий пользователь (по access-токену) | 200; 401 |
 | `POST /auth/change-password` | смена пароля: `{"current_password", "new_password"}` (снимает просрочку/блокировку; повтор одного из последних `SO_PASSWORD_HISTORY_DEPTH` — 400) | 200; 400; 401 |

@@ -98,6 +98,8 @@ PostgreSQL — `SO_TEST_DATABASE_URL=... pytest -k postgres` (и `-k pgvector`).
 | `SO_JWT_SECRET` | ключ подписи JWT личных учёток, ≥32 байт | пусто (эфемерный) |
 | `SO_REQUIRE_AUTH` | `1` — не стартовать на внешнем адресе без `SO_AUTH_TOKEN` | `0` |
 | `SO_ADMIN_PASSWORD` | пароль для `create-admin` (разовый, для бутстрапа) | пусто |
+| `SO_LOGIN_RATE_LIMIT` | попыток входа с одного клиента за окно (0 — без лимита) | 20 |
+| `SO_LOGIN_RATE_WINDOW_SECONDS` | ширина окна для лимита входа, секунды | 60 |
 | `SO_STORAGE_BACKEND` | `file` \| `postgres` (ADR-006) | `file` |
 | `SO_DATABASE_URL` | DSN PostgreSQL при `postgres` | пусто |
 | `SO_METRICS_ENABLED` | `1` — включить сбор метрик (`/metrics`); иначе `{"enabled": false}` | `0` |
