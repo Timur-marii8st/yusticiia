@@ -22,6 +22,18 @@ from ..pipeline import (
     FactValidationError,
 )
 from .auth_routes import router as auth_router
+from .schemas import (
+    AnalysisReportResponse,
+    CaseListResponse,
+    DeletedResponse,
+    DocumentContent,
+    DocumentCreated,
+    HealthResponse,
+    MetricsResponse,
+    NormDetailResponse,
+    NormListResponse,
+    SearchResponse,
+)
 
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
 
@@ -99,11 +111,14 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
     # -- служебные ----------------------------------------------------------
 
     @app.get("/health")
-    def health() -> dict:
+    def health() -> HealthResponse:
         return {"status": "ok", "version": __version__}
 
-    @app.get("/metrics")
-    def metrics() -> dict:
+    # exclude_none сохраняет документированную форму `{"enabled": false}`:
+    # у вложенных моделей метрик необязательных полей нет, поэтому побочных
+    # эффектов не возникает.
+    @app.get("/metrics", response_model_exclude_none=True)
+    def metrics() -> MetricsResponse:
         """Снимок внутренних метрик конвейера.
 
         Включается через ``SO_METRICS_ENABLED=1``. Если выключено,
@@ -119,7 +134,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
     # -- документы ----------------------------------------------------------
 
     @app.post("/api/documents")
-    def create_document(payload: TextDocumentPayload) -> dict:
+    def create_document(payload: TextDocumentPayload) -> DocumentCreated:
         try:
             document = pipeline.ingest(
                 payload.filename, payload.text.encode("utf-8")
@@ -134,7 +149,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
         }
 
     @app.post("/api/documents/upload")
-    async def upload_document(file: Annotated[UploadFile, File(...)]) -> dict:
+    async def upload_document(file: Annotated[UploadFile, File(...)]) -> DocumentCreated:
         content = await file.read()
         try:
             document = pipeline.ingest(file.filename or "upload.txt", content)
@@ -148,7 +163,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
         }
 
     @app.get("/api/documents/{document_id}")
-    def get_document(document_id: str) -> dict:
+    def get_document(document_id: str) -> DocumentContent:
         try:
             document = pipeline.get_document(document_id)
         except DocumentNotFound as exc:
@@ -161,7 +176,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
         }
 
     @app.delete("/api/documents/{document_id}")
-    def delete_document(document_id: str) -> dict:
+    def delete_document(document_id: str) -> DeletedResponse:
         """Удалить документ и все отчёты по нему (право на забвение)."""
         try:
             pipeline.delete_document(document_id)
@@ -170,7 +185,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
         return {"deleted": document_id}
 
     @app.delete("/api/analyses/{analysis_id}")
-    def delete_analysis(analysis_id: str) -> dict:
+    def delete_analysis(analysis_id: str) -> DeletedResponse:
         try:
             pipeline.delete_analysis(analysis_id)
         except AnalysisNotFound as exc:
@@ -178,7 +193,9 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
         return {"deleted": analysis_id}
 
     @app.post("/api/documents/{document_id}/analyze")
-    def analyze(document_id: str, payload: AnalyzePayload | None = None) -> dict:
+    def analyze(
+        document_id: str, payload: AnalyzePayload | None = None
+    ) -> AnalysisReportResponse:
         try:
             report = pipeline.analyze(
                 document_id,
@@ -186,17 +203,17 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
             )
         except DocumentNotFound as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
-        return report.model_dump(mode="json")
+        return report
 
     @app.get("/api/analyses/{analysis_id}")
-    def get_analysis(analysis_id: str) -> dict:
+    def get_analysis(analysis_id: str) -> AnalysisReportResponse:
         report = pipeline.get_analysis(analysis_id)
         if report is None:
             raise HTTPException(status_code=404, detail="отчёт не найден")
-        return report.model_dump(mode="json")
+        return report
 
     @app.post("/api/analyses/{analysis_id}/facts")
-    def add_fact(analysis_id: str, payload: FactAddPayload) -> dict:
+    def add_fact(analysis_id: str, payload: FactAddPayload) -> AnalysisReportResponse:
         """Судья добавляет обстоятельство «с нуля»: тип + значение + цитата
         из документа. Цитата обязана дословно находиться в тексте."""
 
@@ -211,12 +228,12 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except FactValidationError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return report.model_dump(mode="json")
+        return report
 
     @app.patch("/api/analyses/{analysis_id}/facts/{fact_id}")
     def update_fact(
         analysis_id: str, fact_id: str, payload: FactUpdatePayload
-    ) -> dict:
+    ) -> AnalysisReportResponse:
         """Правка факта человеком: подтверждение, исключение или коррекция
         значения. Отчёт пересчитывается детерминированным движком."""
         value = payload.value if "value" in payload.model_fields_set else UNSET_VALUE
@@ -228,12 +245,12 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return report.model_dump(mode="json")
+        return report
 
     # -- нормы --------------------------------------------------------------
 
     @app.get("/api/norms")
-    def list_norms() -> dict:
+    def list_norms() -> NormListResponse:
         store = pipeline.norm_store
         return {
             "norms": [
@@ -243,7 +260,9 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
         }
 
     @app.get("/api/norms/{norm_id}")
-    def get_norm(norm_id: str, applicable_at: str | None = Query(default=None)) -> dict:
+    def get_norm(
+        norm_id: str, applicable_at: str | None = Query(default=None)
+    ) -> NormDetailResponse:
         store = pipeline.norm_store
         try:
             meta = store.get_norm_meta(norm_id)
@@ -260,11 +279,8 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
                 version = store.get_norm(norm_id, when)
             except NoApplicableVersionError as exc:
                 raise HTTPException(status_code=404, detail=str(exc)) from exc
-            return {"norm": meta.model_dump(), "version": version.model_dump(mode="json")}
-        return {
-            "norm": meta.model_dump(),
-            "versions": [v.model_dump(mode="json") for v in store.versions(norm_id)],
-        }
+            return {"norm": meta, "version": version}
+        return {"norm": meta, "versions": store.versions(norm_id)}
 
     # -- практика -------------------------------------------------------------
 
@@ -273,7 +289,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
         article: int | None = Query(default=None),
         part: int | None = Query(default=None),
         limit: int = Query(default=50, le=200),
-    ) -> dict:
+    ) -> CaseListResponse:
         cases = pipeline.retriever.cases
         selected: list[ComparableCase] = []
         for case in cases:
@@ -282,10 +298,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
             if part is not None and case.part != part:
                 continue
             selected.append(case)
-        return {
-            "total": len(selected),
-            "cases": [c.model_dump(mode="json") for c in selected[:limit]],
-        }
+        return {"total": len(selected), "cases": selected[:limit]}
 
     # -- поиск по базе источников ---------------------------------------------
 
@@ -296,7 +309,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
         code: str | None = None,
         article: int | None = None,
         applicable_at: str | None = None,
-    ) -> dict:
+    ) -> SearchResponse:
         """Лексический поиск по базе норм. Только реальные фрагменты
         источников; пустой результат честнее выдуманного."""
         when: date | None = None
@@ -310,10 +323,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
         hits = rag.search(
             q, limit=limit, code=code, article=article, applicable_at=when
         )
-        return {
-            "query": q,
-            "results": [hit.model_dump(mode="json") for hit in hits],
-        }
+        return {"query": q, "results": hits}
 
     # -- статический UI -------------------------------------------------------
 

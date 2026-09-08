@@ -15,6 +15,15 @@ from ..auth.service import (
     get_auth_service,
 )
 from ..domain.users import User, UserRole
+from .schemas import (
+    LoginAttemptResponse,
+    LoginResponse,
+    MeResponse,
+    MessageResponse,
+    RefreshResponse,
+    UserResponse,
+    UserSummary,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -51,23 +60,6 @@ def get_current_user(
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
-
-
-class LoginResponse(BaseModel):
-    """Ответ при успешном входе."""
-
-    user: dict
-    tokens: dict
-
-
-class MeResponse(BaseModel):
-    """Информация о текущем пользователе."""
-
-    user_id: str
-    email: str
-    full_name: str
-    role: str
-    is_active: bool
 
 
 class LoginRequest(BaseModel):
@@ -119,11 +111,11 @@ def require_role(*allowed_roles: UserRole):
     return checker
 
 
-@router.post("/login", response_model=dict)
+@router.post("/login")
 async def login(
     payload: LoginRequest,
     auth_service: AuthSvc,
-) -> dict:
+) -> LoginResponse:
     """Вход в систему (email + пароль)."""
     try:
         user = auth_service.authenticate(payload.email, payload.password)
@@ -161,11 +153,11 @@ async def login(
     }
 
 
-@router.post("/refresh", response_model=dict)
+@router.post("/refresh")
 async def refresh_token(
     payload: RefreshRequest,
     auth_service: AuthSvc,
-) -> dict:
+) -> RefreshResponse:
     """Обновить access токен по refresh токену."""
     tokens = auth_service.refresh_tokens(payload.refresh_token)
     if not tokens:
@@ -181,8 +173,8 @@ async def refresh_token(
     }
 
 
-@router.get("/me", response_model=dict)
-async def me(user: CurrentUser) -> dict:
+@router.get("/me")
+async def me(user: CurrentUser) -> MeResponse:
     """Получить информацию о текущем пользователе."""
     return {
         "user_id": user.user_id,
@@ -193,12 +185,12 @@ async def me(user: CurrentUser) -> dict:
     }
 
 
-@router.post("/change-password", response_model=dict)
+@router.post("/change-password")
 async def change_password(
     payload: ChangePasswordRequest,
     user: CurrentUser,
     auth_service: AuthSvc,
-) -> dict:
+) -> MessageResponse:
     """Смена пароля текущим пользователем."""
     try:
         auth_service.change_password(user, payload.current_password, payload.new_password)
@@ -216,7 +208,7 @@ async def logout(
     _user: CurrentUser,
     auth_service: AuthSvc,
     payload: LogoutPayload | None = None,
-) -> dict:
+) -> MessageResponse:
     """Выход из системы.
 
     Без тела — как раньше (клиент удаляет токены сам). Если передан
@@ -243,21 +235,21 @@ def _user_to_dict(u: User) -> dict:
     }
 
 
-@router.get("/users", response_model=list[dict])
+@router.get("/users")
 async def list_users(
     _admin: Annotated[User, Depends(require_role(UserRole.ADMIN))],
     auth_service: AuthSvc,
-) -> list[dict]:
+) -> list[UserResponse]:
     """Список всех пользователей (только admin)."""
     return [_user_to_dict(u) for u in auth_service.list_users()]
 
 
-@router.post("/users", response_model=dict, status_code=status.HTTP_201_CREATED)
+@router.post("/users", status_code=status.HTTP_201_CREATED)
 async def create_user(
     payload: CreateUserRequest,
     _admin: Annotated[User, Depends(require_role(UserRole.ADMIN))],
     auth_service: AuthSvc,
-) -> dict:
+) -> UserSummary:
     """Создать нового пользователя (только admin)."""
     try:
         user = auth_service.create_user(
@@ -285,13 +277,13 @@ class UpdateUserRequest(BaseModel):
     password: str | None = Field(default=None, min_length=8, max_length=72)
 
 
-@router.patch("/users/{user_id}", response_model=dict)
+@router.patch("/users/{user_id}")
 async def update_user(
     user_id: str,
     payload: UpdateUserRequest,
     _admin: Annotated[User, Depends(require_role(UserRole.ADMIN))],
     auth_service: AuthSvc,
-) -> dict:
+) -> UserResponse:
     """Обновить пользователя (только admin)."""
     user_obj = auth_service.get_user(user_id)
     if not user_obj:
@@ -328,12 +320,12 @@ async def update_user(
     return _user_to_dict(user_obj)
 
 
-@router.get("/audit", response_model=list[dict])
+@router.get("/audit")
 async def login_audit(
     _admin: Annotated[User, Depends(require_role(UserRole.ADMIN))],
     auth_service: AuthSvc,
     limit: int = 100,
-) -> list[dict]:
+) -> list[LoginAttemptResponse]:
     """Аудит входов (только admin, новые первыми, без паролей)."""
     return [a.model_dump(mode="json") for a in auth_service.list_login_attempts(limit=limit)]
 
