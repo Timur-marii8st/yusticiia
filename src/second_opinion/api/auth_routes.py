@@ -10,6 +10,7 @@ from pydantic import BaseModel, EmailStr, Field
 from ..auth.service import (
     AccountLockedError,
     AuthService,
+    LastAdminError,
     PasswordExpiredError,
     get_auth_service,
 )
@@ -296,25 +297,32 @@ async def update_user(
     if not user_obj:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Пользователь не найден")
 
+    try:
+        auth_service.ensure_admin_remains(
+            user_id, role=payload.role, is_active=payload.is_active
+        )
+    except LastAdminError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+    # Смена пароля идёт первой и перечитывает пользователя из хранилища:
+    # на Postgres это другой объект, поэтому правки полей накладываются
+    # на него, а не на устаревшую копию, иначе они терялись при записи.
+    if payload.password:
+        try:
+            refreshed = auth_service.set_password(user_id, payload.password)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+            ) from exc
+        if refreshed is not None:
+            user_obj = refreshed
+
     if payload.full_name is not None:
         user_obj.full_name = payload.full_name
     if payload.role is not None:
         user_obj.role = payload.role
     if payload.is_active is not None:
         user_obj.is_active = payload.is_active
-    if payload.password:
-        try:
-            updated = auth_service.set_password(user_id, payload.password)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-            ) from exc
-        # set_password уже сохранил; подтянем свежий объект
-        user_obj = updated if updated else user_obj
-        # прочие поля могли измениться выше — сохраняем их тоже
-        if payload.full_name is not None or payload.role is not None or payload.is_active is not None:
-            auth_service.save_user(user_obj)
-        return _user_to_dict(user_obj)
 
     auth_service.save_user(user_obj)
     return _user_to_dict(user_obj)
@@ -337,5 +345,11 @@ async def delete_user(
     auth_service: AuthSvc,
 ) -> None:
     """Удалить пользователя (только admin)."""
+    if auth_service.get_user(user_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Пользователь не найден")
+    try:
+        auth_service.ensure_admin_remains(user_id, is_active=False)
+    except LastAdminError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     if not auth_service.delete_user(user_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Пользователь не найден")

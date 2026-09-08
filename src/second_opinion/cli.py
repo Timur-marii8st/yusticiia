@@ -79,15 +79,11 @@ def _create_admin(email: str, full_name: str, password: str | None) -> int:
         print(f"ОШИБКА: {exc}", file=sys.stderr)
         return 2
 
+    # О незаданном SO_JWT_SECRET предупреждает сам auth-сервис при
+    # создании — здесь не повторяем.
     config = load_config()
     print(f"Администратор создан: {user.email} (user_id={user.user_id})")
     print(f"Хранилище: {config.storage_backend} ({config.store_dir / 'auth'})")
-    if not config.jwt_secret:
-        print(
-            "ВНИМАНИЕ: SO_JWT_SECRET не задан — выданные токены станут "
-            "недействительны после перезапуска сервера.",
-            file=sys.stderr,
-        )
     return 0
 
 

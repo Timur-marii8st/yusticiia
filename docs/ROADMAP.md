@@ -30,13 +30,13 @@
   опциональная группа `ocr`)
 - [x] PostgreSQL + pgvector (0.13–0.14, ADR-006): JSONB-репозиторий,
   `PgVectorNormStore`, `SO_RAG_MODE=hybrid_pgvector`
-- [x] JWT/RBAC + пользователи + admin-CRUD (0.17): `/api/auth/*`,
+- [x] JWT/RBAC + пользователи + admin-CRUD (0.17): `/auth/*`,
   `AuthService`, in-memory MVP. Миграция в БД — отдельная задача
 - [x] Внутренние метрики конвейера (0.18): `metrics.py`, `/metrics` endpoint
 - [x] PostgreSQL user store (0.20): `UserStore` за интерфейсом
   (in-memory / `PostgresUserStore` при `SO_STORAGE_BACKEND=postgres`);
   refresh-ротация с blacklist (`jti`), истечение паролей
-  (`SO_PASSWORD_MAX_AGE_DAYS`), аудит входов (`GET /api/auth/audit`)
+  (`SO_PASSWORD_MAX_AGE_DAYS`), аудит входов (`GET /auth/audit`)
 
 ## Далее по приоритету
 

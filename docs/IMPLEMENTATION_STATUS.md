@@ -29,7 +29,7 @@ ENGINE 2.0.0, 8 правил. 271 тест зелёный, 10 skipped (gated), r
 `UserStore` за интерфейсом (in-memory дефолт / Postgres при
 `SO_STORAGE_BACKEND=postgres`), ротация refresh с blacklist (`jti`),
 истечение паролей (`SO_PASSWORD_MAX_AGE_DAYS`), аудит входов
-(`GET /api/auth/audit`, admin). 253 теста зелёных, 10 skipped
+(`GET /auth/audit`, admin). 253 теста зелёных, 10 skipped
 (gated postgres/pgvector/OCR), ruff зелёный, `make eval` exit 0.
 Ранее: 2026-09-02 (итерация 0.19: GET /metrics endpoint, актуализация
 документации (API.md, ARCHITECTURE.md, DEVELOPMENT.md, DEPLOYMENT.md,
@@ -200,7 +200,7 @@ nDCG@0.921, citation_integrity=1.0, temporal=1.0. R-009 откачен —
   повтор — 401; `POST /auth/logout` с `{"refresh_token"}` отзывает явно.
   Истечение паролей: `SO_PASSWORD_MAX_AGE_DAYS` (0 — выкл.), метка
   `password_changed_at`, вход при просрочке — 403, смена/сброс снимают
-  просрочку. Аудит входов без паролей: `GET /api/auth/audit` (admin).
+  просрочку. Аудит входов без паролей: `GET /auth/audit` (admin).
   Покрыто 9 unit-тестами + 3 gated postgres-тестами (persist blacklist/
   аудита между экземплярами сервиса).
 - **Двухслойная авторизация (0.21, ADR-008):** при заданном `SO_AUTH_TOKEN`

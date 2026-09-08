@@ -7,10 +7,20 @@
   `/api/*` принимает `Authorization: Bearer <токен>` **или** валидный JWT
   access-токен; без того и другого — `401`.
   `/health`, `/metrics`, `/` и `/static/*` открыты всегда.
-- JWT (`/auth/login`) — персональные учётные записи. После `login`
+- JWT (`POST /auth/login`) — персональные учётные записи. После `login`
   все защищённые эндпоинты принимают `Authorization: Bearer <access_token>`.
   Роли: `judge` (по умолчанию), `clerk`, `admin`. Роль `admin` обязательна
-  для `/api/auth/users` CRUD.
+  для `/auth/users` CRUD. Ключ подписи — `SO_JWT_SECRET`, **отдельный** от
+  `SO_AUTH_TOKEN`: общий Bearer раздаётся операторам, и знание его не
+  должно позволять подписать токен с ролью `admin`.
+
+**Почему auth-эндпоинты вне `/api/`.** Роутер смонтирован по `/auth/*`, то
+есть middleware общего Bearer его не покрывает. Иначе вход был бы
+невозможен: чтобы получить токен, пришлось бы уже иметь токен. Защита
+`/auth/*` строится на самом JWT и проверке роли (`require_role`), что
+строже общего секрета: `SO_AUTH_TOKEN` один на всех операторов, а
+`/auth/users` и `/auth/audit` требуют персональной учётки с ролью `admin`.
+Первый администратор заводится вне API — `second-opinion create-admin`.
 
 Интерактивная спецификация: `/docs` (Swagger UI, генерируется FastAPI).
 
@@ -56,16 +66,16 @@
 
 | Метод и путь | Назначение | Коды |
 |---|---|---|
-| `POST /api/auth/login` | вход: `{"email", "password"}` → `{"user", "tokens": {access, refresh, expires_in}}` | 200; 401; 403 — срок пароля истёк (`SO_PASSWORD_MAX_AGE_DAYS`) или вход заблокирован (`SO_LOGIN_MAX_ATTEMPTS`) |
-| `POST /api/auth/refresh` | обновить access-токен **с ротацией**: `{"refresh_token"}` → новая пара; старый refresh отзывается, повтор — 401 | 200; 401 |
-| `GET /api/auth/me` | текущий пользователь (по access-токену) | 200; 401 |
-| `POST /api/auth/change-password` | смена пароля: `{"current_password", "new_password"}` (снимает просрочку/блокировку; повтор одного из последних `SO_PASSWORD_HISTORY_DEPTH` — 400) | 200; 400; 401 |
-| `POST /api/auth/logout` | выход; тело опционально `{"refresh_token"}` — отозвать refresh (blacklist). Без тела — как раньше | 200; 401 |
-| `GET /api/auth/audit?limit=` | аудит входов (только admin, новые первыми, без паролей) | 200; 401; 403 |
-| `GET /api/auth/users` | список пользователей (только admin) | 200; 401; 403 |
-| `POST /api/auth/users` | создать пользователя (admin): `{"email", "password", "full_name", "role"}` | 201; 400 (дубликат email, слабый пароль); 401; 403 |
-| `PATCH /api/auth/users/{user_id}` | обновить пользователя (admin): `{"full_name?", "role?", "is_active?", "password?"}` | 200; 401; 403; 404 |
-| `DELETE /api/auth/users/{user_id}` | удалить пользователя (admin) | 204; 401; 403; 404 |
+| `POST /auth/login` | вход: `{"email", "password"}` → `{"user", "tokens": {access, refresh, expires_in}}` | 200; 401; 403 — срок пароля истёк (`SO_PASSWORD_MAX_AGE_DAYS`) или вход заблокирован (`SO_LOGIN_MAX_ATTEMPTS`) |
+| `POST /auth/refresh` | обновить access-токен **с ротацией**: `{"refresh_token"}` → новая пара; старый refresh отзывается, повтор — 401 | 200; 401 |
+| `GET /auth/me` | текущий пользователь (по access-токену) | 200; 401 |
+| `POST /auth/change-password` | смена пароля: `{"current_password", "new_password"}` (снимает просрочку/блокировку; повтор одного из последних `SO_PASSWORD_HISTORY_DEPTH` — 400) | 200; 400; 401 |
+| `POST /auth/logout` | выход; тело опционально `{"refresh_token"}` — отозвать refresh (blacklist). Без тела — как раньше | 200; 401 |
+| `GET /auth/audit?limit=` | аудит входов (только admin, новые первыми, без паролей) | 200; 401; 403 |
+| `GET /auth/users` | список пользователей (только admin) | 200; 401; 403 |
+| `POST /auth/users` | создать пользователя (admin): `{"email", "password", "full_name", "role"}` | 201; 400 (дубликат email, слабый пароль); 401; 403 |
+| `PATCH /auth/users/{user_id}` | обновить пользователя (admin): `{"full_name?", "role?", "is_active?", "password?"}`; пароль и прочие поля можно менять одним запросом | 200; 400; 401; 403; 404; 409 — снятие роли или деактивация последнего активного администратора |
+| `DELETE /auth/users/{user_id}` | удалить пользователя (admin) | 204; 401; 403; 404; 409 — последний активный администратор |
 
 Хранилище пользователей — `AuthService` за интерфейсом `UserStore`
 (`src/second_opinion/auth/repository.py`): in-memory по умолчанию
@@ -75,7 +85,7 @@
 Refresh-токены — с ротацией (`jti` в `TokenPayload`): предъявленный refresh
 отзывается до выпуска новой пары. Истечение паролей —
 `SO_PASSWORD_MAX_AGE_DAYS=0` (выкл. по умолчанию). Аудит входов —
-`GET /api/auth/audit` (admin).
+`GET /auth/audit` (admin).
 
 ## Служебные
 

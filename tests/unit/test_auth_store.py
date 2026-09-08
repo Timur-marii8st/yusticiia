@@ -227,3 +227,20 @@ def test_api_locked_login_returns_403(pipeline) -> None:
     locked = client.post("/auth/login", json={"email": "admin@example.com", "password": "admin123"})
     assert locked.status_code == 403
     assert "заблокирован" in locked.json()["detail"]
+
+
+def test_unknown_email_still_pays_password_check_cost(monkeypatch) -> None:
+    """Перебор не должен различать существующий адрес по времени ответа."""
+    import second_opinion.auth.service as svc
+
+    calls: list[int] = []
+    monkeypatch.setattr(svc, "waste_time_like_verify", lambda: calls.append(1))
+
+    auth = _service()
+    auth.create_user("known@example.com", "longpassword1", "Известный")
+
+    auth.authenticate("unknown@example.com", "longpassword1")
+    assert calls == [1], "по неизвестному адресу проверка обошлась без bcrypt"
+
+    auth.authenticate("known@example.com", "неверный-пароль")
+    assert calls == [1], "по известному адресу заглушка не нужна — считался реальный хэш"

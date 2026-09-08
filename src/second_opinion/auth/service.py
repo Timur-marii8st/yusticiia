@@ -7,10 +7,15 @@ import secrets
 from datetime import UTC, datetime, timedelta
 
 import jwt
-from passlib.context import CryptContext
 
 from ..config import AppConfig, load_config
 from ..domain.users import LoginAttempt, TokenPair, TokenPayload, User, UserRole
+from .passwords import (
+    MAX_PASSWORD_BYTES,
+    hash_password,
+    verify_password,
+    waste_time_like_verify,
+)
 from .repository import (
     InMemoryUserStore,
     JsonFileUserStore,
@@ -19,9 +24,6 @@ from .repository import (
 )
 
 logger = logging.getLogger(__name__)
-
-# Контекст для хеширования паролей (bcrypt)
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Алгоритм и параметры JWT
 ALGORITHM = "HS256"
@@ -32,8 +34,6 @@ REFRESH_TOKEN_EXPIRE_DAYS = 7
 MIN_JWT_SECRET_BYTES = 32
 #: Первый администратор — самая привилегированная учётка в системе.
 MIN_ADMIN_PASSWORD_LENGTH = 12
-#: Предел bcrypt: всё сверх 72 байт молча отбрасывается.
-MAX_PASSWORD_BYTES = 72
 
 
 def resolve_jwt_secret(config: AppConfig) -> str:
@@ -72,6 +72,10 @@ class PasswordExpiredError(ValueError):
 
 class AccountLockedError(ValueError):
     """Вход временно заблокирован после неудачных попыток."""
+
+
+class LastAdminError(ValueError):
+    """Действие оставило бы систему без активного администратора."""
 
 
 class AuthService:
@@ -160,7 +164,7 @@ class AuthService:
             email=email,
             full_name=full_name,
             role=role,
-            password_hash=pwd_context.hash(password),
+            password_hash=hash_password(password),
             password_changed_at=now,
             created_at=now,
             updated_at=now,
@@ -202,7 +206,7 @@ class AuthService:
             return
         recent = [user.password_hash, *user.password_history]
         for old_hash in recent[: self._password_history_depth]:
-            if old_hash and pwd_context.verify(new_password, old_hash):
+            if old_hash and verify_password(new_password, old_hash):
                 raise ValueError("Не используйте один из последних паролей")
 
     def _remember_password(self, user: User) -> None:
@@ -218,7 +222,7 @@ class AuthService:
     def _apply_new_password(self, user: User, new_password: str) -> None:
         self._check_password_reuse(user, new_password)
         self._remember_password(user)
-        user.password_hash = pwd_context.hash(new_password)
+        user.password_hash = hash_password(new_password)
         user.password_changed_at = datetime.now(UTC)
         user.failed_login_attempts = 0
         user.locked_until = None
@@ -233,6 +237,9 @@ class AuthService:
         """
         user = self.get_user_by_email(email)
         if not user or not user.is_active:
+            # Без этого ответ по неизвестному адресу приходит заметно
+            # быстрее, чем по известному, и перебор различает их по времени.
+            waste_time_like_verify()
             self._store.record_login(
                 LoginAttempt(email=email, user_id=None, success=False, reason="not_found")
             )
@@ -244,7 +251,7 @@ class AuthService:
                 )
             )
             raise AccountLockedError("Вход временно заблокирован — повторите позже")
-        if not pwd_context.verify(password, user.password_hash):
+        if not verify_password(password, user.password_hash):
             user.failed_login_attempts += 1
             if (
                 self._login_max_attempts > 0
@@ -285,7 +292,7 @@ class AuthService:
 
     def change_password(self, user: User, current_password: str, new_password: str) -> None:
         """Смена пароля владельцем с проверкой текущего."""
-        if not pwd_context.verify(current_password, user.password_hash):
+        if not verify_password(current_password, user.password_hash):
             raise ValueError("Текущий пароль неверен")
         if new_password == current_password:
             raise ValueError("Новый пароль не должен совпадать с текущим")
@@ -297,6 +304,37 @@ class AuthService:
         if user:
             user.last_login = datetime.now(UTC)
             self.save_user(user)
+
+    def _active_admin_ids(self) -> set[str]:
+        return {
+            u.user_id
+            for u in self.list_users()
+            if u.role is UserRole.ADMIN and u.is_active
+        }
+
+    def ensure_admin_remains(
+        self,
+        user_id: str,
+        *,
+        role: UserRole | None = None,
+        is_active: bool | None = None,
+    ) -> None:
+        """Проверить, что после изменения останется активный администратор.
+
+        Снятие роли, деактивация и удаление последнего администратора
+        делают управление учётными записями недоступным никому: завести
+        нового админа через API уже нельзя, останется только бутстрап с
+        остановкой сервиса. Удаление здесь равнозначно деактивации.
+        """
+        admins = self._active_admin_ids()
+        if user_id not in admins:
+            return
+        stays_admin = (role is None or role is UserRole.ADMIN) and is_active is not False
+        if stays_admin or admins != {user_id}:
+            return
+        raise LastAdminError(
+            "это единственный активный администратор — сначала назначьте другого"
+        )
 
     def delete_user(self, user_id: str) -> bool:
         """Удалить пользователя; вернуть True, если он существовал."""

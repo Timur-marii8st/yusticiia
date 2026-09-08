@@ -109,7 +109,7 @@ Recall@K/MRR/nDCG поиска; полнота цитирования; корр�
 ### Auth (`auth/`, `api/auth_routes.py`)
 `AuthService` (bcrypt, JWT access/refresh, in-memory `dict[str, User]`,
 `AuthUser`/`TokenPayload`/`TokenPair` модели), RBAC через `require_role`.
-Эндпоинты `/api/auth/{login,refresh,me,change-password,logout,users}`.
+Эндпоинты `/auth/{login,refresh,me,change-password,logout,users}`.
 MVP без БД; миграция на PostgreSQL — ROADMAP (нужны refresh-токены
 с ротацией, blacklist, истечение паролей).
 

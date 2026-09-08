@@ -70,7 +70,8 @@ def reset_auth_service(monkeypatch, tmp_path):
 
     reset_config_cache()
 
-    from second_opinion.auth.service import AuthService, pwd_context
+    from second_opinion.auth.passwords import hash_password
+    from second_opinion.auth.service import AuthService
     from second_opinion.domain.users import User, UserRole
 
     auth = AuthService()
@@ -81,7 +82,7 @@ def reset_auth_service(monkeypatch, tmp_path):
             full_name="Admin User",
             role=UserRole.ADMIN,
             is_active=True,
-            password_hash=pwd_context.hash("admin123"),
+            password_hash=hash_password("admin123"),
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
         )
