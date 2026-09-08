@@ -45,7 +45,17 @@ packages = ["src/second_opinion"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
-filterwarnings = ["error::DeprecationWarning"]
+filterwarnings = [
+    # Устаревание в нашем коде остаётся ошибкой.
+    "error::DeprecationWarning",
+    # anyio 4.15 объявил устаревшими псевдонимы anyio.abc.*, а их импортирует
+    # starlette.testclient. Предупреждение приходит целиком из зависимостей:
+    # `anyio` в коде проекта не упоминается ни разу. Пин starlette/anyio ради
+    # косметики закрыл бы обновления безопасности, поэтому глушим адресно —
+    # по тексту сообщения, а не по категории. Снять, когда starlette перейдёт
+    # на anyio.from_thread.
+    'ignore:The anyio\.abc\..* alias is deprecated:DeprecationWarning',
+]
 
 [tool.ruff]
 line-length = 100
