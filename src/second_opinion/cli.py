@@ -143,6 +143,23 @@ def _norms_coverage(strict: bool) -> int:
     return 0
 
 
+def _norms_seal(check_only: bool) -> int:
+    """Опечатать нормативный корпус или сверить его с манифестом."""
+    from .legal_sources.sealing import check, seal
+
+    directory = load_config().fixtures_dir / "norms"
+    report = check(directory) if check_only else seal(directory)
+    print(report.describe())
+    if check_only and not report.ok:
+        print(
+            "\nПосле юридической сверки опечатайте корпус: "
+            "`second-opinion norms-seal`.",
+            file=sys.stderr,
+        )
+        return 1
+    return 0
+
+
 def _eval() -> int:
     from .config import PROJECT_ROOT
 
@@ -184,6 +201,16 @@ def main(argv: list[str] | None = None) -> int:
         help="ненулевой код выхода, если есть нормы без зафиксированной истории",
     )
 
+    seal_p = sub.add_parser(
+        "norms-seal",
+        help="опечатать нормативный корпус (контрольные суммы + манифест)",
+    )
+    seal_p.add_argument(
+        "--check",
+        action="store_true",
+        help="только сверить с манифестом, ничего не записывая (для CI)",
+    )
+
     admin_p = sub.add_parser(
         "create-admin",
         help="завести первого администратора (бутстрап личного кабинета)",
@@ -206,6 +233,8 @@ def main(argv: list[str] | None = None) -> int:
         return _analyze(args.file, args.applicable_at)
     if args.command == "eval":
         return _eval()
+    if args.command == "norms-seal":
+        return _norms_seal(args.check)
     if args.command == "norms-coverage":
         return _norms_coverage(args.strict)
     if args.command == "create-admin":

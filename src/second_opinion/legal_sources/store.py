@@ -5,6 +5,7 @@ from datetime import date
 from pathlib import Path
 
 from ..domain.norms import LegalNorm, NormVersion
+from .sealing import MANIFEST_NAME, UNSEALED, UnsealedNormError
 
 
 class NormNotFoundError(KeyError):
@@ -32,6 +33,8 @@ class NormStore:
     def from_directory(cls, directory: Path) -> NormStore:
         store = cls()
         for path in sorted(Path(directory).glob("*.json")):
+            if path.name == MANIFEST_NAME:
+                continue
             store.load_file(path)
         return store
 
@@ -52,8 +55,15 @@ class NormStore:
             for version in norm_payload["versions"]:
                 version = dict(version)
                 sha256 = version.get("sha256", "")
-                if not sha256 or sha256 == "AUTOFILL":
-                    version["sha256"] = NormVersion.compute_sha256(version["text"])
+                if not sha256 or sha256 == UNSEALED:
+                    # Раньше сумма здесь подставлялась: любая правка текста
+                    # немедленно «подтверждала» саму себя, и контроль
+                    # целостности превращался в тавтологию.
+                    raise UnsealedNormError(
+                        f"норма {norm.norm_id} версия {version['version_id']}: "
+                        "контрольная сумма не заполнена — опечатайте корпус "
+                        "командой `second-opinion norms-seal`"
+                    )
                 versions.append(
                     NormVersion(
                         source_document=version.get("source_document", source_document),

@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import contextlib
-import hashlib
 import json
 import sys
 from datetime import UTC, date, datetime
@@ -35,6 +34,7 @@ from second_opinion.legal_rag import (  # noqa: E402
     HashingTfidfEmbedder,
     LegalRag,
 )
+from second_opinion.legal_sources.sealing import check as check_seal  # noqa: E402
 from second_opinion.legal_sources.store import NormStore  # noqa: E402
 
 #: Пороги приёмки; нарушение любого из них даёт ненулевой код возврата.
@@ -169,8 +169,16 @@ def _run_retrieval(dataset_path: Path, mode: str) -> dict:
         )
         results.append(entry)
 
-        # Целостность цитирования: каждый фрагмент обязан совпадать с текстом
-        # реально хранящейся редакции, а контрольная сумма — с пересчитанной.
+        # Целостность цитирования: выданный фрагмент обязан совпадать с
+        # текстом реально хранящейся редакции, на которую ссылается ответ.
+        #
+        # Контрольная сумма здесь намеренно НЕ проверяется. Валидатор
+        # ``NormVersion`` требует ``sha256 == sha256(text)``, поэтому
+        # редакция с несходящейся суммой не создаётся вовсе, и сравнение
+        # над загруженной моделью было тавтологией — метрика не могла
+        # упасть ни при какой правке фикстуры. Целостность файлов корпуса
+        # проверяется до загрузки: ``second-opinion norms-seal --check``
+        # (в CI, блокирующе) и полем ``corpus_sealed`` ниже.
         for hit in hits:
             citation_checked += 1
             version = next(
@@ -183,10 +191,7 @@ def _run_retrieval(dataset_path: Path, mode: str) -> dict:
             )
             if version is None:
                 continue
-            sha_matches = version.sha256 == hashlib.sha256(
-                version.text.encode("utf-8")
-            ).hexdigest()
-            if hit.fragment == version.text and sha_matches:
+            if hit.fragment == version.text:
                 citation_ok += 1
 
     return {
@@ -284,6 +289,14 @@ def main() -> int:
             exit_code = 1
     if (temporal["accuracy"] or 0) < 1.0:
         print("ВНИМАНИЕ: ошибки выбора редакции нормы на дату", file=sys.stderr)
+        exit_code = 1
+
+    # Целостность корпуса проверяется по файлам на диске, а не по уже
+    # загруженным моделям: правка фикстуры не должна подтверждать сама себя.
+    seal = check_seal(load_config().fixtures_dir / "norms")
+    if not seal.ok:
+        print("ВНИМАНИЕ: корпус норм разошёлся с манифестом", file=sys.stderr)
+        print(seal.describe(), file=sys.stderr)
         exit_code = 1
     return exit_code
 
