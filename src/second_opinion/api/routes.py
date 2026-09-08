@@ -4,12 +4,13 @@ from datetime import date
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .. import __version__
+from ..audit.trail import ANONYMOUS_ACTOR, SHARED_TOKEN_ACTOR
 from ..auth.rate_limit import LoginRateLimiter
 from ..config import load_config
 from ..domain.cases import ComparableCase
@@ -60,6 +61,35 @@ class FactAddPayload(BaseModel):
     quote: str = Field(min_length=1)
 
 
+def _actor(request: Request) -> str:
+    """Кто выполняет запрос. Опознание делает middleware выше."""
+    return getattr(request.state, "actor", ANONYMOUS_ACTOR)
+
+
+#: Размер порции при чтении загружаемого файла.
+UPLOAD_CHUNK_BYTES = 64 * 1024
+
+
+async def _read_within_limit(file: UploadFile, limit: int) -> bytes:
+    """Прочитать файл, оборвав чтение при превышении лимита.
+
+    ``await file.read()`` без аргумента затягивает в память весь запрос
+    целиком, и лимит проверялся уже после этого: запрос на гигабайты
+    буферизовался, чтобы затем быть отклонённым.
+    """
+    chunks: list[bytes] = []
+    size = 0
+    while chunk := await file.read(UPLOAD_CHUNK_BYTES):
+        size += len(chunk)
+        if size > limit:
+            raise HTTPException(
+                status_code=400,
+                detail=f"файл больше лимита {limit} байт",
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
     app = FastAPI(
         title="Второе мнение",
@@ -86,35 +116,44 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
 
     rag = build_legal_rag(pipeline.norm_store)
 
-    # Двухслойная авторизация (ADR-008): если задан SO_AUTH_TOKEN, /api/*
-    # принимает общий секрет ИЛИ валидный JWT access-токен. /auth/login и
-    # /auth/refresh остаются открытыми (иначе вход невозможен).
-    if auth_token:
+    # Опознание вызывающего и авторизация (ADR-008).
+    #
+    # Опознание идёт всегда, даже когда SO_AUTH_TOKEN пуст и доступ открыт:
+    # аудит должен записывать, кто выполнил действие, а в открытом режиме
+    # вход по личной учётной записи по-прежнему возможен.
+    #
+    # Принуждение остаётся условным: без SO_AUTH_TOKEN /api/* открыт
+    # (loopback-MVP). При заданном секрете принимается общий Bearer ИЛИ
+    # валидный JWT; /auth/login и /auth/refresh открыты всегда, иначе для
+    # получения токена требовался бы токен.
+    @app.middleware("http")
+    async def _identify_and_authorize(request, call_next):  # noqa: ANN202
+        request.state.actor = ANONYMOUS_ACTOR
+        header = request.headers.get("authorization", "")
+        authorized = not auth_token
 
-        @app.middleware("http")
-        async def _require_token(request, call_next):  # noqa: ANN202
-            path = request.url.path
-            if path.startswith("/api"):
-                header = request.headers.get("authorization", "")
-                if header == f"Bearer {auth_token}":
-                    return await call_next(request)
-                # Второй слой: JWT access-токен персональной учётки.
-                if header.startswith("Bearer "):
-                    from ..auth.service import get_auth_service
+        if auth_token and header == f"Bearer {auth_token}":
+            request.state.actor = SHARED_TOKEN_ACTOR
+            authorized = True
+        elif header.startswith("Bearer "):
+            from ..auth.service import get_auth_service
 
-                    auth_service = get_auth_service()
-                    payload = auth_service.decode_token(header.split(" ", 1)[1])
-                    if payload and payload.type == "access":
-                        user = auth_service.get_user(payload.sub)
-                        if user and user.is_active:
-                            return await call_next(request)
-                from fastapi.responses import JSONResponse
+            auth_service = get_auth_service()
+            payload = auth_service.decode_token(header.split(" ", 1)[1])
+            if payload and payload.type == "access":
+                user = auth_service.get_user(payload.sub)
+                if user and user.is_active:
+                    request.state.actor = user.user_id
+                    authorized = True
 
-                return JSONResponse(
-                    status_code=401,
-                    content={"detail": "требуется авторизация"},
-                )
-            return await call_next(request)
+        if not authorized and request.url.path.startswith("/api"):
+            from fastapi.responses import JSONResponse
+
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "требуется авторизация"},
+            )
+        return await call_next(request)
 
     # -- служебные ----------------------------------------------------------
 
@@ -142,10 +181,12 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
     # -- документы ----------------------------------------------------------
 
     @app.post("/api/documents")
-    def create_document(payload: TextDocumentPayload) -> DocumentCreated:
+    def create_document(
+        payload: TextDocumentPayload, request: Request
+    ) -> DocumentCreated:
         try:
             document = pipeline.ingest(
-                payload.filename, payload.text.encode("utf-8")
+                payload.filename, payload.text.encode("utf-8"), actor=_actor(request)
             )
         except ParseError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -157,10 +198,14 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
         }
 
     @app.post("/api/documents/upload")
-    async def upload_document(file: Annotated[UploadFile, File(...)]) -> DocumentCreated:
-        content = await file.read()
+    async def upload_document(
+        file: Annotated[UploadFile, File(...)], request: Request
+    ) -> DocumentCreated:
+        content = await _read_within_limit(file, pipeline.max_upload_bytes)
         try:
-            document = pipeline.ingest(file.filename or "upload.txt", content)
+            document = pipeline.ingest(
+                file.filename or "upload.txt", content, actor=_actor(request)
+            )
         except ParseError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return {
@@ -184,30 +229,33 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
         }
 
     @app.delete("/api/documents/{document_id}")
-    def delete_document(document_id: str) -> DeletedResponse:
+    def delete_document(document_id: str, request: Request) -> DeletedResponse:
         """Удалить документ и все отчёты по нему (право на забвение)."""
         try:
-            pipeline.delete_document(document_id)
+            pipeline.delete_document(document_id, actor=_actor(request))
         except DocumentNotFound as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return {"deleted": document_id}
 
     @app.delete("/api/analyses/{analysis_id}")
-    def delete_analysis(analysis_id: str) -> DeletedResponse:
+    def delete_analysis(analysis_id: str, request: Request) -> DeletedResponse:
         try:
-            pipeline.delete_analysis(analysis_id)
+            pipeline.delete_analysis(analysis_id, actor=_actor(request))
         except AnalysisNotFound as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return {"deleted": analysis_id}
 
     @app.post("/api/documents/{document_id}/analyze")
     def analyze(
-        document_id: str, payload: AnalyzePayload | None = None
+        document_id: str,
+        request: Request,
+        payload: AnalyzePayload | None = None,
     ) -> AnalysisReportResponse:
         try:
             report = pipeline.analyze(
                 document_id,
                 applicable_at=payload.applicable_at if payload else None,
+                actor=_actor(request),
             )
         except DocumentNotFound as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -221,7 +269,9 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
         return report
 
     @app.post("/api/analyses/{analysis_id}/facts")
-    def add_fact(analysis_id: str, payload: FactAddPayload) -> AnalysisReportResponse:
+    def add_fact(
+        analysis_id: str, payload: FactAddPayload, request: Request
+    ) -> AnalysisReportResponse:
         """Судья добавляет обстоятельство «с нуля»: тип + значение + цитата
         из документа. Цитата обязана дословно находиться в тексте."""
 
@@ -231,6 +281,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
                 fact_type=payload.type,
                 value=payload.value,
                 quote=payload.quote,
+                actor=_actor(request),
             )
         except (AnalysisNotFound, DocumentNotFound) as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -240,14 +291,21 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
 
     @app.patch("/api/analyses/{analysis_id}/facts/{fact_id}")
     def update_fact(
-        analysis_id: str, fact_id: str, payload: FactUpdatePayload
+        analysis_id: str,
+        fact_id: str,
+        payload: FactUpdatePayload,
+        request: Request,
     ) -> AnalysisReportResponse:
         """Правка факта человеком: подтверждение, исключение или коррекция
         значения. Отчёт пересчитывается детерминированным движком."""
         value = payload.value if "value" in payload.model_fields_set else UNSET_VALUE
         try:
             report = pipeline.update_fact(
-                analysis_id, fact_id, status=payload.status, value=value
+                analysis_id,
+                fact_id,
+                status=payload.status,
+                value=value,
+                actor=_actor(request),
             )
         except (AnalysisNotFound, FactNotFound) as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc

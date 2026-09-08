@@ -41,7 +41,7 @@ SECURITY.md, ROADMAP.md, EVALUATION.md, .env.example, CHANGELOG.md).
 macro-F1=0.978, evidence=1.0, Recall@5=1.0 (lexical), MRR=0.893,
 nDCG@0.921, citation_integrity=1.0, temporal=1.0. R-009 откачен —
 правило требовало юридической сверки, регрессионные тесты отсутствовали,
-нарушало AGENTS.md. ENGINE_VERSION 1.2.0 → 1.1.0). Ранее: 2026-08-30
+нарушало ENGINEERING_RULES.md. ENGINE_VERSION 1.2.0 → 1.1.0). Ранее: 2026-08-30
 (уборка после аудита: ruff зелёный, 233 теста зелёных, исправлен
 сломанный `POST /auth/users`, добавлены admin-тесты, удалены debug-файлы
 и переэкспорт `auth/routes.py`). Подробности — в `docs/AUDIT_REPORT.md`.

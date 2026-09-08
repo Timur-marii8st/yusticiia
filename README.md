@@ -165,6 +165,7 @@ second-opinion eval     # или: make eval
 - [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) — план (M0–M10)
 - [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md) — фактический статус
 - [docs/GLOSSARY.md](docs/GLOSSARY.md) — глоссарий
+- [docs/ENGINEERING_RULES.md](docs/ENGINEERING_RULES.md) — инженерные правила и Definition of Done
 - [CHANGELOG.md](CHANGELOG.md) — история итераций
 - [docs/ADR/](docs/ADR/) — архитектурные решения
 

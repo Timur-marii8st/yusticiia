@@ -1,24 +1,18 @@
 """Хеширование паролей поверх bcrypt.
 
-Раньше использовался ``passlib.CryptContext``. Passlib не поддерживается
-с 2020 года и несовместим с bcrypt 5.x: определение бэкенда падает на
-проверке 72-байтного предела, из-за чего приходилось держать пин
-``bcrypt<5``, а на каждом старте в stderr печатался трейсбек
-``module 'bcrypt' has no attribute '__about__'``. Прямой вызов bcrypt
-снимает и то, и другое; формат хэша тот же (``$2b$``), поэтому ранее
-сохранённые пароли проверяются без миграции.
+Раньше использовался passlib; он не поддерживается с 2020 года и ломается
+на bcrypt 5.x. Формат хэша прежний (``$2a$``/``$2b$``), поэтому пароли,
+сохранённые до перехода, проверяются без миграции.
 """
 
 from __future__ import annotations
 
 import bcrypt
 
-#: bcrypt учитывает только первые 72 байта пароля. Молчаливое усечение
-#: означало бы, что длинный пароль проверяется не целиком, — отклоняем явно.
+#: bcrypt учитывает только первые 72 байта пароля.
 MAX_PASSWORD_BYTES = 72
 
-#: Хэш заведомо несуществующего пароля: нужен, чтобы проверка при
-#: неизвестном пользователе стоила столько же, сколько при известном.
+#: Хэш заведомо несуществующего пароля — для ``waste_time_like_verify``.
 _DUMMY_HASH = bcrypt.hashpw(b"dummy-password-for-constant-time", bcrypt.gensalt())
 
 
@@ -27,6 +21,7 @@ class PasswordTooLongError(ValueError):
 
 
 def _encode(password: str) -> bytes:
+    """Пароль в байтах; слишком длинный отвергается, а не усекается молча."""
     raw = password.encode("utf-8")
     if len(raw) > MAX_PASSWORD_BYTES:
         raise PasswordTooLongError(
@@ -41,20 +36,19 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password: str, hashed: str) -> bool:
-    """Проверить пароль против хэша; на любом повреждённом хэше — False."""
+    """Проверить пароль против хэша. Битый хэш — «не совпало», не сбой."""
     if not hashed:
         return False
     try:
         return bcrypt.checkpw(_encode(password), hashed.encode("ascii"))
     except (PasswordTooLongError, ValueError):
-        # Слишком длинный пароль и битый хэш — оба «не совпало», а не сбой.
         return False
 
 
 def waste_time_like_verify() -> None:
-    """Потратить столько же времени, сколько занимает проверка пароля.
+    """Потратить время одной проверки пароля.
 
-    Вызывается там, где пользователь не найден: без этого время ответа
+    Вызывается там, где пользователь не найден: иначе время ответа
     отличает существующий адрес от несуществующего.
     """
     bcrypt.checkpw(b"dummy-password-for-constant-time", _DUMMY_HASH)

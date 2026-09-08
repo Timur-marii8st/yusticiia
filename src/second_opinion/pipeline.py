@@ -168,6 +168,10 @@ class AnalysisPipeline:
         self.auth_service = None  # Опциональный сервис аутентификации
 
     @property
+    def max_upload_bytes(self) -> int:
+        return self._max_upload_bytes
+
+    @property
     def norm_store(self) -> NormStore:
         return self._norm_store
 
@@ -181,11 +185,14 @@ class AnalysisPipeline:
 
     # -- загрузка документа -------------------------------------------------
 
-    def ingest(self, filename: str, content: bytes) -> Document:
+    def ingest(
+        self, filename: str, content: bytes, *, actor: str = "anonymous"
+    ) -> Document:
         document = parse_document(filename, content, self._max_upload_bytes)
         self._documents.save(document)
         self._audit.log(
             operation="document_ingest",
+            actor=actor,
             component="ingestion",
             request_id=document.document_id,
             input_hash=document.sha256,
@@ -202,7 +209,11 @@ class AnalysisPipeline:
     # -- анализ -------------------------------------------------------------
 
     def analyze(
-        self, document_id: str, applicable_at: str | None = None
+        self,
+        document_id: str,
+        applicable_at: str | None = None,
+        *,
+        actor: str = "anonymous",
     ) -> AnalysisReport:
         request_id = uuid.uuid4().hex
         metrics = get_metrics()
@@ -227,6 +238,7 @@ class AnalysisPipeline:
                     derived,
                     timer=StageTimer(),
                     request_id=request_id,
+                    actor=actor,
                 )
                 if metrics.enabled:
                     metrics.counter(ANALYSES_TOTAL).inc()
@@ -241,7 +253,7 @@ class AnalysisPipeline:
 
     # -- удаление (право на забвение, docs/PRIVACY.md) ------------------------
 
-    def delete_document(self, document_id: str) -> None:
+    def delete_document(self, document_id: str, *, actor: str = "anonymous") -> None:
         """Удалить документ и все отчёты по нему."""
         if not self._documents.delete(document_id):
             raise DocumentNotFound(f"документ не найден: {document_id}")
@@ -250,18 +262,20 @@ class AnalysisPipeline:
                 self._analyses.delete(report.analysis_id)
         self._audit.log(
             operation="document_delete",
+            actor=actor,
             component="pipeline",
             request_id=document_id,
             input_hash=document_id,
             details={"cascade_analyses_deleted": True},
         )
 
-    def delete_analysis(self, analysis_id: str) -> None:
+    def delete_analysis(self, analysis_id: str, *, actor: str = "anonymous") -> None:
         """Удалить один отчёт анализа."""
         if not self._analyses.delete(analysis_id):
             raise AnalysisNotFound(f"отчёт не найден: {analysis_id}")
         self._audit.log(
             operation="analysis_delete",
+            actor=actor,
             component="pipeline",
             request_id=analysis_id,
             input_hash=analysis_id,
@@ -276,6 +290,7 @@ class AnalysisPipeline:
         *,
         status: str | None = None,
         value: object = UNSET_VALUE,
+        actor: str = "anonymous",
     ) -> AnalysisReport:
         """Скорректировать факт пользователем и пересчитать отчёт.
 
@@ -327,6 +342,7 @@ class AnalysisPipeline:
         self._analyses.save(report)
         self._audit.log(
             operation="fact_update",
+            actor=actor,
             component="pipeline",
             request_id=request_id,
             output_hash=_hash_report(report),
@@ -344,7 +360,13 @@ class AnalysisPipeline:
     # -- человек в контуре: добавление факта «с нуля» -------------------------
 
     def add_fact(
-        self, analysis_id: str, *, fact_type: str, value: object, quote: str
+        self,
+        analysis_id: str,
+        *,
+        fact_type: str,
+        value: object,
+        quote: str,
+        actor: str = "anonymous",
     ) -> AnalysisReport:
         """Судья добавляет обстоятельство вручную.
 
@@ -406,6 +428,7 @@ class AnalysisPipeline:
         self._analyses.save(report)
         self._audit.log(
             operation="fact_add",
+            actor=actor,
             component="pipeline",
             request_id=request_id,
             output_hash=_hash_report(report),
@@ -549,6 +572,7 @@ class AnalysisPipeline:
         *,
         timer: StageTimer,
         request_id: str,
+        actor: str = "anonymous",
     ) -> None:
         """Шаг 3 конвейера: применить derived, сохранить, залогировать.
 
@@ -570,6 +594,7 @@ class AnalysisPipeline:
         )
         self._audit.log(
             operation="analysis_complete",
+            actor=actor,
             component="pipeline",
             request_id=request_id,
             input_hash=document.sha256,

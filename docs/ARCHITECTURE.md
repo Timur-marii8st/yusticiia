@@ -2,7 +2,7 @@
 
 Модульный монолит на Python 3.11+. Один процесс, слои разделены интерфейсами;
 модули не ходят друг к другу в обход контрактов. Выбор против микросервисов —
-см. `QWEN.md` («modular monolith > premature microservices») и ADR-001/ADR-006.
+см. [ENGINEERING_RULES.md](ENGINEERING_RULES.md) («modular monolith > premature microservices») и ADR-001/ADR-006.
 
 ## Конвейер
 

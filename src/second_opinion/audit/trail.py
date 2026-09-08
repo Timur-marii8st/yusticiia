@@ -6,6 +6,11 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+#: Действие выполнено без опознанной учётной записи.
+ANONYMOUS_ACTOR = "anonymous"
+#: Вход по общему секрету SO_AUTH_TOKEN: конкретный человек неизвестен.
+SHARED_TOKEN_ACTOR = "shared-token"
+
 
 class AuditEvent(BaseModel):
     """Запись аудит-журнала. Не содержит сырых текстов документов."""
@@ -14,6 +19,11 @@ class AuditEvent(BaseModel):
     request_id: str
     operation: str
     component: str
+    #: Кто выполнил действие: user_id учётной записи, "shared-token" при
+    #: входе по общему секрету, "anonymous" в открытом loopback-режиме.
+    #: Для судебной системы «кто подтвердил обстоятельство» — часть
+    #: провенанса наравне с «что было подтверждено».
+    actor: str = "anonymous"
     input_hash: str = ""
     output_hash: str = ""
     model: str | None = None
