@@ -201,14 +201,33 @@ def _load_text(args: argparse.Namespace) -> str:
     return text
 
 
+def load_card(raw_path: Path) -> dict:
+    """Прочитать карточку документа из сохранённого ответа API.
+
+    Файла нет или он пуст — карточки просто нет, реквизиты берутся из
+    аргументов. А вот непустой, но нечитаемый файл — это, как правило,
+    оборванная загрузка, и молчать о ней нельзя.
+    """
+    if not raw_path.exists():
+        return {}
+    content = raw_path.read_text(encoding="utf-8").strip()
+    if not content:
+        return {}
+    try:
+        loaded = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise SystemExit(
+            f"ОШИБКА: {raw_path} не разбирается как JSON ({exc}). "
+            "Ожидается ответ API, сохранённый командой fetch-card."
+        ) from exc
+    if not isinstance(loaded, dict):
+        return {}
+    # API может вернуть карточку напрямую или обёртку — берём словарь документа.
+    return loaded.get("document", loaded) if isinstance(loaded.get("document"), dict) else loaded
+
+
 def cmd_build_fixture(args: argparse.Namespace) -> int:
-    raw_path = Path(args.raw)
-    card: dict = {}
-    if raw_path.exists():
-        loaded = json.loads(raw_path.read_text(encoding="utf-8"))
-        if isinstance(loaded, dict):
-            # API может вернуть карточку напрямую или обёртку — берём словарь документа.
-            card = loaded.get("document", loaded) if isinstance(loaded.get("document"), dict) else loaded
+    card = load_card(Path(args.raw))
     text = _load_text(args)
     source_document = args.source_document or build_source_document(card)
     source_url = args.source_url or api_document_url(args.base_url, args.eo_number)

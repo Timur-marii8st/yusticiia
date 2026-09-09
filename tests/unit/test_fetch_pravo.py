@@ -15,6 +15,7 @@ from fetch_pravo import (  # noqa: E402
     build_fixture_payload,
     build_source_document,
     extract_pdf_text,
+    load_card,
     main,
 )
 
@@ -147,3 +148,32 @@ def test_pdf_and_text_file_are_mutually_exclusive(tmp_path) -> None:
                 "--out", str(tmp_path / "n.json"),
             ]
         )
+
+
+# --- карточка документа ------------------------------------------------------
+
+
+def test_missing_card_file_is_not_an_error(tmp_path) -> None:
+    assert load_card(tmp_path / "нет-такого.json") == {}
+
+
+def test_empty_card_file_is_not_an_error(tmp_path) -> None:
+    """Пустой файл — это отсутствие карточки, а не сбой."""
+    empty = tmp_path / "raw.json"
+    empty.write_text("", encoding="utf-8")
+    assert load_card(empty) == {}
+
+
+def test_broken_card_file_reports_clearly(tmp_path) -> None:
+    """Непустой нечитаемый файл — оборванная загрузка, молчать нельзя."""
+    broken = tmp_path / "raw.json"
+    broken.write_text("не json", encoding="utf-8")
+
+    with pytest.raises(SystemExit, match="не разбирается как JSON"):
+        load_card(broken)
+
+
+def test_card_wrapper_is_unwrapped(tmp_path) -> None:
+    raw = tmp_path / "raw.json"
+    raw.write_text(json.dumps({"document": {"eoNumber": "0001"}}), encoding="utf-8")
+    assert load_card(raw) == {"eoNumber": "0001"}
