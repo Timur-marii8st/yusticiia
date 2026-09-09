@@ -48,7 +48,7 @@ addopts = "-ra"
 filterwarnings = [
     "error::DeprecationWarning",
     'ignore:The anyio\.abc\.BlockingPortal alias is deprecated.*:DeprecationWarning:starlette\.testclient',
-    'ignore:\x27crypt\x27 is deprecated and slated for removal in Python 3\.13:DeprecationWarning',
+    'ignore:.*crypt.*slated for removal in Python 3\.13:DeprecationWarning',
 ]
 
 [tool.ruff]
