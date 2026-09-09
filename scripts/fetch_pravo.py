@@ -34,6 +34,9 @@ except ImportError:  # pragma: no cover
     httpx = None  # type: ignore[assignment]
 
 DEFAULT_BASE_URL = "https://publication.pravo.gov.ru"
+
+#: Потолок размера PDF при извлечении текста.
+MAX_PDF_BYTES = 50 * 1024 * 1024
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_RAW_DIR = REPO_ROOT / "data" / "raw_pravo"
 
@@ -170,6 +173,34 @@ def cmd_search(args: argparse.Namespace) -> int:
     return 0
 
 
+def extract_pdf_text(pdf_path: Path) -> str:
+    """Достать текст из PDF существующим парсером проекта.
+
+    Тот же путь, что и у загружаемых судебных документов: текстовый слой,
+    при его отсутствии — OCR, при недоступном OCR — понятная ошибка.
+    """
+    sys.path.insert(0, str(REPO_ROOT / "src"))
+    from second_opinion.ingestion.parser import parse_document
+
+    document = parse_document(pdf_path.name, pdf_path.read_bytes(), MAX_PDF_BYTES)
+    return document.text
+
+
+def _load_text(args: argparse.Namespace) -> str:
+    if args.text_file:
+        return Path(args.text_file).read_text(encoding="utf-8")
+
+    text = extract_pdf_text(Path(args.pdf_file))
+    print(
+        f"Текст извлечён из PDF: {len(text)} символов. "
+        "Это ЧЕРНОВИК — распознавание ошибается в числах, "
+        "а число в санкции меняет смысл нормы. "
+        "Сверьте с официальным текстом перед снятием статуса draft.",
+        file=sys.stderr,
+    )
+    return text
+
+
 def cmd_build_fixture(args: argparse.Namespace) -> int:
     raw_path = Path(args.raw)
     card: dict = {}
@@ -178,7 +209,7 @@ def cmd_build_fixture(args: argparse.Namespace) -> int:
         if isinstance(loaded, dict):
             # API может вернуть карточку напрямую или обёртку — берём словарь документа.
             card = loaded.get("document", loaded) if isinstance(loaded.get("document"), dict) else loaded
-    text = Path(args.text_file).read_text(encoding="utf-8")
+    text = _load_text(args)
     source_document = args.source_document or build_source_document(card)
     source_url = args.source_url or api_document_url(args.base_url, args.eo_number)
     retrieved = args.retrieved_at or date.today().isoformat()
@@ -235,7 +266,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_build = sub.add_parser("build-fixture", help="собрать draft-фикстуру из raw + text-file")
     p_build.add_argument("--eo-number", required=True)
     p_build.add_argument("--raw", required=True)
-    p_build.add_argument("--text-file", required=True, help="txt, скопированный из официального PDF")
+    text_source = p_build.add_mutually_exclusive_group(required=True)
+    text_source.add_argument(
+        "--text-file", help="готовый txt (например, скопированный из официального PDF)"
+    )
+    text_source.add_argument(
+        "--pdf-file",
+        help="PDF официальной публикации; текст извлекается автоматически, результат — черновик",
+    )
     p_build.add_argument("--code", required=True)
     p_build.add_argument("--article", type=int, required=True)
     p_build.add_argument("--part", type=int, default=None)
