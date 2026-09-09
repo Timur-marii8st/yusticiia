@@ -44,7 +44,10 @@ packages = ["src/second_opinion"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
-filterwarnings = ["error::DeprecationWarning"]
+filterwarnings = [
+    "error::DeprecationWarning",
+    'ignore:The anyio\.abc\.BlockingPortal alias is deprecated.*:DeprecationWarning:starlette\.testclient',
+]
 
 [tool.ruff]
 line-length = 100
