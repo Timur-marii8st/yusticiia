@@ -166,6 +166,7 @@ second-opinion eval     # или: make eval
 - [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md) — фактический статус
 - [docs/GLOSSARY.md](docs/GLOSSARY.md) — глоссарий
 - [docs/ENGINEERING_RULES.md](docs/ENGINEERING_RULES.md) — инженерные правила и Definition of Done
+- [docs/OPEN_QUESTIONS.md](docs/OPEN_QUESTIONS.md) — открытые вопросы и варианты решений
 - [CHANGELOG.md](CHANGELOG.md) — история итераций
 - [docs/ADR/](docs/ADR/) — архитектурные решения
 
