@@ -81,6 +81,7 @@ class NormStore:
                     f"норма {norm.norm_id}: версия {version.version_id} "
                     "ссылается на другую норму"
                 )
+        _validate_unique_version_ids(norm.norm_id, versions)
         _validate_no_overlap(norm.norm_id, versions)
         self._norms[norm.norm_id] = norm
         self._versions[norm.norm_id] = sorted(
@@ -122,6 +123,22 @@ class NormStore:
 
     def list_norms(self) -> list[LegalNorm]:
         return sorted(self._norms.values(), key=lambda n: (n.code, n.article, n.part or 0))
+
+
+def _validate_unique_version_ids(norm_id: str, versions: list[NormVersion]) -> None:
+    """Редакции одной нормы обязаны различаться идентификаторами.
+
+    Дубликат означает, что одна редакция подменяет другую при любой
+    выборке по version_id — в том числе в ссылках отчёта на норму.
+    """
+    seen: set[str] = set()
+    for version in versions:
+        if version.version_id in seen:
+            raise ValueError(
+                f"норма {norm_id}: идентификатор редакции "
+                f"{version.version_id} повторяется"
+            )
+        seen.add(version.version_id)
 
 
 def _validate_no_overlap(norm_id: str, versions: list[NormVersion]) -> None:

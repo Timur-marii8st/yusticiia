@@ -177,3 +177,29 @@ def test_card_wrapper_is_unwrapped(tmp_path) -> None:
     raw = tmp_path / "raw.json"
     raw.write_text(json.dumps({"document": {"eoNumber": "0001"}}), encoding="utf-8")
     assert load_card(raw) == {"eoNumber": "0001"}
+
+
+def test_version_id_follows_effective_year(tmp_path) -> None:
+    """Разные редакции нормы не должны получать один идентификатор."""
+    raw = tmp_path / "raw.json"
+    raw.write_text("{}", encoding="utf-8")
+
+    ids = []
+    for effective_from in ("1996-07-01", "2003-12-16"):
+        out = tmp_path / f"{effective_from}.json"
+        main(
+            [
+                "build-fixture",
+                "--eo-number", "0001",
+                "--raw", str(raw),
+                "--pdf-file", str(SAMPLE_PDF),
+                "--code", "УК РФ",
+                "--article", "158",
+                "--title", "Кража",
+                "--effective-from", effective_from,
+                "--out", str(out),
+            ]
+        )
+        ids.append(json.loads(out.read_text(encoding="utf-8"))["norms"][0]["versions"][0]["version_id"])
+
+    assert ids == ["v-1996", "v-2003"]

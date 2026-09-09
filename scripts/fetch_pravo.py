@@ -237,8 +237,13 @@ def cmd_build_fixture(args: argparse.Namespace) -> int:
         + (f"-part-{args.part}" if args.part else "")
         + f"-pravo-{args.eo_number}"
     )
+    # Идентификатор редакции по году начала действия — как в остальных
+    # фикстурах (v-1996, v-2003). Общий "v-pravo-draft" на все редакции
+    # означал бы, что вторая редакция нормы затирает первую по смыслу.
+    version_id = args.version_id or f"v-{args.effective_from[:4]}"
     payload = build_fixture_payload(
         norm_id=norm_id,
+        version_id=version_id,
         code=args.code,
         article=args.article,
         part=args.part,
@@ -299,6 +304,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_build.add_argument("--title", required=True)
     p_build.add_argument("--effective-from", required=True, help="YYYY-MM-DD")
     p_build.add_argument("--effective-to", default=None)
+    p_build.add_argument(
+        "--version-id",
+        default=None,
+        help="идентификатор редакции; по умолчанию v-<год из --effective-from>",
+    )
     p_build.add_argument("--out", required=True)
     p_build.add_argument("--norm-id", default=None)
     p_build.add_argument("--source-document", default=None)

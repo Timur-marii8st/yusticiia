@@ -202,3 +202,16 @@ def test_project_corpus_is_sealed() -> None:
     report = check(PROJECT_ROOT / "data" / "fixtures" / "norms")
     assert report.ok, report.describe()
     assert report.checked == 34
+
+
+def test_duplicate_version_ids_are_rejected(tmp_path) -> None:
+    """Дубликат идентификатора редакции подменял бы одну версию другой."""
+    directory = _corpus(
+        tmp_path,
+        _version(effective_from="1996-07-01", effective_to="2003-12-15"),
+        _version(),
+    )
+    seal(directory)
+
+    with pytest.raises(ValueError, match="повторяется"):
+        NormStore.from_directory(directory)
