@@ -194,3 +194,9 @@ def test_repository_stub_fixture_is_marked() -> None:
 
     path = PROJECT_ROOT / "data" / "fixtures" / "garant_stub" / "12345678.json"
     assert json.loads(path.read_text(encoding="utf-8"))["assumed"] is True
+
+
+def test_garant_rejects_base_url_without_protocol() -> None:
+    """Частая опечатка: хост без схемы. Сообщать должен проект, а не httpx."""
+    with pytest.raises(ValueError, match="http://"):
+        GarantSource("api.example.invalid", "токен")

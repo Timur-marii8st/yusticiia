@@ -126,6 +126,11 @@ class GarantSource:
         # вида /v2/..., хост задаёт обслуживающая организация.
         if not base_url:
             raise ValueError("SO_GARANT_BASE_URL не задан")
+        if not base_url.startswith(("http://", "https://")):
+            raise ValueError(
+                f"SO_GARANT_BASE_URL должен начинаться с http:// или https:// "
+                f"(получено: {base_url!r})"
+            )
         if not token:
             raise ValueError("SO_GARANT_TOKEN не задан")
         self._base_url = base_url.rstrip("/")
