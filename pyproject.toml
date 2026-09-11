@@ -48,13 +48,15 @@ addopts = "-ra"
 filterwarnings = [
     # Устаревание в нашем коде остаётся ошибкой.
     "error::DeprecationWarning",
-    # anyio 4.15 объявил устаревшими псевдонимы anyio.abc.*, а их импортирует
-    # starlette.testclient. Предупреждение приходит целиком из зависимостей:
-    # `anyio` в коде проекта не упоминается ни разу. Пин starlette/anyio ради
-    # косметики закрыл бы обновления безопасности, поэтому глушим адресно —
-    # по тексту сообщения, а не по категории. Снять, когда starlette перейдёт
-    # на anyio.from_thread.
-    'ignore:The anyio\.abc\..* alias is deprecated:DeprecationWarning',
+    # anyio 4.15 объявил устаревшими псевдонимы anyio.abc.*, а импортирует их
+    # starlette.testclient. Предупреждение целиком из зависимостей: `anyio` в
+    # коде проекта не упоминается ни разу. Привязка к модулю-источнику взята
+    # из upstream-ветки fix/ci-upstream-deprecation-warning — она точнее, чем
+    # фильтр по одному тексту сообщения. Снять, когда starlette перейдёт на
+    # anyio.from_thread.
+    'ignore:The anyio\.abc\..* alias is deprecated.*:DeprecationWarning:starlette\.testclient',
+    # Фильтр upstream про устаревание stdlib-модуля crypt здесь не нужен:
+    # его тянул passlib, а passlib из зависимостей удалён.
 ]
 
 [tool.ruff]
