@@ -50,6 +50,22 @@ def version_digest(payload: dict) -> str:
     return hashlib.sha256(_canonical(payload).encode("utf-8")).hexdigest()
 
 
+def norm_digest(payload: dict) -> str:
+    """Хэш записи нормы без списка редакций.
+
+    Редакции покрыты отдельно, а вот поля самой нормы — заголовок, а
+    главное отметка о сверке истории изменений — до этого не покрывались
+    ничем. Правка «история сверена по КонсультантПлюс такого-то числа»
+    проходила мимо контроля целостности, хотя это юридическое утверждение.
+    """
+    body = {k: v for k, v in payload.items() if k != "versions"}
+    return hashlib.sha256(
+        json.dumps(body, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode(
+            "utf-8"
+        )
+    ).hexdigest()
+
+
 def text_digest(text: str) -> str:
     """Контрольная сумма текста — та, что едет в отчёт."""
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
@@ -63,6 +79,7 @@ class SealReport:
     unsealed: list[str] = field(default_factory=list)
     text_mismatch: list[str] = field(default_factory=list)
     record_mismatch: list[str] = field(default_factory=list)
+    norm_mismatch: list[str] = field(default_factory=list)
     missing_from_manifest: list[str] = field(default_factory=list)
     missing_from_corpus: list[str] = field(default_factory=list)
 
@@ -72,6 +89,7 @@ class SealReport:
             self.unsealed
             or self.text_mismatch
             or self.record_mismatch
+            or self.norm_mismatch
             or self.missing_from_manifest
             or self.missing_from_corpus
         )
@@ -84,6 +102,7 @@ class SealReport:
             ("Не опечатаны (sha256 не заполнена)", self.unsealed),
             ("Текст разошёлся с контрольной суммой", self.text_mismatch),
             ("Запись изменена после опечатывания", self.record_mismatch),
+            ("Норма изменена после опечатывания", self.norm_mismatch),
             ("Нет в манифесте (добавлены без опечатывания)", self.missing_from_manifest),
             ("Есть в манифесте, но пропали из корпуса", self.missing_from_corpus),
         ]
@@ -95,15 +114,21 @@ class SealReport:
         return "\n".join(lines).rstrip()
 
 
-def _iter_versions(directory: Path):
-    """Пройти по редакциям корпуса: (файл, norm_id, version_id, запись)."""
+def _iter_norms(directory: Path):
+    """Пройти по нормам корпуса: (файл, запись нормы)."""
     for path in sorted(Path(directory).glob("*.json")):
         if path.name == MANIFEST_NAME:
             continue
         payload = json.loads(path.read_text(encoding="utf-8"))
         for norm in payload.get("norms", []):
-            for version in norm.get("versions", []):
-                yield path, norm["norm_id"], version["version_id"], version
+            yield path, norm
+
+
+def _iter_versions(directory: Path):
+    """Пройти по редакциям корпуса: (файл, norm_id, version_id, запись)."""
+    for path, norm in _iter_norms(directory):
+        for version in norm.get("versions", []):
+            yield path, norm["norm_id"], version["version_id"], version
 
 
 def read_manifest(directory: Path) -> dict:
@@ -139,6 +164,13 @@ def check(directory: Path) -> SealReport:
             report.record_mismatch.append(key)
 
     report.missing_from_corpus.extend(set(recorded) - seen)
+
+    recorded_norms: dict[str, str] = manifest.get("norms", {})
+    for _path, norm in _iter_norms(directory):
+        norm_id = norm["norm_id"]
+        expected = recorded_norms.get(norm_id)
+        if expected is not None and expected != norm_digest(norm):
+            report.norm_mismatch.append(norm_id)
     return report
 
 
@@ -150,6 +182,7 @@ def seal(directory: Path, *, sealed_at: date | None = None) -> SealReport:
     """
     directory = Path(directory)
     versions: dict[str, str] = {}
+    norms: dict[str, str] = {}
 
     for path in sorted(directory.glob("*.json")):
         if path.name == MANIFEST_NAME:
@@ -161,6 +194,7 @@ def seal(directory: Path, *, sealed_at: date | None = None) -> SealReport:
                 versions[f"{norm['norm_id']}@{version['version_id']}"] = version_digest(
                     version
                 )
+            norms[norm["norm_id"]] = norm_digest(norm)
         path.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
@@ -168,6 +202,7 @@ def seal(directory: Path, *, sealed_at: date | None = None) -> SealReport:
     manifest = {
         "sealed_at": (sealed_at or date.today()).isoformat(),
         "versions": dict(sorted(versions.items())),
+        "norms": dict(sorted(norms.items())),
         "corpus_digest": hashlib.sha256(
             json.dumps(dict(sorted(versions.items())), sort_keys=True).encode("utf-8")
         ).hexdigest(),

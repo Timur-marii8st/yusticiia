@@ -215,3 +215,32 @@ def test_duplicate_version_ids_are_rejected(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="повторяется"):
         NormStore.from_directory(directory)
+
+
+def test_changed_norm_record_is_detected(tmp_path) -> None:
+    """Отметка о сверке истории — юридическое утверждение.
+
+    Регрессия: манифест покрывал только записи редакций, и правка полей
+    самой нормы проходила мимо контроля целостности. Утверждение «история
+    сверена по такому-то источнику» можно было дописать незаметно.
+    """
+    directory = _corpus(tmp_path)
+    seal(directory)
+
+    path = tmp_path / "uk.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["norms"][0]["amendments_checked_through"] = "2026-09-11"
+    payload["norms"][0]["amendments_checked_source"] = "КонсультантПлюс"
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    report = check(directory)
+    assert report.ok is False
+    assert report.norm_mismatch == ["uk-rf:art-158-part-1"]
+    assert report.record_mismatch == [], "редакции не менялись"
+
+
+def test_manifest_records_norm_digests(tmp_path) -> None:
+    directory = _corpus(tmp_path)
+    seal(directory)
+    manifest = json.loads((directory / MANIFEST_NAME).read_text(encoding="utf-8"))
+    assert "uk-rf:art-158-part-1" in manifest["norms"]

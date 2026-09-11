@@ -1,5 +1,5 @@
 {
-  "sealed_at": "2026-09-08",
+  "sealed_at": "2026-09-11",
   "versions": {
     "ppvs-rf:n58-p1@v-2015": "b3266d5694b2e672354f35ee1a7e84f9a417a3006d22a558da482d9e6ca69580",
     "ppvs-rf:n58-p34@v-2015": "68a8f6dffe10223ee4fcc712c3f244d2021018f5494e1a0de2eacf11103c44b0",
@@ -35,6 +35,35 @@
     "uk-rf:art-999-synthetic@v2024": "3230e8a0d6a963ebf90829cffc4abe80e9e453f2a5b8c4babb9c03710551ec69",
     "upk-rf:art-316@v-current": "bf041c07a220034c3dfa8b8eeb8c792a5a173594e5d28a35305111a06501dfaa",
     "upk-rf:art-420@v-current": "7e76c73d9773f60eedf8b277b62f16258fa4875612263e34df505566272bf696"
+  },
+  "norms": {
+    "ppvs-rf:n58-p1": "056ce4de12efb9f356806433a7dc7e5efe59bdff4fae3b18aac50677c63db1ab",
+    "ppvs-rf:n58-p34": "7762327e648ffcb50af034ef4b8d98dd608b6ef379a37d205615492dfcd6d414",
+    "ppvs-rf:n58-p36": "d02dc7f86ef6f0a5fc11031ea3cd4835f6f981df73bf192d4b39b764f29d731e",
+    "ppvs-rf:n60-p13": "bc1d23431c35d4781c053e707a103a46a70170498493f11af9701982da806960",
+    "ppvs-rf:n60-p14": "faa3b52d643f68dc9435768c2ae0e40334eebccf8afb390ce58e9be72b8fb5d2",
+    "ppvs-rf:n60-p7": "2b25a02f237f868a5800bdb72618dd99588d1757f422b112cb3604c139bafa48",
+    "uk-rf:art-111-part-1": "481d8fc01e1e0eb796d9c445446344ba9637314412731fa847e8f5fe4900d912",
+    "uk-rf:art-112-part-1": "c1f3fc9cd3b8dc28e6acd383c94bfd044d2eb04aa77c70b33310c3e362d94248",
+    "uk-rf:art-158-part-1": "34e255f51afc1a520c6ed27a01368252f506cabb5d091c62a6ef81c492dc2946",
+    "uk-rf:art-158-part-2": "102f4568894a8534a0a0acacfb572aab15e195cfd7da8d385f1ff3fcd1faa237",
+    "uk-rf:art-159-part-1": "78e1305bfd720fad38f97ecde4e98741d2368f7715a6633383e218af941a504d",
+    "uk-rf:art-159-part-2": "e4c5e093e04aa7bb06f2aa91a0b9335f451ed99e2d4eefc2c295f52cb434bb78",
+    "uk-rf:art-161-part-1": "fa2b59b4c94c33cbdde0c582b9697e68dad49670cf9e54daa49c2bdef0c42347",
+    "uk-rf:art-161-part-2": "f62e12dbbd86f48e9c2880b97e70e055e568504f05ede91c1421641b414c66c1",
+    "uk-rf:art-163-part-1": "cb55e8e5c6fd9705ee4af00c6b73cc6dd91a06438b5f21449fc4b80aecb67828",
+    "uk-rf:art-228-part-1": "57bb4405afe1bdc3a6edc9652fbc5bb402bed37b8bdde3ee46772000671da944",
+    "uk-rf:art-228-part-2": "2c668e20fee71f0a09c21a74db7d0c0e1759bf35ee885fd92ca702e9baa745b6",
+    "uk-rf:art-60": "788a30d1450cc8c6cfa90bf6b540ff7b1cf8d2ec5f426fb244fe5a457355e45c",
+    "uk-rf:art-61": "55f0e21994b83c761a8ce18317d9db4c50269e9a6f0fc3b4c102597865715b67",
+    "uk-rf:art-62": "eb53278c02ba06ba52f004016d15b9095265c8f2da70d49d06dd8b4bd936dd97",
+    "uk-rf:art-63": "f8a2048508185d26b78a6b31c5c8c1597380efc19bb387a29a2c6bdceeb34396",
+    "uk-rf:art-64": "52b601cc226063ae471c5655c2ec9faaf235e55fdb10262fd21f98e98b0db6b5",
+    "uk-rf:art-66": "14da4dfffceea60c7f6e50d4a812d0bf6f772e8ef6775704d6cdcca85140fbbf",
+    "uk-rf:art-73": "095ed9e42f54936d389cbebd5f7eaab55e8b72e8c616f75b52b45ef9d43af670",
+    "uk-rf:art-999-synthetic": "81eb4ee83e9cc233791d6a89f61b3e176a69c2588eac528e132c41d151940d59",
+    "upk-rf:art-316": "dcabd1e6cde44621dcbdb98adca2c5dae2a907fe77daeceba91f918d69e5c75d",
+    "upk-rf:art-420": "c5708cc438b2434aa1c53b6d66abd1c2915761543667ed7c2da1f6e48b461470"
   },
   "corpus_digest": "e180c4589dc79bd3bb93bf3ac913fd53b7fd3250c4421a90276f2e673dbb2bbd"
 }
