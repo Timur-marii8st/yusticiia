@@ -24,6 +24,16 @@ class LegalNorm(BaseModel):
     article: int = Field(ge=1)
     part: int | None = Field(default=None, ge=1)
     title: str
+    #: Дата, по которую юрист сверил историю изменений статьи. Отличает
+    #: проверенный факт «норма не менялась» от допущения «мы внесли один
+    #: текст и считаем, что он действовал всегда».
+    amendments_checked_through: date | None = None
+    #: Чем сверялась история: КонсультантПлюс, ГАРАНТ, pravo.gov.ru.
+    amendments_checked_source: str = ""
+
+    @property
+    def history_verified(self) -> bool:
+        return self.amendments_checked_through is not None
 
     @property
     def ref(self) -> str:

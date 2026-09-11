@@ -188,6 +188,53 @@ def _redactions(topic: str) -> int:
     return 0
 
 
+def _norms_confirm(norm_id: str, checked_through: str, source: str) -> int:
+    """Зафиксировать сверку истории изменений нормы."""
+    from datetime import date as _date
+
+    from .legal_sources.editing import NormEditError, confirm_history
+
+    try:
+        path = confirm_history(
+            load_config().fixtures_dir / "norms",
+            norm_id,
+            checked_through=_date.fromisoformat(checked_through),
+            source=source,
+        )
+    except (NormEditError, ValueError) as exc:
+        print(f"ОШИБКА: {exc}", file=sys.stderr)
+        return 2
+    print(f"История сверена: {norm_id} → {path}")
+    print("Опечатайте корпус: second-opinion norms-seal")
+    return 0
+
+
+def _norms_add_version(args: argparse.Namespace) -> int:
+    """Добавить редакцию нормы с фактическими границами."""
+    from datetime import date as _date
+
+    from .legal_sources.editing import NormEditError, add_version
+
+    try:
+        text = Path(args.text_file).read_text(encoding="utf-8")
+        path = add_version(
+            load_config().fixtures_dir / "norms",
+            args.norm_id,
+            version_id=args.version_id or f"v-{args.effective_from[:4]}",
+            text=text,
+            effective_from=_date.fromisoformat(args.effective_from),
+            effective_to=_date.fromisoformat(args.effective_to) if args.effective_to else None,
+            source_url=args.source_url,
+        )
+    except (NormEditError, ValueError, OSError) as exc:
+        print(f"ОШИБКА: {exc}", file=sys.stderr)
+        return 2
+    print(f"Редакция добавлена: {args.norm_id} → {path}")
+    print("Статус draft; пределы санкции (sanctions) внесите вручную.")
+    print("Затем: second-opinion norms-seal")
+    return 0
+
+
 def _norms_seal(check_only: bool) -> int:
     """Опечатать нормативный корпус или сверить его с манифестом."""
     from .legal_sources.sealing import check, seal
@@ -252,6 +299,26 @@ def main(argv: list[str] | None = None) -> int:
     )
     red_p.add_argument("--topic", required=True, help="идентификатор документа в источнике")
 
+    confirm_p = sub.add_parser(
+        "norms-confirm-history",
+        help="зафиксировать, что история изменений нормы сверена",
+    )
+    confirm_p.add_argument("--norm-id", required=True)
+    confirm_p.add_argument(
+        "--checked-through", required=True, help="дата, по которую сверена история (ГГГГ-ММ-ДД)"
+    )
+    confirm_p.add_argument(
+        "--source", required=True, help="чем сверялась: КонсультантПлюс, ГАРАНТ, pravo.gov.ru"
+    )
+
+    add_p = sub.add_parser("norms-add-version", help="добавить редакцию существующей норме")
+    add_p.add_argument("--norm-id", required=True)
+    add_p.add_argument("--text-file", required=True)
+    add_p.add_argument("--effective-from", required=True, help="ГГГГ-ММ-ДД")
+    add_p.add_argument("--effective-to", default=None)
+    add_p.add_argument("--version-id", default=None, help="по умолчанию v-<год>")
+    add_p.add_argument("--source-url", default="")
+
     seal_p = sub.add_parser(
         "norms-seal",
         help="опечатать нормативный корпус (контрольные суммы + манифест)",
@@ -286,6 +353,10 @@ def main(argv: list[str] | None = None) -> int:
         return _eval()
     if args.command == "redactions":
         return _redactions(args.topic)
+    if args.command == "norms-confirm-history":
+        return _norms_confirm(args.norm_id, args.checked_through, args.source)
+    if args.command == "norms-add-version":
+        return _norms_add_version(args)
     if args.command == "norms-seal":
         return _norms_seal(args.check)
     if args.command == "norms-coverage":

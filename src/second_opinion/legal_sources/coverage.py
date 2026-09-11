@@ -56,6 +56,7 @@ class NormCoverage:
     ref: str
     has_sanctions: bool
     used_by_rules: bool
+    history_verified: bool
     version_count: int
     covered_from: date
     covered_to: date | None
@@ -75,9 +76,12 @@ class NormCoverage:
     def history_unrecorded(self, as_of: date | None = None) -> bool:
         """Единственная редакция на длинный открытый интервал.
 
-        Означает утверждение «норма не менялась с ``covered_from``», не
-        подкреплённое ни одной зафиксированной поправкой.
+        Означает утверждение «норма не менялась с ``covered_from``». Если
+        юрист сверил историю изменений и подтвердил его, утверждение
+        перестаёт быть допущением и пометка снимается.
         """
+        if self.history_verified:
+            return False
         if self.version_count != 1 or self.covered_to is not None:
             return False
         end = as_of or date.today()
@@ -98,6 +102,7 @@ def analyze_norm(norm: LegalNorm, versions: list[NormVersion]) -> NormCoverage:
         ref=norm.ref,
         has_sanctions=any(v.sanctions for v in ordered),
         used_by_rules=norm.norm_id in REFERENCED_NORM_IDS,
+        history_verified=norm.history_verified,
         version_count=len(ordered),
         covered_from=ordered[0].effective_from,
         covered_to=ordered[-1].effective_to,

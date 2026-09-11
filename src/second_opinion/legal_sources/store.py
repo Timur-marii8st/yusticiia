@@ -50,6 +50,10 @@ class NormStore:
                 article=norm_payload["article"],
                 part=norm_payload.get("part"),
                 title=norm_payload.get("title", ""),
+                amendments_checked_through=norm_payload.get("amendments_checked_through"),
+                amendments_checked_source=norm_payload.get(
+                    "amendments_checked_source", ""
+                ),
             )
             versions = []
             for version in norm_payload["versions"]:
