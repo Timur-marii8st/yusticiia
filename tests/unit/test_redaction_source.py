@@ -200,3 +200,14 @@ def test_garant_rejects_base_url_without_protocol() -> None:
     """Частая опечатка: хост без схемы. Сообщать должен проект, а не httpx."""
     with pytest.raises(ValueError, match="http://"):
         GarantSource("api.example.invalid", "токен")
+
+
+def test_garant_rejects_non_ascii_token() -> None:
+    """Кириллица в токене ломала httpx невнятной ошибкой кодировки."""
+    with pytest.raises(ValueError, match="не-ASCII"):
+        GarantSource("https://api.example.invalid", "ваш-токен")
+
+
+def test_garant_accepts_documented_token_shape() -> None:
+    source = GarantSource("https://api.example.invalid", "U1QtOTkwMTAyLWNud3FpdWhmbzg3M")
+    assert source.headers["Authorization"].endswith("U1QtOTkwMTAyLWNud3FpdWhmbzg3M")

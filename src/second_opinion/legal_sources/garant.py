@@ -133,6 +133,16 @@ class GarantSource:
             )
         if not token:
             raise ValueError("SO_GARANT_TOKEN не задан")
+        # Значение HTTP-заголовка обязано быть ASCII. Без этой проверки
+        # кириллица в токене доходит до httpx и возвращается невнятным
+        # «'ascii' codec can't encode characters».
+        if not token.isascii():
+            raise ValueError(
+                "SO_GARANT_TOKEN содержит не-ASCII символы: токен передаётся "
+                "в заголовке Authorization и может состоять только из "
+                "латиницы, цифр и знаков пунктуации "
+                "(пример из документации: U1QtOTkwMTAyLWNud3FpdWhmbzg3M)"
+            )
         self._base_url = base_url.rstrip("/")
         self._token = token
         # Документация: не более 20 секунд на обработку запроса.
@@ -153,7 +163,14 @@ class GarantSource:
         try:
             response = httpx.get(url, headers=self.headers, timeout=self._timeout)
         except httpx.HTTPError as exc:
-            raise RedactionSourceError(f"ГАРАНТ недоступен: {exc}") from exc
+            raise RedactionSourceError(f"ГАРАНТ недоступен ({url}): {exc}") from exc
+        except UnicodeError as exc:
+            # Кириллица в хосте или токене: наружу должно идти внятное
+            # сообщение, а не внутренняя ошибка кодировки.
+            raise RedactionSourceError(
+                f"ГАРАНТ: адрес или токен содержит недопустимые символы ({exc}). "
+                "Проверьте SO_GARANT_BASE_URL и SO_GARANT_TOKEN"
+            ) from exc
 
         if response.status_code != 200:
             reason = _ERRORS.get(response.status_code, "неожиданный код ответа")
