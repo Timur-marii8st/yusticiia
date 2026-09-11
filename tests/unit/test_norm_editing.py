@@ -152,3 +152,23 @@ def test_empty_text_is_refused(tmp_path) -> None:
             text="   ",
             effective_from=date(2003, 12, 16),
         )
+
+
+def test_cli_explains_missing_text_file(tmp_path, monkeypatch, capsys) -> None:
+    """--text-file готовит человек; сообщение должно это объяснять."""
+    from second_opinion.cli import main
+    from second_opinion.config import reset_config_cache
+
+    monkeypatch.setenv("SO_FIXTURES_DIR", str(tmp_path))
+    reset_config_cache()
+
+    code = main(
+        [
+            "norms-add-version",
+            "--norm-id", "uk-rf:art-158-part-1",
+            "--text-file", "нет-такого.txt",
+            "--effective-from", "2004-01-01",
+        ]
+    )
+    assert code == 2
+    assert "готовите вы" in capsys.readouterr().err

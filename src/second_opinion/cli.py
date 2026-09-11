@@ -215,8 +215,17 @@ def _norms_add_version(args: argparse.Namespace) -> int:
 
     from .legal_sources.editing import NormEditError, add_version
 
+    text_path = Path(args.text_file)
+    if not text_path.exists():
+        print(
+            f"ОШИБКА: файл с текстом редакции не найден: {text_path}\n"
+            "--text-file указывает на файл, который готовите вы: в нём текст\n"
+            "нормы в этой редакции, взятый из официального источника.",
+            file=sys.stderr,
+        )
+        return 2
     try:
-        text = Path(args.text_file).read_text(encoding="utf-8")
+        text = text_path.read_text(encoding="utf-8")
         path = add_version(
             load_config().fixtures_dir / "norms",
             args.norm_id,
