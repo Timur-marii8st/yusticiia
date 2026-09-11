@@ -143,6 +143,51 @@ def _norms_coverage(strict: bool) -> int:
     return 0
 
 
+def _redactions(topic: str) -> int:
+    """Показать план редакций документа по внешнему источнику."""
+    from .legal_sources.redaction_source import RedactionSourceError, plan_versions
+    from .legal_sources.source_factory import build_redaction_source
+
+    try:
+        source = build_redaction_source(load_config())
+        history = source.redactions(topic)
+    except (RedactionSourceError, ValueError) as exc:
+        print(f"ОШИБКА: {exc}", file=sys.stderr)
+        return 2
+
+    if not history.live:
+        print(
+            "ВНИМАНИЕ: источник — заглушка. Данные являются предположением "
+            "по документации, а не ответом сервера.",
+            file=sys.stderr,
+        )
+
+    planned = plan_versions(history)
+    print(f"Документ {history.topic}, источник: {history.source}")
+    print(f"Редакций: {len(planned)}")
+    print()
+    for version in planned:
+        end = version.effective_to.isoformat() if version.effective_to else "н/в"
+        print(f"  {version.version_id:<10} {version.effective_from} → {end}")
+        if version.introduced_by:
+            print(f"  {'':<10} введена: {version.introduced_by}")
+
+    if history.uncertain:
+        print()
+        print("Периоды неопределённости (источник не уверен):")
+        for period in history.uncertain:
+            start = period.valid_from.isoformat() if period.valid_from else "?"
+            end = period.valid_to.isoformat() if period.valid_to else "?"
+            print(f"  {start} … {end} — {period.description or 'без пояснения'}")
+
+    print()
+    print(
+        "Это границы редакций, а не готовые нормы: текст и пределы санкции\n"
+        "(sanctions) вносит юрист — из источника они не извлекаются."
+    )
+    return 0
+
+
 def _norms_seal(check_only: bool) -> int:
     """Опечатать нормативный корпус или сверить его с манифестом."""
     from .legal_sources.sealing import check, seal
@@ -201,6 +246,12 @@ def main(argv: list[str] | None = None) -> int:
         help="ненулевой код выхода, если есть нормы без зафиксированной истории",
     )
 
+    red_p = sub.add_parser(
+        "redactions",
+        help="план редакций документа по внешнему источнику (SO_REDACTION_SOURCE)",
+    )
+    red_p.add_argument("--topic", required=True, help="идентификатор документа в источнике")
+
     seal_p = sub.add_parser(
         "norms-seal",
         help="опечатать нормативный корпус (контрольные суммы + манифест)",
@@ -233,6 +284,8 @@ def main(argv: list[str] | None = None) -> int:
         return _analyze(args.file, args.applicable_at)
     if args.command == "eval":
         return _eval()
+    if args.command == "redactions":
+        return _redactions(args.topic)
     if args.command == "norms-seal":
         return _norms_seal(args.check)
     if args.command == "norms-coverage":

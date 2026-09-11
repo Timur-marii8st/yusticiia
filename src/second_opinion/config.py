@@ -43,6 +43,16 @@ class AppConfig:
     login_max_attempts: int = 5
     #: Длительность блокировки входа в минутах.
     login_lockout_minutes: int = 15
+    #: Источник редакционной истории норм: "none" | "garant" | "stub".
+    #: Заглушка отвечает из подготовленных файлов, пока нет токена ГАРАНТ.
+    redaction_source: str = "none"
+    #: Базовый URL API ГАРАНТ. Не угадывается: документация приводит только
+    #: пути вида /v2/..., хост задаёт обслуживающая организация.
+    garant_base_url: str = ""
+    #: OAuth-токен ГАРАНТ, выдаётся по заявке.
+    garant_token: str = ""
+    #: Каталог файлов заглушки.
+    garant_stub_dir: str = ""
     #: Попыток входа с одного клиента за окно (0 — без ограничения).
     #: Блокировка учётки считает неудачи по пользователю и потому не
     #: сдерживает перебор по списку адресов — этот лимит считает по клиенту.
@@ -100,6 +110,10 @@ def load_config() -> AppConfig:
         password_history_depth=int(_env("SO_PASSWORD_HISTORY_DEPTH") or 5),
         login_max_attempts=int(_env("SO_LOGIN_MAX_ATTEMPTS") or 5),
         login_lockout_minutes=int(_env("SO_LOGIN_LOCKOUT_MINUTES") or 15),
+        redaction_source=_env("SO_REDACTION_SOURCE", "none") or "none",
+        garant_base_url=_env("SO_GARANT_BASE_URL"),
+        garant_token=_env("SO_GARANT_TOKEN"),
+        garant_stub_dir=_env("SO_GARANT_STUB_DIR"),
         login_rate_limit=int(_env("SO_LOGIN_RATE_LIMIT") or 20),
         login_rate_window_seconds=int(_env("SO_LOGIN_RATE_WINDOW_SECONDS") or 60),
     )

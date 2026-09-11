@@ -1,0 +1,24 @@
+{
+  "assumed": true,
+  "note": "Предположение по документации. Форма ответа вживую не проверялась.",
+  "response": [
+    {
+      "status": "rs_Old",
+      "activity": [{ "from": "1996-07-01", "to": "2003-12-15" }],
+      "changingDocuments": [
+        { "topic": "10000001", "text": "Федеральный закон от 13.06.1996 № 63-ФЗ", "entry": "0" }
+      ],
+      "notSure": []
+    },
+    {
+      "status": "rs_Actual",
+      "activity": [{ "from": "2003-12-16", "to": null }],
+      "changingDocuments": [
+        { "topic": "10000002", "text": "Федеральный закон от 08.12.2003 № 162-ФЗ", "entry": "0" }
+      ],
+      "notSure": [
+        { "from": "2003-12-16", "to": "2003-12-31", "description": "период уточняется" }
+      ]
+    }
+  ]
+}
