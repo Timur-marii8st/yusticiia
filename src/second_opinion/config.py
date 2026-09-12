@@ -43,6 +43,9 @@ class AppConfig:
     login_max_attempts: int = 5
     #: Длительность блокировки входа в минутах.
     login_lockout_minutes: int = 15
+    #: Носитель норм: "file" (каталог фикстур, ревью через git) |
+    #: "postgres" (обновление без выпуска релиза). Требует SO_DATABASE_URL.
+    norms_backend: str = "file"
     #: Источник редакционной истории норм: "none" | "garant" | "stub".
     #: Заглушка отвечает из подготовленных файлов, пока нет токена ГАРАНТ.
     redaction_source: str = "none"
@@ -110,6 +113,7 @@ def load_config() -> AppConfig:
         password_history_depth=int(_env("SO_PASSWORD_HISTORY_DEPTH") or 5),
         login_max_attempts=int(_env("SO_LOGIN_MAX_ATTEMPTS") or 5),
         login_lockout_minutes=int(_env("SO_LOGIN_LOCKOUT_MINUTES") or 15),
+        norms_backend=_env("SO_NORMS_BACKEND", "file") or "file",
         redaction_source=_env("SO_REDACTION_SOURCE", "none") or "none",
         garant_base_url=_env("SO_GARANT_BASE_URL"),
         garant_token=_env("SO_GARANT_TOKEN"),

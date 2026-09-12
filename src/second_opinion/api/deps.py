@@ -71,6 +71,24 @@ def build_legal_rag(norm_store: NormStore):
     return LegalRag(norm_store, embedder=embedder)
 
 
+def build_norm_store(config: AppConfig):
+    """Выбрать носитель норм по ``SO_NORMS_BACKEND``.
+
+    Файловый — корпус под ревью в git, опечатанный манифестом. Postgres —
+    обновление нормы без выпуска релиза; целостность там обеспечивают
+    аудит-журнал и права доступа, а не контрольная сумма файла.
+    """
+    if config.norms_backend == "postgres":
+        if not config.database_url:
+            raise ValueError(
+                "SO_DATABASE_URL не задан: norms_backend=postgres требует DSN"
+            )
+        from ..legal_sources.postgres_store import PostgresNormStore
+
+        return PostgresNormStore(config.database_url)
+    return NormStore.from_directory(config.fixtures_dir / "norms")
+
+
 def build_pipeline(config: AppConfig | None = None) -> AnalysisPipeline:
     config = config or load_config()
 
@@ -101,7 +119,7 @@ def build_pipeline(config: AppConfig | None = None) -> AnalysisPipeline:
         analyses = JsonFileRepository[AnalysisReport](
             config.store_dir / "analyses", AnalysisReport, "analysis_id"
         )
-    norm_store = NormStore.from_directory(config.fixtures_dir / "norms")
+    norm_store = build_norm_store(config)
     retriever = CaseRetriever(load_cases(config.fixtures_dir))
 
     if config.llm_provider == "openai_compatible":

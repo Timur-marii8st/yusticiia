@@ -131,11 +131,18 @@ def _analyze(file_path: Path, applicable_at: str | None) -> int:
 
 def _norms_coverage(strict: bool) -> int:
     """Отчёт о редакционном покрытии норм."""
+    from .api.deps import build_norm_store
     from .legal_sources.coverage import analyze_store, format_report, needs_legal_review
-    from .legal_sources.store import NormStore
 
     config = load_config()
-    store = NormStore.from_directory(config.fixtures_dir / "norms")
+    # Аудит должен отражать носитель, который реально обслуживает запросы.
+    try:
+        store = build_norm_store(config)
+    except (ValueError, OSError, RuntimeError) as exc:
+        print(f"ОШИБКА: {exc}", file=sys.stderr)
+        return 2
+    if config.norms_backend != "file":
+        print(f"Носитель норм: {config.norms_backend}", file=sys.stderr)
     coverages = analyze_store(store)
     print(format_report(coverages))
     if strict and needs_legal_review(coverages):
@@ -184,6 +191,34 @@ def _redactions(topic: str) -> int:
     print(
         "Это границы редакций, а не готовые нормы: текст и пределы санкции\n"
         "(sanctions) вносит юрист — из источника они не извлекаются."
+    )
+    return 0
+
+
+def _norms_import() -> int:
+    """Первичный импорт файлового корпуса норм в PostgreSQL."""
+    from .legal_sources.postgres_store import PostgresNormStore
+    from .legal_sources.store import NormStore
+
+    config = load_config()
+    if not config.database_url:
+        print(
+            "ОШИБКА: SO_DATABASE_URL не задан — импортировать некуда.",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        source = NormStore.from_directory(config.fixtures_dir / "norms")
+        target = PostgresNormStore(config.database_url)
+        count = target.sync_from(source)
+    except Exception as exc:  # noqa: BLE001 — сообщение пользователю, не трассировка
+        print(f"ОШИБКА: {exc}", file=sys.stderr)
+        return 2
+
+    print(f"Импортировано норм: {count}")
+    print(
+        "Целостность в базе обеспечивают аудит-журнал и права доступа, "
+        "а не манифест: контрольные суммы файлов на этот носитель не распространяются."
     )
     return 0
 
@@ -248,7 +283,15 @@ def _norms_seal(check_only: bool) -> int:
     """Опечатать нормативный корпус или сверить его с манифестом."""
     from .legal_sources.sealing import check, seal
 
-    directory = load_config().fixtures_dir / "norms"
+    config = load_config()
+    if config.norms_backend != "file":
+        print(
+            f"ВНИМАНИЕ: норму обслуживает носитель «{config.norms_backend}», "
+            "а опечатывание работает с файлами — проверка ничего не говорит "
+            "о том, что отдаётся из базы.",
+            file=sys.stderr,
+        )
+    directory = config.fixtures_dir / "norms"
     report = check(directory) if check_only else seal(directory)
     print(report.describe())
     if check_only and not report.ok:
@@ -308,6 +351,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     red_p.add_argument("--topic", required=True, help="идентификатор документа в источнике")
 
+    sub.add_parser(
+        "norms-import",
+        help="импортировать файловый корпус норм в PostgreSQL (SO_DATABASE_URL)",
+    )
+
     confirm_p = sub.add_parser(
         "norms-confirm-history",
         help="зафиксировать, что история изменений нормы сверена",
@@ -362,6 +410,8 @@ def main(argv: list[str] | None = None) -> int:
         return _eval()
     if args.command == "redactions":
         return _redactions(args.topic)
+    if args.command == "norms-import":
+        return _norms_import()
     if args.command == "norms-confirm-history":
         return _norms_confirm(args.norm_id, args.checked_through, args.source)
     if args.command == "norms-add-version":
