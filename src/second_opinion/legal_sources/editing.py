@@ -18,7 +18,6 @@ import json
 from datetime import date
 from pathlib import Path
 
-from ..domain.norms import NormVersion
 from .sealing import MANIFEST_NAME, UNSEALED
 
 
@@ -123,7 +122,3 @@ def add_version(
     _write(path, payload)
     return path
 
-
-def check_text_matches(text: str, sha256: str) -> bool:
-    """Сверить текст с контрольной суммой (для проверки после правки)."""
-    return NormVersion.compute_sha256(text) == sha256

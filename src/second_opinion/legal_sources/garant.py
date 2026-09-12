@@ -184,7 +184,3 @@ class GarantSource:
 
     def redactions(self, topic: str) -> DocumentRedactions:
         return parse_redactions(topic, self._get(f"/v2/redactions/{topic}"))
-
-    def limits(self) -> Any:
-        """Текущие лимиты запросов — самый дешёвый способ проверить токен."""
-        return self._get("/v2/limits")
