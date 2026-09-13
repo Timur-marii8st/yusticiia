@@ -150,6 +150,64 @@ def _norms_coverage(strict: bool) -> int:
     return 0
 
 
+def _norms_check_amendments(topic: str, articles: list[str]) -> int:
+    """Сверить по ИПС, менялся ли текст статей с первой редакции.
+
+    Отвечает на вопрос аудита покрытия: верно ли записанное в фикстуре
+    утверждение «норма с момента принятия не менялась».
+    """
+    from .legal_sources.pravo_gov import PravoGovSource, check_amendments
+    from .legal_sources.redaction_source import RedactionSourceError
+    from .legal_sources.source_factory import build_redaction_source
+
+    try:
+        source = build_redaction_source(load_config())
+    except (RedactionSourceError, ValueError) as exc:
+        print(f"ОШИБКА: {exc}", file=sys.stderr)
+        return 2
+
+    if not isinstance(source, PravoGovSource):
+        print(
+            f"ОШИБКА: команда работает только с ИПС, а выбран источник "
+            f"{getattr(source, 'name', '?')!r}. Задайте SO_REDACTION_SOURCE=pravo",
+            file=sys.stderr,
+        )
+        return 2
+
+    try:
+        report = check_amendments(source, topic, articles)
+    except RedactionSourceError as exc:
+        print(f"ОШИБКА: {exc}", file=sys.stderr)
+        return 2
+
+    print(f"Документ {report.topic}, редакций: {report.editions_total}")
+    if report.editions_unprepared:
+        print(
+            f"Не подготовлено в ИПС: {report.editions_unprepared} — "
+            "их текст недоступен"
+        )
+    print(f"Сравнение: «{report.compared_from}» → «{report.compared_to}»")
+    print()
+
+    unknown = 0
+    for verdict in report.verdicts:
+        if verdict.changed is None:
+            unknown += 1
+            print(f"  ст. {verdict.article:<8} НЕ СВЕРЕНА — {verdict.note}")
+        elif verdict.changed:
+            print(f"  ст. {verdict.article:<8} МЕНЯЛАСЬ — текст отличается от первой редакции")
+        else:
+            print(f"  ст. {verdict.article:<8} не менялась — текст совпадает с первой редакцией")
+
+    print()
+    print(
+        "Сравниваются крайние редакции. Изменение с последующим возвратом\n"
+        "к прежней формулировке так не видно, поэтому вывод — черновик\n"
+        "для юриста, а не заключение. Подтверждение: norms-confirm-history."
+    )
+    return 1 if unknown else 0
+
+
 def _redactions(topic: str) -> int:
     """Показать план редакций документа по внешнему источнику."""
     from .legal_sources.redaction_source import RedactionSourceError, plan_versions
@@ -351,6 +409,22 @@ def main(argv: list[str] | None = None) -> int:
     )
     red_p.add_argument("--topic", required=True, help="идентификатор документа в источнике")
 
+    check_p = sub.add_parser(
+        "norms-check-amendments",
+        help="сверить по ИПС pravo.gov.ru, менялся ли текст статей",
+    )
+    check_p.add_argument(
+        "--topic",
+        required=True,
+        help="идентификатор документа в ИПС (для УК РФ — 102041891)",
+    )
+    check_p.add_argument(
+        "--article",
+        action="append",
+        required=True,
+        metavar="НОМЕР",
+        help="номер статьи; повторяйте для нескольких (--article 66 --article 60)",
+    )
     sub.add_parser(
         "norms-import",
         help="импортировать файловый корпус норм в PostgreSQL (SO_DATABASE_URL)",
@@ -410,6 +484,8 @@ def main(argv: list[str] | None = None) -> int:
         return _eval()
     if args.command == "redactions":
         return _redactions(args.topic)
+    if args.command == "norms-check-amendments":
+        return _norms_check_amendments(args.topic, args.article)
     if args.command == "norms-import":
         return _norms_import()
     if args.command == "norms-confirm-history":

@@ -51,6 +51,10 @@ class AppConfig:
     redaction_source: str = "none"
     #: Базовый URL API ГАРАНТ. Не угадывается: документация приводит только
     #: пути вида /v2/..., хост задаёт обслуживающая организация.
+    #: Адрес ИПС «Законодательство России». Значение по умолчанию —
+    #: рабочий публичный адрес: источник государственный и не требует
+    #: ни токена, ни подписки.
+    pravo_base_url: str = "http://pravo.gov.ru/proxy/ips/"
     garant_base_url: str = ""
     #: OAuth-токен ГАРАНТ, выдаётся по заявке.
     garant_token: str = ""
@@ -115,6 +119,8 @@ def load_config() -> AppConfig:
         login_lockout_minutes=int(_env("SO_LOGIN_LOCKOUT_MINUTES") or 15),
         norms_backend=_env("SO_NORMS_BACKEND", "file") or "file",
         redaction_source=_env("SO_REDACTION_SOURCE", "none") or "none",
+        pravo_base_url=_env("SO_PRAVO_BASE_URL")
+        or "http://pravo.gov.ru/proxy/ips/",
         garant_base_url=_env("SO_GARANT_BASE_URL"),
         garant_token=_env("SO_GARANT_TOKEN"),
         garant_stub_dir=_env("SO_GARANT_STUB_DIR"),

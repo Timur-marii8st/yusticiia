@@ -16,6 +16,11 @@ def build_redaction_source(config: AppConfig) -> RedactionSource:
     """
     mode = config.redaction_source
 
+    if mode == "pravo":
+        from .pravo_gov import PravoGovSource
+
+        return PravoGovSource(config.pravo_base_url)
+
     if mode == "garant":
         from .garant import GarantSource
 
@@ -32,6 +37,7 @@ def build_redaction_source(config: AppConfig) -> RedactionSource:
         return StubRedactionSource(directory)
 
     raise RedactionSourceError(
-        "источник редакций выключен: задайте SO_REDACTION_SOURCE=garant "
-        "(нужен токен) либо =stub (ответы из подготовленных файлов)"
+        "источник редакций выключен: задайте SO_REDACTION_SOURCE=pravo "
+        "(ИПС pravo.gov.ru, без токена), =garant (нужен токен) "
+        "либо =stub (ответы из подготовленных файлов)"
     )
