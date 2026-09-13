@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 from ..audit.trail import AuditTrail
@@ -13,6 +14,8 @@ from ..llm.mock_provider import MockLLMProvider
 from ..pipeline import AnalysisPipeline
 from ..retrieval.case_retrieval import CaseRetriever
 from ..storage.repositories import JsonFileRepository
+
+logger = logging.getLogger(__name__)
 
 
 def load_cases(fixtures_dir: Path) -> list[ComparableCase]:
@@ -53,7 +56,16 @@ def build_legal_rag(norm_store: NormStore):
 
     if config.rag_mode == "hybrid_pgvector":
         if config.storage_backend != "postgres" or not config.database_url:
-            # Конфигурация неполная — fallback к in-memory гибриду
+            # Оператор запросил pgvector, но не настроил носитель. Молча
+            # отдать другой режим нельзя: на демонстрации это выглядит как
+            # работающий поиск, а работает не тот, который заявлен.
+            logger.warning(
+                "SO_RAG_MODE=hybrid_pgvector, но носитель не настроен "
+                "(SO_STORAGE_BACKEND=%s, SO_DATABASE_URL %s) — поиск идёт "
+                "в режиме hybrid без векторного хранилища",
+                config.storage_backend,
+                "задан" if config.database_url else "не задан",
+            )
             return LegalRag(norm_store, embedder=embedder)
         try:
             from ..storage.vector import PgVectorNormStore
@@ -65,7 +77,13 @@ def build_legal_rag(norm_store: NormStore):
             return LegalRag(
                 norm_store, embedder=embedder, vector_store=vector_store
             )
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001 — откат к гибриду без вектора
+            logger.warning(
+                "pgvector недоступен (%s) — поиск переходит в режим hybrid "
+                "без векторного хранилища: выдача будет отличаться от "
+                "заявленного режима",
+                exc,
+            )
             return LegalRag(norm_store, embedder=embedder)
 
     return LegalRag(norm_store, embedder=embedder)
