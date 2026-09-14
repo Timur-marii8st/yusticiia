@@ -13,7 +13,7 @@ classDiagram
     class LegalFact {id, type, value, confidence, evidence[], extraction_method, status}
     class CaseFacts {defendant, offense, mitigating[], aggravating[], procedural, sentence, applicable_at}
     class LegalNorm {norm_id, code, article, part, title}
-    class NormVersion {norm_id, version_id, text, sanctions[], effective_from, effective_to, source_url, retrieved_at, sha256}
+    class NormVersion {norm_id, version_id, text, sanctions[], effective_from, effective_to, source_url, source_edition, retrieved_at, sha256}
     class LegalRule {rule_id, version, title, norm_refs}
     class RuleEvaluation {rule_id, rule_version, status, facts_used[], norms_used[], explanation}
     class ComparableCase {case_id, article, part, stage, punishment_type, term_months, suspended, synthetic}
@@ -75,6 +75,13 @@ SHA-256 текста. Все цитирования ссылаются на `tex
 фрагмент), санкции `SanctionSpec[{punishment_type, min_months?, max_months?}]`,
 `effective_from`, `effective_to` (null = действует), реквизиты источника,
 `retrieved_at`, SHA-256 текста, `verification_status` (`draft|verified`).
+
+`source_edition` — какой редакции источника соответствует текст, в виде
+`источник:документ:редакция` (`pravo:102041891:365`). Отличает «текст
+соответствует такой-то редакции» от «мы однажды что-то скачали» и даёт
+`norms-check-updates` точку сравнения. Пустая строка означает «не
+записано»: детектор тогда говорит, что сравнивать не с чем, а не
+объявляет норму свежей.
 Запрос: `NormStore.get_norm(norm_id, applicable_at)` → ровно одна версия
 или явная ошибка.
 

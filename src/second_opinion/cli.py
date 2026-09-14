@@ -150,6 +150,67 @@ def _norms_coverage(strict: bool) -> int:
     return 0
 
 
+def _norms_check_updates() -> int:
+    """Сверить действующие редакции корпуса с последними у источника."""
+    from .api.deps import build_norm_store
+    from .legal_sources.freshness import CURRENT, check_updates
+    from .legal_sources.pravo_gov import PravoGovSource
+    from .legal_sources.redaction_source import RedactionSourceError
+    from .legal_sources.source_factory import build_redaction_source
+
+    config = load_config()
+    try:
+        source = build_redaction_source(config)
+        store = build_norm_store(config)
+    except (RedactionSourceError, ValueError, OSError, RuntimeError) as exc:
+        print(f"ОШИБКА: {exc}", file=sys.stderr)
+        return 2
+
+    if not isinstance(source, PravoGovSource):
+        print(
+            f"ОШИБКА: команда работает только с ИПС, а выбран источник "
+            f"{getattr(source, 'name', '?')!r}. Задайте SO_REDACTION_SOURCE=pravo",
+            file=sys.stderr,
+        )
+        return 2
+
+    items = [(norm, store.versions(norm.norm_id)) for norm in store.list_norms()]
+    try:
+        report = check_updates(source, items)
+    except RedactionSourceError as exc:
+        print(f"ОШИБКА: {exc}", file=sys.stderr)
+        return 2
+
+    print(f"Источник: {report.source}. Проверено действующих редакций: {report.checked}")
+    print()
+
+    if report.outdated:
+        print("УСТАРЕЛИ — источник знает более новую редакцию:")
+        for item in report.outdated:
+            print(
+                f"  {item.ref} ({item.version_id}): у нас {item.recorded}, "
+                f"у источника {item.latest}"
+            )
+        print()
+
+    current = report.by_status(CURRENT)
+    if current:
+        print(f"Актуальны: {len(current)}")
+
+    if report.unverifiable:
+        print()
+        print("Проверить не удалось:")
+        for item in report.unverifiable:
+            print(f"  {item.ref} ({item.version_id}) — {item.note or item.status}")
+        print()
+        print(
+            "Запишите редакцию источника при добавлении редакции:\n"
+            "  norms-add-version --source-edition pravo:102041891:365 ..."
+        )
+
+    return 1 if report.outdated else 0
+
+
 def _norms_check_amendments(topic: str, articles: list[str]) -> int:
     """Сверить по ИПС, менялся ли текст статей с первой редакции.
 
@@ -327,6 +388,7 @@ def _norms_add_version(args: argparse.Namespace) -> int:
             effective_from=_date.fromisoformat(args.effective_from),
             effective_to=_date.fromisoformat(args.effective_to) if args.effective_to else None,
             source_url=args.source_url,
+            source_edition=args.source_edition,
         )
     except (NormEditError, ValueError, OSError) as exc:
         print(f"ОШИБКА: {exc}", file=sys.stderr)
@@ -409,6 +471,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     red_p.add_argument("--topic", required=True, help="идентификатор документа в источнике")
 
+    sub.add_parser(
+        "norms-check-updates",
+        help="сверить действующие редакции корпуса с последними у источника",
+    )
     check_p = sub.add_parser(
         "norms-check-amendments",
         help="сверить по ИПС pravo.gov.ru, менялся ли текст статей",
@@ -449,6 +515,16 @@ def main(argv: list[str] | None = None) -> int:
     add_p.add_argument("--effective-to", default=None)
     add_p.add_argument("--version-id", default=None, help="по умолчанию v-<год>")
     add_p.add_argument("--source-url", default="")
+    add_p.add_argument(
+        "--source-edition",
+        default="",
+        metavar="ИСТОЧНИК:ДОКУМЕНТ:РЕДАКЦИЯ",
+        help=(
+            "какой редакции источника соответствует текст "
+            "(например pravo:102041891:365); без неё norms-check-updates "
+            "не сможет заметить, что норму изменили"
+        ),
+    )
 
     seal_p = sub.add_parser(
         "norms-seal",
@@ -484,6 +560,8 @@ def main(argv: list[str] | None = None) -> int:
         return _eval()
     if args.command == "redactions":
         return _redactions(args.topic)
+    if args.command == "norms-check-updates":
+        return _norms_check_updates()
     if args.command == "norms-check-amendments":
         return _norms_check_amendments(args.topic, args.article)
     if args.command == "norms-import":

@@ -76,6 +76,7 @@ def add_version(
     effective_from: date,
     effective_to: date | None = None,
     source_url: str = "",
+    source_edition: str = "",
 ) -> Path:
     """Добавить редакцию, закрыв интервал предыдущей.
 
@@ -113,6 +114,7 @@ def add_version(
             "effective_from": effective_from.isoformat(),
             "effective_to": effective_to.isoformat() if effective_to else None,
             "source_url": source_url,
+            "source_edition": source_edition,
             "retrieved_at": date.today().isoformat(),
             # Опечатывание — отдельное действие после юридической сверки.
             "sha256": UNSEALED,

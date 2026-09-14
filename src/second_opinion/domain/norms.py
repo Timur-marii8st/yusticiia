@@ -52,6 +52,13 @@ class NormVersion(BaseModel):
     effective_to: date | None = None  # None — действует по настоящее время
     source_document: str
     source_url: str = ""
+    #: Редакция источника, из которой взят текст, в виде
+    #: ``источник:документ:редакция`` — например ``pravo:102041891:365``.
+    #: Нужна, чтобы отличать «наш текст соответствует такой-то редакции
+    #: источника» от «мы однажды что-то скачали». Пустая строка означает
+    #: «не записано»: детектор обновлений тогда честно говорит, что
+    #: сравнивать не с чем, а не делает вид, что норма свежая.
+    source_edition: str = ""
     retrieved_at: date
     sha256: str
     verification_status: VerificationStatus = VerificationStatus.DRAFT
