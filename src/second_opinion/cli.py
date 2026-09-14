@@ -150,21 +150,22 @@ def _norms_coverage(strict: bool) -> int:
     return 0
 
 
-def _norms_check_updates() -> int:
-    """Сверить действующие редакции корпуса с последними у источника."""
-    from .api.deps import build_norm_store
-    from .legal_sources.freshness import CURRENT, check_updates
+def _pravo_source():
+    """Собрать источник ИПС или объяснить, почему не вышло.
+
+    Возвращает ``(источник, None)`` либо ``(None, код возврата)``. Обе
+    команды сверки требуют именно ИПС: им нужны тексты редакций, которых
+    общий интерфейс ``RedactionSource`` не отдаёт.
+    """
     from .legal_sources.pravo_gov import PravoGovSource
     from .legal_sources.redaction_source import RedactionSourceError
     from .legal_sources.source_factory import build_redaction_source
 
-    config = load_config()
     try:
-        source = build_redaction_source(config)
-        store = build_norm_store(config)
-    except (RedactionSourceError, ValueError, OSError, RuntimeError) as exc:
+        source = build_redaction_source(load_config())
+    except (RedactionSourceError, ValueError) as exc:
         print(f"ОШИБКА: {exc}", file=sys.stderr)
-        return 2
+        return None, 2
 
     if not isinstance(source, PravoGovSource):
         print(
@@ -172,6 +173,23 @@ def _norms_check_updates() -> int:
             f"{getattr(source, 'name', '?')!r}. Задайте SO_REDACTION_SOURCE=pravo",
             file=sys.stderr,
         )
+        return None, 2
+    return source, None
+
+
+def _norms_check_updates() -> int:
+    """Сверить действующие редакции корпуса с последними у источника."""
+    from .api.deps import build_norm_store
+    from .legal_sources.freshness import CURRENT, check_updates
+    from .legal_sources.redaction_source import RedactionSourceError
+
+    source, failure = _pravo_source()
+    if source is None:
+        return failure
+    try:
+        store = build_norm_store(load_config())
+    except (ValueError, OSError, RuntimeError) as exc:
+        print(f"ОШИБКА: {exc}", file=sys.stderr)
         return 2
 
     items = [(norm, store.versions(norm.norm_id)) for norm in store.list_norms()]
@@ -210,7 +228,7 @@ def _norms_check_updates() -> int:
             "      --source-edition pravo:102041891:365"
         )
 
-    return 1 if report.outdated else 0
+    return 0 if report.ok else 1
 
 
 def _norms_check_amendments(topic: str, articles: list[str]) -> int:
@@ -219,23 +237,12 @@ def _norms_check_amendments(topic: str, articles: list[str]) -> int:
     Отвечает на вопрос аудита покрытия: верно ли записанное в фикстуре
     утверждение «норма с момента принятия не менялась».
     """
-    from .legal_sources.pravo_gov import PravoGovSource, check_amendments
+    from .legal_sources.pravo_gov import check_amendments
     from .legal_sources.redaction_source import RedactionSourceError
-    from .legal_sources.source_factory import build_redaction_source
 
-    try:
-        source = build_redaction_source(load_config())
-    except (RedactionSourceError, ValueError) as exc:
-        print(f"ОШИБКА: {exc}", file=sys.stderr)
-        return 2
-
-    if not isinstance(source, PravoGovSource):
-        print(
-            f"ОШИБКА: команда работает только с ИПС, а выбран источник "
-            f"{getattr(source, 'name', '?')!r}. Задайте SO_REDACTION_SOURCE=pravo",
-            file=sys.stderr,
-        )
-        return 2
+    source, failure = _pravo_source()
+    if source is None:
+        return failure
 
     try:
         report = check_amendments(source, topic, articles)

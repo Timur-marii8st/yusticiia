@@ -222,6 +222,8 @@ __all__ = [
     "MessageResponse",
     "MetricsResponse",
     "MetricsSnapshot",
+    "NormCoverageItem",
+    "NormCoverageResponse",
     "NormDetailResponse",
     "NormListResponse",
     "NormSummary",

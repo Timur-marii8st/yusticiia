@@ -177,8 +177,8 @@ def _run_retrieval(dataset_path: Path, mode: str) -> dict:
         # редакция с несходящейся суммой не создаётся вовсе, и сравнение
         # над загруженной моделью было тавтологией — метрика не могла
         # упасть ни при какой правке фикстуры. Целостность файлов корпуса
-        # проверяется до загрузки: ``second-opinion norms-seal --check``
-        # (в CI, блокирующе) и полем ``corpus_sealed`` ниже.
+        # проверяется до загрузки, отдельным блокирующим шагом CI:
+        # ``second-opinion norms-seal --check``.
         for hit in hits:
             citation_checked += 1
             version = next(

@@ -63,7 +63,6 @@ _ARTICLE = re.compile(r"\nСтатья (\d+(?:\.\d+)?)\.")
 #: Признак того, что документ дочитан до конца.
 _COMPLETED = re.compile(r"textCompleted\s*=\s*'(?P<value>\w+)'")
 
-UNPREPARED_MARKER = "не готова"
 
 
 class Edition(BaseModel):
@@ -99,6 +98,20 @@ class AmendmentReport(BaseModel):
     compared_from: str
     compared_to: str
     verdicts: list[ArticleVerdict]
+
+
+def prepared_editions(editions: list[Edition]) -> list[Edition]:
+    """Подготовленные редакции по возрастанию номера.
+
+    Сортировка именно по номеру, а не по дате акта: в выдаче ИПС даты идут
+    не по порядку (редакция 355 датирована 27.10.2025, а 353 — 17.11.2025),
+    потому что нумерация отражает очерёдность внесения изменений, а не даты
+    подписания законов. Брать «первую» и «последнюю» по списку без явной
+    сортировки — молчаливое допущение о порядке чужой разметки.
+    """
+    return sorted(
+        (e for e in editions if e.prepared), key=lambda e: e.number or 0
+    )
 
 
 def _strip_tags(payload: str) -> str:
@@ -313,7 +326,7 @@ def check_amendments(
     юриста, а не заключением.
     """
     editions = source.editions(topic)
-    prepared = [e for e in editions if e.prepared]
+    prepared = prepared_editions(editions)
     if len(prepared) < 2:
         raise RedactionSourceError(
             f"ИПС: у документа {topic} меньше двух подготовленных редакций — "

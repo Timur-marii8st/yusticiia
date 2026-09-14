@@ -26,6 +26,7 @@ from collections.abc import Iterable
 from pydantic import BaseModel
 
 from ..domain.norms import LegalNorm, NormVersion
+from .pravo_gov import prepared_editions
 
 #: Разделитель координат в ``source_edition``.
 SEPARATOR = ":"
@@ -153,7 +154,7 @@ def check_updates(
                 continue
 
             if recorded.document not in latest_by_document:
-                editions = [e for e in source.editions(recorded.document) if e.prepared]
+                editions = prepared_editions(source.editions(recorded.document))
                 latest_by_document[recorded.document] = (
                     str(editions[-1].number) if editions else None
                 )

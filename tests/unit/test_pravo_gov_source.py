@@ -238,3 +238,27 @@ def test_factory_passes_timeout_from_config(tmp_path) -> None:
     )
 
     assert source._timeout == 42.0
+
+
+def test_editions_are_ordered_by_number_not_by_date() -> None:
+    """Даты актов в выдаче ИПС идут не по порядку.
+
+    В реальном списке редакция 355 датирована 27.10.2025, а 353 —
+    17.11.2025: нумерация отражает очерёдность внесения изменений, а не
+    даты подписания законов. Сортировка по дате выбрала бы не ту «последнюю»
+    редакцию, и сверка сравнивала бы не с действующим текстом.
+    """
+    from datetime import date as _date
+
+    from second_opinion.legal_sources.pravo_gov import prepared_editions
+
+    editions = [
+        Edition(number=353, act_date=_date(2025, 11, 17), label="353"),
+        Edition(number=None, act_date=_date(2010, 5, 19), label="не готова"),
+        Edition(number=355, act_date=_date(2025, 10, 27), label="355"),
+        Edition(number=0, label="Исходная редакция"),
+    ]
+
+    ordered = prepared_editions(editions)
+
+    assert [e.number for e in ordered] == [0, 353, 355]
