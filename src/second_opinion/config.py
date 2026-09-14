@@ -55,6 +55,10 @@ class AppConfig:
     #: рабочий публичный адрес: источник государственный и не требует
     #: ни токена, ни подписки.
     pravo_base_url: str = "http://pravo.gov.ru/proxy/ips/"
+    #: Таймаут запроса к ИПС, секунды. Сервер отвечает медленно —
+    #: замеры дают 16 с на страницу списка редакций, а полный текст
+    #: УК РФ весит 2,6 МБ, поэтому значение заведомо щедрое.
+    pravo_timeout_seconds: float = 180.0
     garant_base_url: str = ""
     #: OAuth-токен ГАРАНТ, выдаётся по заявке.
     garant_token: str = ""
@@ -121,6 +125,7 @@ def load_config() -> AppConfig:
         redaction_source=_env("SO_REDACTION_SOURCE", "none") or "none",
         pravo_base_url=_env("SO_PRAVO_BASE_URL")
         or "http://pravo.gov.ru/proxy/ips/",
+        pravo_timeout_seconds=float(_env("SO_PRAVO_TIMEOUT") or 180.0),
         garant_base_url=_env("SO_GARANT_BASE_URL"),
         garant_token=_env("SO_GARANT_TOKEN"),
         garant_stub_dir=_env("SO_GARANT_STUB_DIR"),

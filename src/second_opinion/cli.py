@@ -204,8 +204,10 @@ def _norms_check_updates() -> int:
             print(f"  {item.ref} ({item.version_id}) — {item.note or item.status}")
         print()
         print(
-            "Запишите редакцию источника при добавлении редакции:\n"
-            "  norms-add-version --source-edition pravo:102041891:365 ..."
+            "Редакция источника записывается при добавлении редакции:\n"
+            "  second-opinion norms-add-version --norm-id НОРМА \\\n"
+            "      --text-file ФАЙЛ.txt --effective-from ГГГГ-ММ-ДД \\\n"
+            "      --source-edition pravo:102041891:365"
         )
 
     return 1 if report.outdated else 0

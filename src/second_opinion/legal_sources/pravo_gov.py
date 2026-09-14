@@ -187,7 +187,7 @@ class PravoGovSource:
     def __init__(
         self,
         base_url: str = "http://pravo.gov.ru/proxy/ips/",
-        timeout: float = 60.0,
+        timeout: float = 180.0,
     ) -> None:
         if not base_url.startswith(("http://", "https://")):
             raise ValueError(
@@ -195,7 +195,9 @@ class PravoGovSource:
                 f"(получено: {base_url!r})"
             )
         self._base_url = base_url
-        # Полный текст УК РФ — около 2,6 МБ, на медленном канале 20 секунд мало.
+        # ИПС отвечает медленно: замеры дают 16 с на страницу списка
+        # редакций, а полный текст УК РФ весит 2,6 МБ. Таймаут в 20 секунд,
+        # как у ГАРАНТ, здесь срабатывал бы постоянно.
         self._timeout = timeout
 
     def _get(self, params: dict[str, Any]) -> str:
@@ -208,6 +210,14 @@ class PravoGovSource:
                 timeout=self._timeout,
                 follow_redirects=True,
             )
+        except httpx.TimeoutException as exc:
+            # Отличаем «сервер медленный» от «сервера нет»: лечится это
+            # по-разному, а сообщение об этом умалчивало.
+            raise RedactionSourceError(
+                f"ИПС не ответил за {self._timeout:.0f} с ({self._base_url}). "
+                "Сервер отвечает медленно, особенно на полный текст кодекса. "
+                "Увеличьте таймаут: SO_PRAVO_TIMEOUT=600"
+            ) from exc
         except httpx.HTTPError as exc:
             raise RedactionSourceError(
                 f"ИПС недоступен ({self._base_url}): {exc}"

@@ -19,7 +19,7 @@ def build_redaction_source(config: AppConfig) -> RedactionSource:
     if mode == "pravo":
         from .pravo_gov import PravoGovSource
 
-        return PravoGovSource(config.pravo_base_url)
+        return PravoGovSource(config.pravo_base_url, config.pravo_timeout_seconds)
 
     if mode == "garant":
         from .garant import GarantSource

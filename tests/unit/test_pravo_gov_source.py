@@ -213,3 +213,28 @@ def test_factory_builds_pravo_source(tmp_path) -> None:
 def test_disabled_source_names_pravo_as_an_option(tmp_path) -> None:
     with pytest.raises(RedactionSourceError, match="pravo"):
         build_redaction_source(_config(tmp_path))
+
+
+def test_timeout_is_reported_as_slowness_not_absence(monkeypatch) -> None:
+    """«Сервер медленный» и «сервера нет» лечатся по-разному.
+
+    ИПС отвечает 16 с на страницу списка редакций и отдаёт 2,6 МБ полного
+    текста кодекса, поэтому таймаут здесь — обычное дело, а не поломка.
+    """
+    import httpx
+
+    def _timeout(*args, **kwargs):
+        raise httpx.ReadTimeout("timed out")
+
+    monkeypatch.setattr(httpx, "get", _timeout)
+
+    with pytest.raises(RedactionSourceError, match="SO_PRAVO_TIMEOUT"):
+        PravoGovSource(timeout=180.0).editions("102041891")
+
+
+def test_factory_passes_timeout_from_config(tmp_path) -> None:
+    source = build_redaction_source(
+        _config(tmp_path, redaction_source="pravo", pravo_timeout_seconds=42.0)
+    )
+
+    assert source._timeout == 42.0
