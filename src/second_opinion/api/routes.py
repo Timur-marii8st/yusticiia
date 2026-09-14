@@ -33,6 +33,8 @@ from .schemas import (
     DocumentCreated,
     HealthResponse,
     MetricsResponse,
+    NormCoverageItem,
+    NormCoverageResponse,
     NormDetailResponse,
     NormListResponse,
     SearchResponse,
@@ -323,6 +325,69 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
                 {"norm_id": n.norm_id, "ref": n.ref, "title": n.title}
                 for n in store.list_norms()
             ]
+        }
+
+    @app.get("/api/norms/coverage")
+    def norms_coverage() -> NormCoverageResponse:
+        """Состояние корпуса: что сверено, что требует юридической сверки.
+
+        Объявлен до ``/api/norms/{norm_id}``: иначе «coverage» приедет
+        сюда как идентификатор нормы и вернётся 404.
+
+        Свежесть относительно внешнего источника здесь не проверяется —
+        это сетевой запрос к медленному серверу, которому не место в
+        обработке HTTP-запроса. Она остаётся за `norms-check-updates`.
+        """
+        from ..legal_sources.coverage import analyze_store, needs_legal_review
+
+        store = pipeline.norm_store
+        coverages = analyze_store(store)
+        # Наряд считается той же функцией, что и в CLI: своя формула
+        # здесь однажды разойдётся с `norms-coverage`, и два числа
+        # будут называться одинаково.
+        flagged = {c.norm_id for c in needs_legal_review(coverages)}
+
+        items: list[NormCoverageItem] = []
+        for coverage in coverages:
+            editions = sorted(
+                {
+                    v.source_edition
+                    for v in store.versions(coverage.norm_id)
+                    if v.source_edition
+                }
+            )
+            items.append(
+                NormCoverageItem(
+                    norm_id=coverage.norm_id,
+                    ref=coverage.ref,
+                    version_count=coverage.version_count,
+                    covered_from=coverage.covered_from,
+                    covered_to=coverage.covered_to,
+                    rule_relevant=coverage.rule_relevant,
+                    history_verified=coverage.history_verified,
+                    history_unrecorded=coverage.history_unrecorded(),
+                    needs_review=coverage.norm_id in flagged,
+                    gaps=[list(gap) for gap in coverage.gaps],
+                    source_editions=editions,
+                )
+            )
+
+        config = load_config()
+        sealed: bool | None = None
+        if config.norms_backend == "file":
+            from ..legal_sources.sealing import check as check_seal
+
+            try:
+                sealed = check_seal(config.fixtures_dir / "norms").ok
+            except (OSError, ValueError):
+                # Манифест нечитаем — это «неизвестно», а не «цел».
+                sealed = None
+
+        return {
+            "total": len(items),
+            "needs_review": len(flagged),
+            "corpus_sealed": sealed,
+            "norms": items,
         }
 
     @app.get("/api/norms/{norm_id}")

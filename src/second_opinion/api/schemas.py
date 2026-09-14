@@ -12,7 +12,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
@@ -86,6 +86,43 @@ class NormSummary(BaseModel):
 
 class NormListResponse(BaseModel):
     norms: list[NormSummary]
+
+
+class NormCoverageItem(BaseModel):
+    """Редакционное покрытие одной нормы."""
+
+    norm_id: str
+    ref: str
+    version_count: int
+    covered_from: date
+    covered_to: date | None = None
+    #: Читается движком правил напрямую или через пределы санкции.
+    rule_relevant: bool
+    #: Историю изменений подтвердил юрист.
+    history_verified: bool
+    #: Одна открытая редакция на длинный интервал — молчаливое утверждение
+    #: «норма не менялась», которое никто не проверял.
+    history_unrecorded: bool
+    #: Попала в наряд на юридическую сверку. Условие то же, что у
+    #: ``second-opinion norms-coverage``: разрыв в покрытии либо
+    #: незафиксированная история у нормы, которую читает движок правил.
+    #: Считается одной функцией с CLI, иначе цифры разойдутся.
+    needs_review: bool
+    #: Разрывы в покрытии: даты, на которые действующей редакции нет.
+    gaps: list[tuple[date, date]] = []
+    #: Какой редакции источника соответствуют тексты, если записано.
+    source_editions: list[str] = []
+
+
+class NormCoverageResponse(BaseModel):
+    """Состояние нормативного корпуса целиком."""
+
+    total: int
+    needs_review: int
+    #: Опечатан ли корпус и совпадает ли с манифестом. ``None`` — носитель
+    #: не файловый, контрольные суммы к нему неприменимы.
+    corpus_sealed: bool | None = None
+    norms: list[NormCoverageItem]
 
 
 class NormDetailResponse(BaseModel):

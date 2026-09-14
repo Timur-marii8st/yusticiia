@@ -60,6 +60,27 @@
       <div id="upload-error" class="error" role="alert" aria-live="assertive" hidden></div>
     </section>
 
+    <section class="panel" id="corpus-panel">
+      <h1>Состояние нормативного корпуса</h1>
+      <p class="hint">
+        На чём система основывает проверки и что ещё требует юридической
+        сверки. Раздел открытый намеренно: неназванная слабость данных
+        опаснее названной.
+      </p>
+      <div class="controls">
+        <button id="corpus-btn" class="secondary">Показать состояние корпуса</button>
+      </div>
+      <div id="corpus-error" class="error" role="alert" aria-live="assertive" hidden></div>
+      <div id="corpus-summary" class="card" hidden></div>
+      <ul id="corpus-list" class="items" aria-live="polite" hidden></ul>
+      <p class="hint" id="corpus-freshness" hidden>
+        Здесь показано то, что записано в корпусе. Не изменилась ли норма
+        у официального источника — отдельная проверка, она обращается к
+        внешнему серверу и запускается командой
+        <code>second-opinion norms-check-updates</code>.
+      </p>
+    </section>
+
     <div id="results" hidden>
       <section class="panel">
         <h1>Дело / документ</h1>

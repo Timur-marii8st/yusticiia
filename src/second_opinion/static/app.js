@@ -659,6 +659,81 @@ async function runSearch() {
 }
 
 $("analyze-btn").addEventListener("click", submit);
+
+// --- состояние нормативного корпуса -----------------------------------------
+
+function corpusRow(norm) {
+  const li = document.createElement("li");
+  const head = div("fact-title");
+  head.appendChild(badge(norm.needs_review ? "WARNING" : "PASS"));
+  head.appendChild(document.createTextNode(` ${norm.ref}`));
+  li.appendChild(head);
+
+  const to = norm.covered_to || "н/в";
+  const parts = [
+    `редакций: ${norm.version_count}`,
+    `покрытие: ${norm.covered_from} → ${to}`,
+    norm.rule_relevant ? "читается движком правил" : "справочная",
+  ];
+  if (norm.history_verified) parts.push("история сверена юристом");
+  li.appendChild(div("detail", parts.join("; ")));
+
+  if (norm.gaps.length) {
+    li.appendChild(
+      div("detail", `Разрывы в покрытии: ${norm.gaps.map((g) => `${g[0]} … ${g[1]}`).join(", ")}`)
+    );
+  }
+  if (norm.history_unrecorded) {
+    li.appendChild(
+      div("detail", "Одна редакция на длинный интервал: утверждение «норма не менялась» не подтверждено сверкой.")
+    );
+  }
+  li.appendChild(
+    div("detail", norm.source_editions.length
+      ? `Редакция источника: ${norm.source_editions.join(", ")}`
+      : "Редакция источника не записана — устаревание не отследить.")
+  );
+  return li;
+}
+
+function renderCorpusState(data) {
+  const summary = $("corpus-summary");
+  summary.textContent = "";
+  summary.appendChild(div("", `Норм в корпусе: ${data.total}`));
+  summary.appendChild(div("", `Требуют юридической сверки: ${data.needs_review}`));
+  summary.appendChild(
+    div("", `Целостность корпуса: ${
+      data.corpus_sealed === true ? "опечатан, расхождений нет"
+        : data.corpus_sealed === false ? "РАСХОЖДЕНИЕ с манифестом"
+        : "не проверяется (носитель не файловый)"
+    }`)
+  );
+  summary.hidden = false;
+
+  const list = $("corpus-list");
+  list.textContent = "";
+  // Требующие сверки — первыми: ради них раздел и открывают.
+  const ordered = [...data.norms].sort(
+    (a, b) => Number(b.needs_review) - Number(a.needs_review) || a.ref.localeCompare(b.ref, "ru")
+  );
+  ordered.forEach((norm) => list.appendChild(corpusRow(norm)));
+  list.hidden = false;
+  $("corpus-freshness").hidden = false;
+}
+
+async function loadCorpusState() {
+  const errorBox = $("corpus-error");
+  errorBox.hidden = true;
+  try {
+    const response = await apiFetch("/api/norms/coverage");
+    if (!response.ok) throw new Error(`сервер ответил ${response.status}`);
+    renderCorpusState(await response.json());
+  } catch (error) {
+    errorBox.textContent = `Не удалось получить состояние корпуса: ${error.message}`;
+    errorBox.hidden = false;
+  }
+}
+
 $("print-btn").addEventListener("click", () => window.print());
 $("auth-save").addEventListener("click", () => {
   const value = $("auth-token").value.trim();
@@ -684,3 +759,4 @@ $("search-btn").addEventListener("click", runSearch);
 $("search-query").addEventListener("keydown", (e) => {
   if (e.key === "Enter") runSearch();
 });
+$("corpus-btn").addEventListener("click", loadCorpusState);
