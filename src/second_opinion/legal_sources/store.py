@@ -68,12 +68,13 @@ class NormStore:
                         "контрольная сумма не заполнена — опечатайте корпус "
                         "командой `second-opinion norms-seal`"
                     )
-                versions.append(
-                    NormVersion(
-                        source_document=version.get("source_document", source_document),
-                        **version,
-                    )
-                )
+                # Источник берётся из редакции, а при отсутствии — из шапки
+                # файла. Раньше значение вычислялось отдельным аргументом и
+                # тут же дублировалось из ``**version``: редакция со своим
+                # ``source_document`` роняла загрузку с TypeError вместо того,
+                # чтобы переопределить источник, как и задумано.
+                version.setdefault("source_document", source_document)
+                versions.append(NormVersion(**version))
             self.add_norm(norm, versions)
 
     def add_norm(self, norm: LegalNorm, versions: list[NormVersion]) -> None:

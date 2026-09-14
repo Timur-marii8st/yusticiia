@@ -244,3 +244,32 @@ def test_manifest_records_norm_digests(tmp_path) -> None:
     seal(directory)
     manifest = json.loads((directory / MANIFEST_NAME).read_text(encoding="utf-8"))
     assert "uk-rf:art-158-part-1" in manifest["norms"]
+
+
+def test_version_may_override_source_document(tmp_path) -> None:
+    """Редакция вправе назвать свой источник, отличный от шапки файла.
+
+    Разные редакции статьи могут быть взяты из разных публикаций. Раньше
+    значение вычислялось отдельным аргументом и тут же дублировалось из
+    ``**version``, поэтому такая редакция роняла загрузку с TypeError
+    вместо того, чтобы переопределить источник.
+    """
+    directory = _corpus(
+        tmp_path, _version(source_document="Собрание законодательства РФ")
+    )
+    seal(directory)
+
+    store = NormStore.from_directory(directory)
+
+    version = store.versions("uk-rf:art-158-part-1")[0]
+    assert version.source_document == "Собрание законодательства РФ"
+
+
+def test_version_without_source_document_inherits_it(tmp_path) -> None:
+    directory = _corpus(tmp_path)
+    seal(directory)
+
+    store = NormStore.from_directory(directory)
+
+    version = store.versions("uk-rf:art-158-part-1")[0]
+    assert version.source_document == "Уголовный кодекс Российской Федерации"
