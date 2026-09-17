@@ -21,6 +21,10 @@ dependencies = [
 dev = [
     "pytest>=9.1.1",
     "ruff>=0.5",
+    # Генерация PDF-скана для интеграционного теста OCR
+    # (tests/unit/test_ocr.py::test_real_ocr_on_scanned_image_pdf).
+    # Без неё тест пропускается даже там, где tesseract установлен.
+    "reportlab>=4.0",
 ]
 pg = [
     "psycopg[binary]>=3.3.5",

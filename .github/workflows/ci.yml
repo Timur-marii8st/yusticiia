@@ -2,19 +2,57 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # staging — рабочая ветка разработки; без неё CI не видел ни одного
+    # коммита между 0.23 и 0.37.
+    branches: [main, staging]
   pull_request:
 
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
+    strategy:
+      # Версии проверяются независимо: падение на 3.14 не должно скрывать
+      # результат на 3.11 и наоборот.
+      fail-fast: false
+      matrix:
+        # 3.11 — целевая версия окружения (requires-python = ">=3.11").
+        # 3.14 — версия, на которой идёт локальная разработка; расхождение
+        # между ними уже приводило к падению CI при зелёном локальном прогоне
+        # (CHANGELOG 0.30).
+        python-version: ["3.11", "3.14"]
+    services:
+      # Реальный PostgreSQL с расширением vector: без него 16 тестов
+      # postgres/pgvector пропускались всегда, и слой хранения не проверялся
+      # ни разу.
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: second_opinion_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      SO_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/second_opinion_test
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
+      # OCR-фолбэк для сканов: без системного tesseract интеграционный тест
+      # распознавания пропускается, то есть путь «скан → текст» не проверен.
+      - name: Системные зависимости OCR
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            tesseract-ocr tesseract-ocr-rus poppler-utils
       - name: Install
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev,pg,ocr]"
       - name: Lint
         run: ruff check .
       - name: Test
