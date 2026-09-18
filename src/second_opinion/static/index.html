@@ -4,7 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Второе мнение — юридический аудит проекта судебного акта</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <!-- ?v= — метка версии статики: после обновления интерфейса браузер
+       иначе продолжает показывать закэшированные стили и скрипт.
+       Меняется вручную вместе с правкой style.css / app.js. -->
+  <link rel="stylesheet" href="/static/style.css?v=0.38">
 </head>
 <body>
   <a class="skip-link" href="#upload-panel">Перейти к форме анализа</a>
@@ -46,9 +49,9 @@
       <textarea id="doc-text" rows="10"
         placeholder="Текст проекта судебного акта…"></textarea>
       <div class="controls">
-        <label class="file-label">
+        <label class="file-label" id="file-label">
           <input type="file" id="doc-file" accept=".txt,.md,.markdown,.docx,.pdf">
-          <span id="file-name">или выберите файл…</span>
+          <span id="file-name">Выбрать файл</span>
         </label>
         <label class="date-label">
           Дата юридически значимого события (для выбора редакции нормы):
@@ -161,6 +164,6 @@
     </div>
   </main>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=0.38"></script>
 </body>
 </html>

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from fastapi.testclient import TestClient
 
 from second_opinion.api.routes import create_app
@@ -31,6 +33,28 @@ def test_app_js_disclosure_is_keyboard_accessible(pipeline) -> None:
     assert '"Enter"' in js or "'Enter'" in js
     # бейджи озвучиваются статусом, а не символом
     assert 'aria-label' in js
+
+
+def test_file_picker_is_a_visible_control(pipeline) -> None:
+    """Выбор файла — видимая кнопка, доступная с клавиатуры.
+
+    Прежде это была строка 13px цветом акцента, а само поле пряталось через
+    `display: none` — такое поле выпадает из обхода клавиатурой целиком.
+    """
+    client = TestClient(create_app(pipeline))
+    html = client.get("/").text
+    css = client.get("/static/style.css").text
+
+    assert 'id="file-label"' in html
+    assert "Выбрать файл" in html
+
+    input_rule = re.search(r"\.file-label input \{(.*?)\}", css, re.DOTALL)
+    assert input_rule is not None, "правило .file-label input исчезло"
+    assert "display: none" not in input_rule.group(1), (
+        "display: none возвращает поле обратно в недоступность для клавиатуры"
+    )
+    # Фокус внутри скрытого поля должен быть виден на обёртке.
+    assert ".file-label:focus-within" in css
 
 
 def test_css_has_focus_and_responsive(pipeline) -> None:

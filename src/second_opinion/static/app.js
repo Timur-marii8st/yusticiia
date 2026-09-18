@@ -753,7 +753,9 @@ $("doc-text").addEventListener("input", (e) => {
 $("doc-file").addEventListener("change", (e) => {
   documentText = "";
   $("doc-text").value = "";
-  $("file-name").textContent = e.target.files.length ? e.target.files[0].name : "или выберите файл…";
+  const chosen = e.target.files.length > 0;
+  $("file-name").textContent = chosen ? e.target.files[0].name : "Выбрать файл";
+  $("file-label").classList.toggle("has-file", chosen);
 });
 $("search-btn").addEventListener("click", runSearch);
 $("search-query").addEventListener("keydown", (e) => {
