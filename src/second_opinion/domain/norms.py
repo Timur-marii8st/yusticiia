@@ -7,6 +7,9 @@ from pydantic import BaseModel, Field, field_serializer, field_validator, model_
 
 from .enums import PunishmentType, VerificationStatus
 
+#: Код постановлений Пленума ВС РФ в фикстурах корпуса (`code` на уровне файла).
+PLENUM_CODE = "ППВС"
+
 
 class SanctionSpec(BaseModel):
     """Санкция: пределы конкретного вида наказания (в месяцах)."""
@@ -37,6 +40,19 @@ class LegalNorm(BaseModel):
 
     @property
     def ref(self) -> str:
+        """Ссылка на норму в том виде, в каком её пишет юрист.
+
+        Постановления Пленума хранятся в тех же полях, что статьи кодексов:
+        ``article`` — номер постановления, ``part`` — номер пункта. Печатать
+        их общим шаблоном нельзя: «ППВС РФ ст. 60 ч. 14» — это не ссылка на
+        источник, а бессмыслица, потому что речь о пункте 14 постановления
+        Пленума № 60. Поля не переименованы намеренно: их покрывает манифест
+        целостности корпуса, и переименование сломало бы опечатывание ради
+        косметики.
+        """
+        if self.code.startswith(PLENUM_CODE):
+            point = f"п. {self.part} " if self.part else ""
+            return f"{point}{PLENUM_CODE} № {self.article}"
         part = f" ч. {self.part}" if self.part else ""
         return f"{self.code} ст. {self.article}{part}"
 

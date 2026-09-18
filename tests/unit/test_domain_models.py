@@ -135,3 +135,43 @@ def test_builder_keeps_strongest_group_role() -> None:
         ]
     )
     assert case.offense.complicity_role == "organized_group"
+
+
+def test_plenum_ref_is_a_point_of_a_ruling_not_an_article() -> None:
+    """Пункт постановления Пленума не печатается как статья с частью.
+
+    Номер постановления лежит в `article`, номер пункта — в `part`, поэтому
+    общий шаблон давал «ППВС РФ ст. 60 ч. 14» — для юриста это бессмыслица.
+    """
+    from second_opinion.domain.norms import LegalNorm
+
+    point = LegalNorm(
+        norm_id="ppvs-rf:n60-p14",
+        code="ППВС РФ",
+        article=60,
+        part=14,
+        title="Пленум ВС РФ № 60: неоконченное в особом порядке",
+    )
+    assert point.ref == "п. 14 ППВС № 60"
+
+    whole = LegalNorm(
+        norm_id="ppvs-rf:n58-p1",
+        code="ППВС РФ",
+        article=58,
+        part=None,
+        title="Пленум ВС РФ № 58",
+    )
+    assert whole.ref == "ППВС № 58"
+
+
+def test_code_articles_keep_their_reference_format() -> None:
+    from second_opinion.domain.norms import LegalNorm
+
+    article = LegalNorm(
+        norm_id="uk-rf:art-158-part-2",
+        code="УК РФ",
+        article=158,
+        part=2,
+        title="Кража",
+    )
+    assert article.ref == "УК РФ ст. 158 ч. 2"
