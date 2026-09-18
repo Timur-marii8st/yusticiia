@@ -107,7 +107,7 @@ nDCG@0.921, citation_integrity=1.0, temporal=1.0. R-009 откачен —
 нарушало ENGINEERING_RULES.md. ENGINE_VERSION 1.2.0 → 1.1.0). Ранее: 2026-08-30
 (уборка после аудита: ruff зелёный, 233 теста зелёных, исправлен
 сломанный `POST /auth/users`, добавлены admin-тесты, удалены debug-файлы
-и переэкспорт `auth/routes.py`). Подробности — в `docs/AUDIT_REPORT.md`.
+и переэкспорт `auth/routes.py`). Подробности — в `.claude/skills/legal-data-sources/references/history/audit-2026-08-30.md`.
 
 ## Working
 
@@ -298,8 +298,7 @@ nDCG@0.921, citation_integrity=1.0, temporal=1.0. R-009 откачен —
   (`embedding <=> query`); docker-образ включает расширение `vector`;
   gated-тесты pgvector — skip без БД.
 - **Документация:** README, PRODUCT_VISION, ARCHITECTURE,
-  LEGAL_SAFETY_PRINCIPLES, DOMAIN_MODEL, IMPLEMENTATION_PLAN,
-  CURRENT_STATE, ADR-001…007, CI (GitHub Actions: lint + tests + audit).
+  LEGAL_SAFETY_PRINCIPLES, DOMAIN_MODEL, ADR-001…007, CI (GitHub Actions: lint + tests + audit).
 
 - **Evaluation — полный набор (M9):** к метрикам извлечения (macro-F1,
   evidence correctness, `unsupported_claim_rate`, per-type P/R/F1) добавлены:

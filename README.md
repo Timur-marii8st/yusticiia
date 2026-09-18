@@ -120,7 +120,7 @@ src/second_opinion/
 data/fixtures/         # нормы (verified 03.09.2026) + демо, СИНТЕТИЧЕСКИЕ дела, образцы
 tests/                 # unit + integration (271 зелёный)
 evaluation/            # метрики и датасеты (make eval)
-docs/                  # документация, ADR и AUDIT_REPORT.md
+docs/                  # документация и ADR (архив исследований — в скилле)
 ```
 
 ## Тестирование
@@ -152,8 +152,8 @@ second-opinion eval     # или: make eval
 
 ## Документация
 
+- [docs/TZ.md](docs/TZ.md) — техническое задание: требования, статус каждого, план работ
 - [docs/PRODUCT_VISION.md](docs/PRODUCT_VISION.md) — видение и non-goals
-- [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) — аудит репозитория
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — архитектура
 - [docs/API.md](docs/API.md) — справочник HTTP API
 - [docs/DOMAIN_MODEL.md](docs/DOMAIN_MODEL.md) — доменная модель
@@ -162,7 +162,7 @@ second-opinion eval     # или: make eval
 - [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md) — источники данных и процесс наполнения
 - [docs/NORM_COVERAGE.md](docs/NORM_COVERAGE.md) — полнота редакционной истории норм
 - [docs/EVALUATION.md](docs/EVALUATION.md) — метрики и пороги
-- [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) — план (M0–M10)
+- [.claude/skills/legal-data-sources/references/history/](.claude/skills/legal-data-sources/references/history/) — архив: исследование конкурса, аудиты, план M0–M10
 - [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md) — фактический статус
 - [docs/GLOSSARY.md](docs/GLOSSARY.md) — глоссарий
 - [docs/ENGINEERING_RULES.md](docs/ENGINEERING_RULES.md) — инженерные правила и Definition of Done
