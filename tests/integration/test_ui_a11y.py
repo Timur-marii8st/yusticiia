@@ -57,6 +57,54 @@ def test_file_picker_is_a_visible_control(pipeline) -> None:
     assert ".file-label:focus-within" in css
 
 
+def test_report_download_goes_through_api_fetch(pipeline) -> None:
+    """Выгрузка отчёта не должна быть обычной ссылкой на эндпойнт.
+
+    Браузер идёт по `href` обычной навигацией, без заголовка Authorization,
+    поэтому в развёртывании с авторизацией судья получал 401 вместо файла
+    (проверено: GET /api/analyses/{id} без заголовка → 401, с ним → 200).
+    """
+    client = TestClient(create_app(pipeline))
+    js = client.get("/static/app.js").text
+
+    assert 'href = `/api/analyses/' not in js, "ссылка снова ведёт мимо авторизации"
+    assert "createObjectURL" in js
+    assert 'download = "second-opinion-report.json"' in js
+
+
+def test_add_fact_error_is_shown_next_to_the_form(pipeline) -> None:
+    """Ошибка добавления обстоятельства — у формы, а не в панели вверху."""
+    client = TestClient(create_app(pipeline))
+    html = client.get("/").text
+    js = client.get("/static/app.js").text
+
+    assert 'id="add-fact-error"' in html
+    submit = js.split("async function submitNewFact")[1].split("async function")[0]
+    assert "showFactError" in submit
+    assert "showError(" not in submit, "ошибка формы снова уходит в панель «Документ»"
+
+
+def test_fact_origin_is_visible_in_the_list(pipeline) -> None:
+    """Внесённое судьёй обстоятельство отличимо от извлечённого машиной."""
+    client = TestClient(create_app(pipeline))
+    js = client.get("/static/app.js").text
+    css = client.get("/static/style.css").text
+
+    assert "внесено судьёй" in js
+    assert "исключено из проверок" in js
+    assert ".fact-origin" in css
+
+
+def test_search_score_is_explained(pipeline) -> None:
+    """Число у результата поиска подписано: это релевантность, не применимость."""
+    client = TestClient(create_app(pipeline))
+    html = client.get("/").text
+    js = client.get("/static/app.js").text
+
+    assert "лексическая релевантность" in html
+    assert "лексическая релевантность" in js
+
+
 def test_css_has_focus_and_responsive(pipeline) -> None:
     client = TestClient(create_app(pipeline))
     css = client.get("/static/style.css").text

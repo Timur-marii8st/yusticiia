@@ -122,6 +122,20 @@ function showError(message) {
   box.hidden = false;
 }
 
+/* Ошибки формы добавления обстоятельства показываются у самой формы:
+   она находится далеко внизу страницы, и сообщение в панели «Документ»
+   вверху оставалось незамеченным — со стороны выглядело, будто кнопка
+   не работает. */
+function showFactError(message) {
+  const box = $("add-fact-error");
+  box.textContent = message;
+  box.hidden = false;
+}
+
+function clearFactError() {
+  $("add-fact-error").hidden = true;
+}
+
 function badge(status) {
   const span = document.createElement("span");
   span.className = `status-badge status-${status}`;
@@ -203,6 +217,24 @@ function renderFact(fact, analysisId, usedIn) {
   const title = div("fact-title");
   title.appendChild(badge(fact.status));
   title.append(` ${FACT_LABELS[fact.type] || fact.type}: ${factValueLabel(fact)}`);
+
+  /* Происхождение видно сразу в списке. Иначе внесённое судьёй
+     обстоятельство неотличимо от извлечённого машиной — а когда рядом
+     стоят два «Возраст подсудимого» с разными значениями, непонятно,
+     какое из них пойдёт в проверки. */
+  const originText =
+    fact.status === "NOT_FOUND"
+      ? "исключено из проверок"
+      : fact.extraction_method === "user"
+        ? "внесено судьёй"
+        : fact.extraction_method === "llm"
+          ? "извлечено моделью"
+          : null;
+  if (originText) {
+    const origin = div("fact-origin");
+    origin.textContent = originText;
+    title.appendChild(origin);
+  }
 
   const detail = div("detail hidden");
   const meta = div("meta");
@@ -428,7 +460,11 @@ function renderAnalytics(analytics) {
 
 function renderReport(report) {
   $("results").hidden = false;
-  $("download-json").href = `/api/analyses/${report.analysis_id}`;
+  /* Ссылка на эндпойнт здесь не годится: браузер идёт по ней обычной
+     навигацией, без заголовка Authorization, и в развёртывании с
+     авторизацией судья получает 401 вместо отчёта. Отчёт забирается тем же
+     apiFetch, что и все запросы, и отдаётся как файл. */
+  $("download-json").dataset.analysisId = report.analysis_id;
 
   const card = $("doc-card");
   card.innerHTML = "";
@@ -513,16 +549,17 @@ function renderAddFactBox(report) {
 
 async function submitNewFact() {
   clearError();
+  clearFactError();
   const box = $("add-fact-box");
   const type = $("new-fact-type").value;
   const value = newValueAccessor();
   const quote = $("new-fact-quote").value.trim();
   if (value === null || value === undefined || value === "") {
-    showError("Заполните значение обстоятельства.");
+    showFactError("Заполните значение обстоятельства.");
     return;
   }
   if (!quote) {
-    showError("Вставьте точную цитату из документа.");
+    showFactError("Вставьте точную цитату из документа.");
     return;
   }
   const response = await apiFetch(`/api/analyses/${box.dataset.analysisId}/facts`, {
@@ -531,7 +568,7 @@ async function submitNewFact() {
     body: JSON.stringify({ type, value, quote }),
   });
   if (!response.ok) {
-    showError(`Ошибка добавления: ${(await response.json()).detail || response.status}`);
+    showFactError(`Ошибка добавления: ${(await response.json()).detail || response.status}`);
     return;
   }
   $("new-fact-quote").value = "";
@@ -605,6 +642,11 @@ function renderSearchHit(hit) {
   badgeEl.className = "status-badge status-LIKELY";
   badgeEl.textContent = hit.score.toFixed(2);
   badgeEl.title = "лексическая релевантность (справочная)";
+  // Иначе экранный диктор читает голое число без объяснения, что это.
+  badgeEl.setAttribute(
+    "aria-label",
+    `лексическая релевантность ${hit.score.toFixed(2)} (справочная)`
+  );
   title.appendChild(badgeEl);
   title.append(` ${hit.ref} — ${hit.title}`);
 
@@ -735,6 +777,25 @@ async function loadCorpusState() {
 }
 
 $("print-btn").addEventListener("click", () => window.print());
+
+$("download-json").addEventListener("click", async (event) => {
+  event.preventDefault();
+  const analysisId = event.currentTarget.dataset.analysisId;
+  if (!analysisId) return;
+  clearError();
+  const response = await apiFetch(`/api/analyses/${analysisId}`);
+  if (!response.ok) {
+    showError(`Не удалось выгрузить отчёт: HTTP ${response.status}`);
+    return;
+  }
+  const blob = new Blob([await response.text()], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "second-opinion-report.json";
+  link.click();
+  URL.revokeObjectURL(url);
+});
 $("auth-save").addEventListener("click", () => {
   const value = $("auth-token").value.trim();
   if (value) {

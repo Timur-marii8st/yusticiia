@@ -144,6 +144,20 @@ button:disabled { opacity: 0.5; cursor: wait; }
 
 .error { color: var(--fail); margin-top: 10px; font-size: 14px; }
 
+/* Пометка происхождения обстоятельства в списке: внесено судьёй,
+   извлечено моделью, исключено из проверок. */
+.fact-origin {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--bg);
+  vertical-align: middle;
+}
+
 .card { font-size: 14px; }
 .card .kv { display: flex; gap: 8px; margin: 2px 0; }
 .card .kv .k { color: var(--muted); min-width: 220px; }

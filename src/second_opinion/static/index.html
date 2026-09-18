@@ -7,7 +7,7 @@
   <!-- ?v= — метка версии статики: после обновления интерфейса браузер
        иначе продолжает показывать закэшированные стили и скрипт.
        Меняется вручную вместе с правкой style.css / app.js. -->
-  <link rel="stylesheet" href="/static/style.css?v=0.38">
+  <link rel="stylesheet" href="/static/style.css?v=0.39">
 </head>
 <body>
   <a class="skip-link" href="#upload-panel">Перейти к форме анализа</a>
@@ -117,6 +117,10 @@
           <div class="controls">
             <button id="add-fact-btn" class="secondary">Добавить обстоятельство</button>
           </div>
+          <!-- Ошибка показывается здесь, рядом с кнопкой: прежде она уходила
+               в панель «Документ» вверху страницы, и нажавший кнопку внизу
+               не видел, что произошло. -->
+          <div id="add-fact-error" class="error" role="alert" aria-live="assertive" hidden></div>
           <p class="hint">
             Цитата обязана дословно находиться в документе — иначе факт не
             будет принят. Добавленное обстоятельство сразу участвует в проверках.
@@ -134,6 +138,8 @@
         <p class="hint">
           Поиск по базе норм: каждый результат — фрагмент реального источника
           с редакцией и реквизитами. Если ничего не найдено, система не додумывает.
+          Число слева от нормы — лексическая релевантность запросу, а не
+          оценка юридической применимости.
         </p>
         <div class="controls">
           <label class="visually-hidden" for="search-query">Поиск по базе норм</label>
@@ -164,6 +170,6 @@
     </div>
   </main>
 
-  <script src="/static/app.js?v=0.38"></script>
+  <script src="/static/app.js?v=0.39"></script>
 </body>
 </html>
