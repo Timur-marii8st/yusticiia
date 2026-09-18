@@ -1,0 +1,130 @@
+name: Актуальность норм
+
+# Закон меняется без нашего участия, и узнать об этом система должна не на
+# демонстрации. Раз в неделю корпус сверяется с ИПС «Законодательство
+# России»: если источник знает более новую редакцию — заводится issue со
+# списком затронутых норм.
+#
+# Задача автоматики здесь — обнаружить и позвать юриста, а не обновить
+# норму. Правило «никогда не подставлять молча свежую редакцию» из
+# docs/ENGINEERING_RULES.md распространяется и на этот workflow: никакой
+# шаг не трогает data/fixtures/norms.
+
+on:
+  schedule:
+    # Понедельник, 06:00 UTC — 09:00 МСК.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: pip install -e .
+
+      # Целостность корпуса проверяется первой: если фикстуры разъехались
+      # с манифестом, сравнивать их с источником бессмысленно.
+      - name: Целостность корпуса норм
+        run: second-opinion norms-seal --check
+
+      # Наряд на юридическую сверку. Без --strict: 15 норм из 27 ждут
+      # сверки по плану, и красный джоб каждую неделю быстро перестанут
+      # читать. Отчёт нужен как содержимое issue, а не как приговор.
+      - name: Редакционное покрытие
+        if: always()
+        run: second-opinion norms-coverage | tee coverage.txt
+
+      # Собственно сверка с источником. Код возврата различает два разных
+      # события, и смешивать их нельзя: 1 — норма устарела (наша проблема),
+      # 2 — ИПС недоступен или ответил не так (чужой сервер). Issue с
+      # заголовком «нормы устарели» на упавшем сервере был бы ложным
+      # утверждением.
+      - name: Сверка с ИПС pravo.gov.ru
+        id: freshness
+        env:
+          SO_REDACTION_SOURCE: pravo
+          # ИПС отвечает медленно: список редакций УК РФ — около 16 секунд.
+          SO_PRAVO_TIMEOUT: "180"
+        run: |
+          set +e
+          second-opinion norms-check-updates 2>&1 | tee freshness.txt
+          code=${PIPESTATUS[0]}
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Завести issue об устаревших нормах
+        if: steps.freshness.outputs.code == '1'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const read = (name) => {
+              try { return fs.readFileSync(name, 'utf8'); } catch { return '(отчёт не собран)'; }
+            };
+            const body = [
+              'Источник знает более новую редакцию, чем записана в корпусе.',
+              '',
+              '**Что это значит.** Проверки правило-движка опираются на текст и',
+              'пределы санкции той редакции, которая лежит у нас. Пока норма не',
+              'обновлена, вывод о наказании может быть построен на устаревшем законе.',
+              '',
+              '**Что сделать — руками, автоматика этого не делает:**',
+              '1. посмотреть, что именно изменилось: `second-opinion norms-check-amendments --topic 102041891 --article 158`;',
+              '2. внести редакцию: `second-opinion norms-add-version …` (статус `draft`, санкции пустые);',
+              '3. юрист сверяет текст, проставляет границы действия и пределы наказания;',
+              '4. `second-opinion norms-seal`.',
+              '',
+              '## Сверка с источником',
+              '```',
+              read('freshness.txt').trim(),
+              '```',
+              '',
+              '## Редакционное покрытие на ту же дату',
+              '```',
+              read('coverage.txt').trim(),
+              '```',
+            ].join('\n');
+
+            const title = 'Нормы устарели относительно ИПС';
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'norms-watch',
+            });
+
+            if (existing.data.length > 0) {
+              // Не плодим по issue в неделю: дописываем в открытый.
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.data[0].number,
+                body: `Проверка ${new Date().toISOString().slice(0, 10)}:\n\n${body}`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['norms-watch'],
+              });
+            }
+
+      # Недоступность ИПС — не повод заводить issue о законе: это чужой
+      # сервер, а не изменение права. Но и молчать нельзя, иначе неделями
+      # будет казаться, что проверка идёт.
+      - name: Отметить недоступность источника
+        if: steps.freshness.outputs.code != '0' && steps.freshness.outputs.code != '1'
+        run: |
+          echo "::warning::Сверку выполнить не удалось (код ${{ steps.freshness.outputs.code }}): ИПС недоступен или ответил неожиданно. Норм это не касается — см. лог шага."
+          exit 1

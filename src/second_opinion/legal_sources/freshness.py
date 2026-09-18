@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from datetime import date
 
 from pydantic import BaseModel
 
@@ -66,6 +67,31 @@ def parse_source_edition(value: str) -> SourceEdition | None:
         return None
     source, document, edition = (part.strip() for part in parts)
     return SourceEdition(source=source, document=document, edition=edition)
+
+
+def edition_stamp(
+    source: str,
+    document: str,
+    number: int,
+    *,
+    checked_through: date,
+    act_date: date | None,
+) -> str:
+    """Собрать ``source_edition`` для редакции, которую покрыла сверка.
+
+    Отметка означает утверждение «наш текст соответствует этой редакции
+    источника». Оно обосновано ровно тогда, когда юрист сверял текст уже
+    после того, как изменяющий акт был подписан. Сверка от 2024 года не
+    может подтверждать редакцию, введённую законом 2025 года, — такая
+    отметка выглядела бы как проверенный факт, оставаясь допущением.
+    """
+    if act_date is not None and checked_through < act_date:
+        raise ValueError(
+            f"сверка от {checked_through.isoformat()} не покрывает редакцию "
+            f"{number}: изменяющий акт подписан {act_date.isoformat()}. "
+            "Сверьте текст по действующей редакции и укажите её дату"
+        )
+    return str(SourceEdition(source=source, document=document, edition=str(number)))
 
 
 class NormFreshness(BaseModel):

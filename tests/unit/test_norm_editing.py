@@ -172,3 +172,37 @@ def test_cli_explains_missing_text_file(tmp_path, monkeypatch, capsys) -> None:
     )
     assert code == 2
     assert "готовите вы" in capsys.readouterr().err
+
+
+def test_confirm_history_records_source_edition_on_open_version(tmp_path) -> None:
+    """Сверка ставит точку отсчёта: с чем сравнивать при проверке обновлений."""
+    directory = _corpus(tmp_path)
+
+    confirm_history(
+        directory,
+        "uk-rf:art-158-part-1",
+        checked_through=TODAY,
+        source="КонсультантПлюс",
+        source_edition="pravo:102041891:365",
+    )
+
+    payload = json.loads(next(directory.glob("*.json")).read_text(encoding="utf-8"))
+    norm = next(n for n in payload["norms"] if n["norm_id"] == "uk-rf:art-158-part-1")
+    open_version = next(v for v in norm["versions"] if v["effective_to"] in (None, ""))
+    assert open_version["source_edition"] == "pravo:102041891:365"
+
+
+def test_confirm_history_without_stamp_leaves_versions_untouched(tmp_path) -> None:
+    """Отметка необязательна: сверка истории и точка отсчёта — разные факты."""
+    directory = _corpus(tmp_path)
+
+    confirm_history(
+        directory,
+        "uk-rf:art-158-part-1",
+        checked_through=TODAY,
+        source="КонсультантПлюс",
+    )
+
+    payload = json.loads(next(directory.glob("*.json")).read_text(encoding="utf-8"))
+    norm = next(n for n in payload["norms"] if n["norm_id"] == "uk-rf:art-158-part-1")
+    assert all(not v.get("source_edition") for v in norm["versions"])

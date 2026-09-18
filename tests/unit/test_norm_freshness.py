@@ -13,6 +13,7 @@ from second_opinion.legal_sources.freshness import (
     UNKNOWN,
     UNRECORDED,
     check_updates,
+    edition_stamp,
     parse_source_edition,
 )
 from second_opinion.legal_sources.pravo_gov import Edition
@@ -218,3 +219,43 @@ def test_add_version_records_source_edition(tmp_path) -> None:
     saved = json.loads(path.read_text(encoding="utf-8"))
     added = saved["norms"][0]["versions"][-1]
     assert added["source_edition"] == "pravo:102041891:365"
+
+
+def test_edition_stamp_requires_verification_after_the_amendment() -> None:
+    """Сверка не может подтверждать редакцию, введённую позже неё.
+
+    Иначе отметка «текст соответствует редакции 365» выглядела бы
+    проверенным фактом, оставаясь допущением: юрист смотрел текст до того,
+    как изменяющий закон был подписан.
+    """
+    import pytest
+
+    with pytest.raises(ValueError, match="не покрывает редакцию"):
+        edition_stamp(
+            "pravo",
+            "102041891",
+            365,
+            checked_through=date(2024, 1, 1),
+            act_date=date(2025, 10, 27),
+        )
+
+
+def test_edition_stamp_is_built_when_verification_covers_the_amendment() -> None:
+    stamp = edition_stamp(
+        "pravo",
+        "102041891",
+        365,
+        checked_through=date(2026, 9, 18),
+        act_date=date(2025, 10, 27),
+    )
+    assert stamp == "pravo:102041891:365"
+
+
+def test_edition_stamp_without_act_date_is_allowed() -> None:
+    """Исходная редакция не имеет изменяющего акта — сверять не с чем."""
+    assert (
+        edition_stamp(
+            "pravo", "102041891", 1, checked_through=date(2026, 9, 18), act_date=None
+        )
+        == "pravo:102041891:1"
+    )

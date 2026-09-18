@@ -48,13 +48,24 @@ def _write(path: Path, payload: dict) -> None:
 
 
 def confirm_history(
-    directory: Path, norm_id: str, *, checked_through: date, source: str
+    directory: Path,
+    norm_id: str,
+    *,
+    checked_through: date,
+    source: str,
+    source_edition: str = "",
 ) -> Path:
     """Зафиксировать, что история изменений нормы сверена.
 
     Применимо, когда сверка подтвердила: статья действительно не
     менялась. Утверждение перестаёт быть допущением и норма уходит из
     списка на сверку.
+
+    ``source_edition`` ставит точку отсчёта для обнаружения устаревания:
+    какой редакции источника соответствует сверенный текст. Без неё
+    ``norms-check-updates`` не может сказать о норме ничего — сравнивать
+    не с чем. Отметка ставится только на действующие редакции: закрытый
+    интервал описывает прошлое, и «устареть» оно не может.
     """
     if not source.strip():
         raise NormEditError(
@@ -63,6 +74,19 @@ def confirm_history(
     path, payload, norm = _find_norm(Path(directory), norm_id)
     norm["amendments_checked_through"] = checked_through.isoformat()
     norm["amendments_checked_source"] = source.strip()
+
+    if source_edition.strip():
+        open_versions = [
+            v for v in norm.get("versions", []) if v.get("effective_to") in (None, "")
+        ]
+        if not open_versions:
+            raise NormEditError(
+                f"у нормы {norm_id} нет действующей редакции: отмечать редакцию "
+                "источника не на чем"
+            )
+        for version in open_versions:
+            version["source_edition"] = source_edition.strip()
+
     _write(path, payload)
     return path
 

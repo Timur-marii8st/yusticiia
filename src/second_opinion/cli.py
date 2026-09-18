@@ -222,10 +222,15 @@ def _norms_check_updates() -> int:
             print(f"  {item.ref} ({item.version_id}) — {item.note or item.status}")
         print()
         print(
-            "Редакция источника записывается при добавлении редакции:\n"
-            "  second-opinion norms-add-version --norm-id НОРМА \\\n"
-            "      --text-file ФАЙЛ.txt --effective-from ГГГГ-ММ-ДД \\\n"
-            "      --source-edition pravo:102041891:365"
+            "Редакция источника записывается двумя способами:\n"
+            "  сверили текст действующей редакции —\n"
+            "    second-opinion norms-confirm-history --norm-id НОРМА \\\n"
+            "        --checked-through ГГГГ-ММ-ДД --source КонсультантПлюс \\\n"
+            "        --source-document 102041891\n"
+            "  вносите новую редакцию —\n"
+            "    second-opinion norms-add-version --norm-id НОРМА \\\n"
+            "        --text-file ФАЙЛ.txt --effective-from ГГГГ-ММ-ДД \\\n"
+            "        --source-edition pravo:102041891:365"
         )
 
     return 0 if report.ok else 1
@@ -351,23 +356,78 @@ def _norms_import() -> int:
     return 0
 
 
-def _norms_confirm(norm_id: str, checked_through: str, source: str) -> int:
-    """Зафиксировать сверку истории изменений нормы."""
+def _norms_confirm(
+    norm_id: str, checked_through: str, source: str, source_document: str | None
+) -> int:
+    """Зафиксировать сверку истории изменений нормы.
+
+    С ``--source-document`` заодно ставится точка отсчёта для обнаружения
+    устаревания: номер текущей редакции документа спрашивается у ИПС и
+    записывается в действующую редакцию нормы. Без этой отметки
+    ``norms-check-updates`` о норме сказать нечего.
+    """
     from datetime import date as _date
 
     from .legal_sources.editing import NormEditError, confirm_history
+    from .legal_sources.freshness import edition_stamp
+    from .legal_sources.pravo_gov import prepared_editions
+    from .legal_sources.redaction_source import RedactionSourceError
+
+    try:
+        checked = _date.fromisoformat(checked_through)
+    except ValueError as exc:
+        print(f"ОШИБКА: {exc}", file=sys.stderr)
+        return 2
+
+    stamp = ""
+    if source_document:
+        pravo, code = _pravo_source()
+        if pravo is None:
+            return code
+        try:
+            editions = prepared_editions(pravo.editions(source_document))
+        except RedactionSourceError as exc:
+            print(f"ОШИБКА: {exc}", file=sys.stderr)
+            return 2
+        if not editions:
+            print(
+                f"ОШИБКА: у документа {source_document} нет ни одной подготовленной "
+                "редакции — отмечать нечего",
+                file=sys.stderr,
+            )
+            return 2
+        latest = editions[-1]
+        try:
+            stamp = edition_stamp(
+                pravo.name,
+                source_document,
+                latest.number or 0,
+                checked_through=checked,
+                act_date=latest.act_date,
+            )
+        except ValueError as exc:
+            print(f"ОШИБКА: {exc}", file=sys.stderr)
+            return 2
 
     try:
         path = confirm_history(
             load_config().fixtures_dir / "norms",
             norm_id,
-            checked_through=_date.fromisoformat(checked_through),
+            checked_through=checked,
             source=source,
+            source_edition=stamp,
         )
     except (NormEditError, ValueError) as exc:
         print(f"ОШИБКА: {exc}", file=sys.stderr)
         return 2
     print(f"История сверена: {norm_id} → {path}")
+    if stamp:
+        print(f"Точка отсчёта записана: {stamp} — устаревание теперь отслеживается")
+    else:
+        print(
+            "Точка отсчёта не записана: без --source-document команда "
+            "norms-check-updates об этой норме сказать ничего не сможет"
+        )
     print("Опечатайте корпус: second-opinion norms-seal")
     return 0
 
@@ -516,6 +576,14 @@ def main(argv: list[str] | None = None) -> int:
     confirm_p.add_argument(
         "--source", required=True, help="чем сверялась: КонсультантПлюс, ГАРАНТ, pravo.gov.ru"
     )
+    confirm_p.add_argument(
+        "--source-document",
+        help=(
+            "идентификатор документа в ИПС (nd, например 102041891 — УК РФ). "
+            "Номер текущей редакции будет запрошен у источника и записан "
+            "точкой отсчёта: без неё устаревание нормы не отследить"
+        ),
+    )
 
     add_p = sub.add_parser("norms-add-version", help="добавить редакцию существующей норме")
     add_p.add_argument("--norm-id", required=True)
@@ -576,7 +644,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "norms-import":
         return _norms_import()
     if args.command == "norms-confirm-history":
-        return _norms_confirm(args.norm_id, args.checked_through, args.source)
+        return _norms_confirm(
+            args.norm_id, args.checked_through, args.source, args.source_document
+        )
     if args.command == "norms-add-version":
         return _norms_add_version(args)
     if args.command == "norms-seal":
