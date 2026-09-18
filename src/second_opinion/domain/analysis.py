@@ -27,6 +27,42 @@ class AnalyticsSummary(BaseModel):
     feature_spread: dict[str, float] = Field(default_factory=dict)
 
 
+class SummaryLine(BaseModel):
+    """Строка изложения дела вместе с обстоятельствами, из которых собрана.
+
+    Изложение не пересказывается моделью и не пишется свободным текстом:
+    оно собирается из извлечённых обстоятельств, и каждая строка знает,
+    на каких из них держится. Иначе краткое изложение стало бы
+    единственным местом отчёта, которое нельзя раскрыть до цитаты.
+    """
+
+    text: str
+    fact_ids: list[str] = Field(default_factory=list)
+
+
+class CaseSummary(BaseModel):
+    """Краткое изложение дела: заголовок и строки по существу."""
+
+    headline: str = ""
+    lines: list[SummaryLine] = Field(default_factory=list)
+
+
+class Concern(BaseModel):
+    """Проблемное место: то, на что судье стоит посмотреть отдельно.
+
+    ``severity``: ``violation`` — проверка не сошлась; ``attention`` —
+    предупреждение движка; ``data`` — вывод ограничен данными, а не
+    правом (нехватка обстоятельств, несверенная редакция нормы,
+    подставленная дата).
+    """
+
+    severity: str
+    title: str
+    detail: str = ""
+    rule_id: str = ""
+    fact_ids: list[str] = Field(default_factory=list)
+
+
 class AnalysisReport(BaseModel):
     """Итог анализа: второе мнение с полной прослеживаемостью."""
 
@@ -41,6 +77,9 @@ class AnalysisReport(BaseModel):
     applicable_at_assumed: bool = False
     facts: list[LegalFact] = Field(default_factory=list)
     case_facts: CaseFacts = Field(default_factory=CaseFacts)
+    #: Краткое изложение дела (ФТ-29) и проблемные места (ФТ-31).
+    summary: CaseSummary = Field(default_factory=CaseSummary)
+    concerns: list[Concern] = Field(default_factory=list)
     evaluations: list[RuleEvaluation] = Field(default_factory=list)
     norms_applied: list[NormRef] = Field(default_factory=list)
     comparable_cases: list[CaseMatch] = Field(default_factory=list)

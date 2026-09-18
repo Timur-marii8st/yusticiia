@@ -7,7 +7,7 @@
   <!-- ?v= — метка версии статики: после обновления интерфейса браузер
        иначе продолжает показывать закэшированные стили и скрипт.
        Меняется вручную вместе с правкой style.css / app.js. -->
-  <link rel="stylesheet" href="/static/style.css?v=0.41">
+  <link rel="stylesheet" href="/static/style.css?v=0.42">
 </head>
 <body>
   <a class="skip-link" href="#upload-panel">Перейти к форме анализа</a>
@@ -130,6 +130,26 @@
         <div id="doc-card" class="card"></div>
       </section>
 
+      <section class="panel" id="summary-panel">
+        <h1>Краткое изложение дела</h1>
+        <p class="hint">
+          Собрано из извлечённых обстоятельств, а не пересказано моделью:
+          каждая строка раскрывается до тех же цитат, что и обстоятельства ниже.
+        </p>
+        <div id="summary-headline" class="summary-headline"></div>
+        <ul id="summary-list" class="items"></ul>
+      </section>
+
+      <section class="panel" id="concerns-panel">
+        <h1>Проблемные места</h1>
+        <p class="hint">
+          На что посмотреть отдельно. Нарушение предела и нехватка данных
+          разведены: первое требует проверить расчёт, второе — дополнить
+          документ или обстоятельства.
+        </p>
+        <ul id="concerns-list" class="items"></ul>
+      </section>
+
       <section class="panel">
         <h1>Обнаруженные обстоятельства</h1>
         <p class="hint">Нажмите на обстоятельство, чтобы увидеть цитату из документа.</p>
@@ -205,6 +225,6 @@
     </div>
   </main>
 
-  <script src="/static/app.js?v=0.41"></script>
+  <script src="/static/app.js?v=0.42"></script>
 </body>
 </html>

@@ -463,6 +463,60 @@ function renderAnalytics(analytics) {
   wrap.appendChild(note);
 }
 
+
+const CONCERN_LABELS = {
+  violation: "Проверка не сошлась",
+  attention: "Требует внимания",
+  data: "Ограничение данных",
+};
+
+const CONCERN_BADGE = { violation: "FAIL", attention: "WARNING", data: "UNKNOWN" };
+
+function renderSummary(summary) {
+  const panel = $("summary-panel");
+  const list = $("summary-list");
+  list.innerHTML = "";
+  if (!summary || !summary.lines || !summary.lines.length) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  $("summary-headline").textContent = summary.headline || "";
+  summary.lines.forEach((line) => {
+    const li = document.createElement("li");
+    li.appendChild(div("summary-line", line.text));
+    if (line.fact_ids && line.fact_ids.length) {
+      // Изложение не висит в воздухе: видно, на скольких обстоятельствах
+      // держится строка, и их можно раскрыть ниже до цитаты.
+      li.appendChild(div("meta", `обстоятельств в основе: ${line.fact_ids.length}`));
+    }
+    list.appendChild(li);
+  });
+}
+
+function renderConcerns(concerns) {
+  const panel = $("concerns-panel");
+  const list = $("concerns-list");
+  list.innerHTML = "";
+  panel.hidden = false;
+  if (!concerns.length) {
+    list.appendChild(
+      div("hint", "Проверки прошли, данных хватило: отдельных замечаний нет.")
+    );
+    return;
+  }
+  concerns.forEach((concern) => {
+    const li = document.createElement("li");
+    const title = div("fact-title");
+    title.appendChild(badge(CONCERN_BADGE[concern.severity] || "UNKNOWN"));
+    title.append(` ${CONCERN_LABELS[concern.severity] || concern.severity}: ${concern.title}`);
+    li.appendChild(title);
+    if (concern.detail) li.appendChild(div("meta", concern.detail));
+    if (concern.rule_id) li.appendChild(div("meta", `правило ${concern.rule_id}`));
+    list.appendChild(li);
+  });
+}
+
 function renderReport(report) {
   $("results").hidden = false;
   /* Ссылка на эндпойнт здесь не годится: браузер идёт по ней обычной
@@ -490,6 +544,9 @@ function renderReport(report) {
     row.appendChild(div("v", String(v)));
     card.appendChild(row);
   });
+
+  renderSummary(report.summary);
+  renderConcerns(report.concerns || []);
 
   const factsList = $("facts-list");
   factsList.innerHTML = "";

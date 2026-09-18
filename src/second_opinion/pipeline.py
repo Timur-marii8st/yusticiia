@@ -8,7 +8,14 @@ from .audit.trail import AuditTrail
 from .domain.analysis import DEFAULT_DISCLAIMERS, AnalysisReport, AnalyticsSummary
 from .domain.cases import CaseMatch
 from .domain.documents import Document
-from .domain.enums import ExtractionMethod, FactStatus, FactType, OffenseStage, PunishmentType
+from .domain.enums import (
+    ExtractionMethod,
+    FactStatus,
+    FactType,
+    OffenseStage,
+    PunishmentType,
+    VerificationStatus,
+)
 from .domain.facts import CaseFacts, LegalFact
 from .domain.norms import NormRef
 from .domain.rules import RuleEvaluation
@@ -16,7 +23,7 @@ from .fact_extraction.builder import build_case_facts
 from .fact_extraction.llm_extractor import LLMFactExtractor
 from .fact_extraction.pattern_extractor import PatternFactExtractor, _value_key
 from .ingestion.parser import parse_document
-from .legal_sources.store import NormStore
+from .legal_sources.store import NormNotFoundError, NormStore
 from .llm.provider import LLMProvider
 from .logging_utils import StageTimer, log_stage
 from .metrics import (
@@ -29,6 +36,7 @@ from .metrics import (
     RULE_EVALUATIONS,
     get_metrics,
 )
+from .reporting import build_concerns, build_summary
 from .retrieval.case_retrieval import CaseRetriever
 from .rule_engine.engine import ENGINE_VERSION, RuleEngine
 from .storage.repositories import JsonFileRepository
@@ -586,6 +594,34 @@ class AnalysisPipeline:
         report.norms_applied = norms_applied
         report.comparable_cases = matches
         report.analytics = analytics
+        # Изложение и проблемные места пересобираются здесь, а не при
+        # создании отчёта: после правки факта судьёй они обязаны совпадать
+        # с пересчитанными проверками, иначе разделы разойдутся между собой.
+        report.summary = build_summary(case_facts, report.facts)
+        report.concerns = build_concerns(report, self._unverified_norms(norms_applied))
+
+    def _unverified_norms(self, norms_applied: list[NormRef]) -> list[str]:
+        """Ссылки на применённые нормы, чья редакция не прошла сверку.
+
+        Тихо применённая несверенная редакция — та же беда, что тихо
+        применённая свежая: вывод выглядит одинаково надёжным независимо
+        от качества данных под ним.
+        """
+        unverified: list[str] = []
+        for norm_ref in norms_applied:
+            if not norm_ref.version_id:
+                continue
+            try:
+                versions = self._norm_store.versions(norm_ref.norm_id)
+            except (NormNotFoundError, KeyError):
+                continue
+            for version in versions:
+                if (
+                    version.version_id == norm_ref.version_id
+                    and version.verification_status is not VerificationStatus.VERIFIED
+                ):
+                    unverified.append(norm_ref.ref)
+        return unverified
 
     def _persist_report(
         self,

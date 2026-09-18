@@ -144,6 +144,15 @@ button:disabled { opacity: 0.5; cursor: wait; }
 
 .error { color: var(--fail); margin-top: 10px; font-size: 14px; }
 
+/* Заголовок изложения: квалификация и процедура одной строкой. */
+.summary-headline {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 6px 0 10px;
+}
+.summary-line { font-size: 14px; }
+
 /* Пометка происхождения обстоятельства в списке: внесено судьёй,
    извлечено моделью, исключено из проверок. */
 .fact-origin {
