@@ -146,6 +146,31 @@ class SearchResponse(BaseModel):
     results: list[SearchHit]
 
 
+class HistoryItem(BaseModel):
+    """Строка истории дел: чего достаточно, чтобы узнать своё дело.
+
+    Полный отчёт не вкладывается: история открывается часто, а отчёт
+    весит сотни килобайт. За содержанием — ``GET /api/analyses/{id}``.
+    """
+
+    analysis_id: str
+    document_id: str
+    filename: str = ""
+    created_at: datetime
+    applicable_at: str | None = None
+    qualification: str = ""
+    facts_total: int = 0
+    #: Счётчики по статусам проверок: FAIL, WARNING, UNKNOWN, PASS.
+    checks: dict[str, int] = Field(default_factory=dict)
+
+
+class HistoryResponse(BaseModel):
+    #: ``scope``: ``own`` — дела актора, ``all`` — все (только админ).
+    scope: str
+    total: int
+    items: list[HistoryItem]
+
+
 # -- аутентификация ------------------------------------------------------------
 
 
@@ -216,6 +241,8 @@ __all__ = [
     "DocumentCreated",
     "HealthResponse",
     "HistogramSnapshot",
+    "HistoryItem",
+    "HistoryResponse",
     "LoginAttemptResponse",
     "LoginResponse",
     "MeResponse",

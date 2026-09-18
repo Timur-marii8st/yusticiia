@@ -32,6 +32,8 @@ class AnalysisReport(BaseModel):
 
     analysis_id: str
     document_id: str
+    #: Кто выполнил анализ (см. Document.owner).
+    owner: str = ""
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC).replace(microsecond=0)
     )

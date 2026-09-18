@@ -7,7 +7,7 @@
   <!-- ?v= — метка версии статики: после обновления интерфейса браузер
        иначе продолжает показывать закэшированные стили и скрипт.
        Меняется вручную вместе с правкой style.css / app.js. -->
-  <link rel="stylesheet" href="/static/style.css?v=0.39">
+  <link rel="stylesheet" href="/static/style.css?v=0.41">
 </head>
 <body>
   <a class="skip-link" href="#upload-panel">Перейти к форме анализа</a>
@@ -38,6 +38,41 @@
         Токен нужен, только если развёртывание защищено общим секретом.
       </p>
     </div>
+
+    <section class="panel" id="account-panel">
+      <h1>Личный кабинет</h1>
+
+      <div id="account-login">
+        <p class="hint">
+          Вход по личной учётной записи. Нужен, чтобы дела не смешивались
+          между судьями и чтобы в журнале было видно, кто что подтвердил.
+          Демо-сценарий работает и без входа.
+        </p>
+        <div class="controls">
+          <label class="visually-hidden" for="login-email">Электронная почта</label>
+          <input type="email" id="login-email" size="28" autocomplete="username"
+            placeholder="Электронная почта">
+          <label class="visually-hidden" for="login-password">Пароль</label>
+          <input type="password" id="login-password" size="20" autocomplete="current-password"
+            placeholder="Пароль">
+          <button id="login-btn" class="primary">Войти</button>
+        </div>
+        <div id="login-error" class="error" role="alert" aria-live="assertive" hidden></div>
+      </div>
+
+      <div id="account-profile" hidden>
+        <div id="profile-card" class="card"></div>
+        <div class="controls">
+          <button id="history-btn" class="secondary">Обновить историю дел</button>
+          <button id="logout-btn" class="secondary">Выйти</button>
+        </div>
+        <p class="hint" id="history-hint">
+          История — анализы, выполненные под этой учётной записью. Нажмите
+          на дело, чтобы открыть отчёт целиком.
+        </p>
+        <ul id="history-list" class="items" aria-live="polite"></ul>
+      </div>
+    </section>
 
     <section class="panel" id="upload-panel">
       <h1>Документ</h1>
@@ -170,6 +205,6 @@
     </div>
   </main>
 
-  <script src="/static/app.js?v=0.39"></script>
+  <script src="/static/app.js?v=0.41"></script>
 </body>
 </html>

@@ -189,6 +189,9 @@ class AnalysisPipeline:
         self, filename: str, content: bytes, *, actor: str = "anonymous"
     ) -> Document:
         document = parse_document(filename, content, self._max_upload_bytes)
+        # Владелец записывается сразу: восстановить его задним числом можно
+        # только из аудит-журнала, а журнал не предназначен для выборок.
+        document = document.model_copy(update={"owner": actor})
         self._documents.save(document)
         self._audit.log(
             operation="document_ingest",
@@ -227,6 +230,7 @@ class AnalysisPipeline:
                 report = AnalysisReport(
                     analysis_id=uuid.uuid4().hex,
                     document_id=document_id,
+                    owner=actor,
                     applicable_at=resolved_date.isoformat(),
                     applicable_at_assumed=assumed,
                     facts=facts,
@@ -250,6 +254,31 @@ class AnalysisPipeline:
 
     def get_analysis(self, analysis_id: str) -> AnalysisReport | None:
         return self._analyses.get(analysis_id)
+
+    def history(
+        self, *, owner: str | None = None, limit: int = 50
+    ) -> list[tuple[AnalysisReport, Document | None]]:
+        """История анализов, новые сверху.
+
+        ``owner=None`` отдаёт все записи (для администратора); иначе —
+        только принадлежащие указанному актору. Документ возвращается
+        рядом с отчётом: без имени файла список неотличим от набора
+        идентификаторов.
+
+        Записи, сделанные до появления поля ``owner``, принадлежат пустой
+        строке и в выдачу по владельцу не попадают. Это осознанно: лучше
+        не показать своё старое дело, чем показать чужое.
+        """
+        reports = [
+            report
+            for report in self._analyses.list()
+            if owner is None or report.owner == owner
+        ]
+        reports.sort(key=lambda r: r.created_at, reverse=True)
+        return [
+            (report, self._documents.get(report.document_id))
+            for report in reports[:limit]
+        ]
 
     # -- удаление (право на забвение, docs/PRIVACY.md) ------------------------
 

@@ -32,6 +32,7 @@ from .schemas import (
     DocumentContent,
     DocumentCreated,
     HealthResponse,
+    HistoryResponse,
     MetricsResponse,
     NormCoverageItem,
     NormCoverageResponse,
@@ -262,6 +263,54 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
         except DocumentNotFound as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return report
+
+    @app.get("/api/analyses")
+    def list_analyses(
+        request: Request, limit: int = 50, scope: str = "own"
+    ) -> HistoryResponse:
+        """История дел: свои — всем, все — только администратору.
+
+        Разделение по актору, а не по «кто первый открыл»: судья работает
+        со своими материалами, и чужое дело в его списке — это утечка, а
+        не удобство. Администратор запрашивает полный список явно
+        (``scope=all``), чтобы расширение видимости было намеренным.
+        """
+        actor = _actor(request)
+        owner: str | None = actor
+        effective_scope = "own"
+        if scope == "all":
+            from ..auth.service import get_auth_service
+            from ..domain.users import UserRole
+
+            user = get_auth_service().get_user(actor)
+            if user is None or user.role is not UserRole.ADMIN:
+                raise HTTPException(
+                    status_code=403,
+                    detail="полный список истории доступен только администратору",
+                )
+            owner = None
+            effective_scope = "all"
+
+        items = []
+        for report, document in pipeline.history(owner=owner, limit=limit):
+            checks: dict[str, int] = {}
+            for evaluation in report.evaluations:
+                key = getattr(evaluation.status, "value", str(evaluation.status))
+                checks[key] = checks.get(key, 0) + 1
+            qualifications = report.case_facts.offense.qualifications
+            items.append(
+                {
+                    "analysis_id": report.analysis_id,
+                    "document_id": report.document_id,
+                    "filename": document.filename if document else "",
+                    "created_at": report.created_at,
+                    "applicable_at": report.applicable_at,
+                    "qualification": qualifications[0].ref if qualifications else "",
+                    "facts_total": len(report.facts),
+                    "checks": checks,
+                }
+            )
+        return {"scope": effective_scope, "total": len(items), "items": items}
 
     @app.get("/api/analyses/{analysis_id}")
     def get_analysis(analysis_id: str) -> AnalysisReportResponse:

@@ -175,10 +175,15 @@ function div(className, text) {
   return el;
 }
 
-// Единая точка обращения к API: подставляет токен (если задан) и
-// показывает форму входа при 401.
+/* Единая точка обращения к API: подставляет токен и показывает форму
+   входа при 401.
+
+   Токенов два, и это не дублирование: `so-access` — личная учётная
+   запись (JWT), `so-token` — общий секрет развёртывания. Оба принимаются
+   сервером (ADR-008). Личный приоритетнее: под ним действия попадают в
+   журнал с именем исполнителя, а не обезличенно. */
 function apiFetch(url, options = {}) {
-  const token = sessionStorage.getItem("so-token");
+  const token = sessionStorage.getItem("so-access") || sessionStorage.getItem("so-token");
   const headers = { ...(options.headers || {}) };
   if (token) headers["Authorization"] = `Bearer ${token}`;
   return fetch(url, { ...options, headers }).then((response) => {
@@ -823,3 +828,175 @@ $("search-query").addEventListener("keydown", (e) => {
   if (e.key === "Enter") runSearch();
 });
 $("corpus-btn").addEventListener("click", loadCorpusState);
+
+// --- личный кабинет ---------------------------------------------------------
+
+const ROLE_LABELS = {
+  judge: "Судья",
+  clerk: "Помощник судьи",
+  admin: "Администратор",
+};
+
+function showLoginError(message) {
+  const box = $("login-error");
+  box.textContent = message;
+  box.hidden = false;
+}
+
+function setAccountView(user) {
+  const authorized = Boolean(user);
+  $("account-login").hidden = authorized;
+  $("account-profile").hidden = !authorized;
+  if (!authorized) return;
+
+  const card = $("profile-card");
+  card.innerHTML = "";
+  [
+    ["Пользователь", user.full_name || "—"],
+    ["Электронная почта", user.email],
+    ["Роль", ROLE_LABELS[user.role] || user.role],
+  ].forEach(([label, value]) => {
+    const row = div("kv");
+    row.appendChild(div("k", label));
+    row.appendChild(div("v", value));
+    card.appendChild(row);
+  });
+}
+
+async function loadProfile() {
+  if (!sessionStorage.getItem("so-access")) {
+    setAccountView(null);
+    return;
+  }
+  const response = await apiFetch("/auth/me");
+  if (!response.ok) {
+    // Токен протух или отозван: молча возвращаем форму входа, а не
+    // оставляем интерфейс в состоянии «вошёл», где ничего не работает.
+    sessionStorage.removeItem("so-access");
+    sessionStorage.removeItem("so-refresh");
+    setAccountView(null);
+    return;
+  }
+  setAccountView(await response.json());
+  await loadHistory();
+}
+
+function historyRow(item) {
+  const li = document.createElement("li");
+  const title = div("fact-title");
+
+  // Бейдж показывает худший исход среди проверок: в списке важно сразу
+  // видеть дело, где что-то не сошлось.
+  const checks = item.checks || {};
+  const worst = checks.FAIL ? "FAIL" : checks.WARNING ? "WARNING" : checks.UNKNOWN ? "UNKNOWN" : "PASS";
+  title.appendChild(badge(worst));
+
+  const when = (item.created_at || "").replace("T", " ").replace("Z", "");
+  const parts = [item.qualification || "квалификация не извлечена", item.filename, when];
+  title.append(` ${parts.filter(Boolean).join(" · ")}`);
+  li.appendChild(title);
+
+  const meta = div("meta");
+  const counts = ["FAIL", "WARNING", "UNKNOWN", "PASS"]
+    .filter((key) => checks[key])
+    .map((key) => `${key}: ${checks[key]}`)
+    .join(", ");
+  meta.textContent =
+    `обстоятельств: ${item.facts_total}` +
+    (counts ? `; проверки — ${counts}` : "") +
+    (item.applicable_at ? `; нормы на ${item.applicable_at}` : "");
+  li.appendChild(meta);
+
+  title.setAttribute("role", "button");
+  title.setAttribute("tabindex", "0");
+  const open = async () => {
+    const response = await apiFetch(`/api/analyses/${item.analysis_id}`);
+    if (!response.ok) {
+      showLoginError(`Не удалось открыть дело: HTTP ${response.status}`);
+      return;
+    }
+    renderReport(await response.json());
+    $("results").scrollIntoView({ behavior: "smooth" });
+  };
+  title.addEventListener("click", open);
+  title.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      open();
+    }
+  });
+  return li;
+}
+
+async function loadHistory() {
+  const list = $("history-list");
+  list.innerHTML = "";
+  const response = await apiFetch("/api/analyses?limit=20");
+  if (!response.ok) {
+    list.appendChild(div("hint", `История недоступна: HTTP ${response.status}`));
+    return;
+  }
+  const body = await response.json();
+  if (!body.items.length) {
+    list.appendChild(div("hint", "Дел пока нет. Проанализируйте документ — он появится здесь."));
+    return;
+  }
+  body.items.forEach((item) => list.appendChild(historyRow(item)));
+}
+
+async function login() {
+  $("login-error").hidden = true;
+  const email = $("login-email").value.trim();
+  const password = $("login-password").value;
+  if (!email || !password) {
+    showLoginError("Введите почту и пароль.");
+    return;
+  }
+  const response = await fetch("/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!response.ok) {
+    const detail = (await response.json().catch(() => ({}))).detail;
+    showLoginError(detail || `Вход не выполнен: HTTP ${response.status}`);
+    return;
+  }
+  const body = await response.json();
+  sessionStorage.setItem("so-access", body.tokens.access_token);
+  sessionStorage.setItem("so-refresh", body.tokens.refresh_token);
+  $("login-password").value = "";
+  // Форма общего секрета больше не нужна: личный токен принимается везде.
+  $("auth-box").hidden = true;
+  setAccountView(body.user);
+  await loadHistory();
+}
+
+async function logout() {
+  const refresh = sessionStorage.getItem("so-refresh");
+  if (refresh) {
+    // Отзываем refresh на сервере, а не только забываем локально: иначе
+    // украденный токен продолжал бы выдавать новые пары.
+    await apiFetch("/auth/logout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refresh }),
+    }).catch(() => {});
+  }
+  sessionStorage.removeItem("so-access");
+  sessionStorage.removeItem("so-refresh");
+  $("history-list").innerHTML = "";
+  setAccountView(null);
+}
+
+$("login-btn").addEventListener("click", login);
+$("login-password").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") login();
+});
+$("login-email").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") $("login-password").focus();
+});
+$("history-btn").addEventListener("click", loadHistory);
+$("logout-btn").addEventListener("click", logout);
+
+loadProfile();
