@@ -872,6 +872,33 @@ async function loadCorpusState() {
 
 $("print-btn").addEventListener("click", () => window.print());
 
+/* Выгрузка .docx идёт тем же apiFetch, что и остальное: обычная ссылка
+   ушла бы навигацией без заголовка Authorization и в защищённом
+   развёртывании вернула бы 401 вместо файла. */
+$("download-docx").addEventListener("click", async (event) => {
+  const analysisId = $("download-json").dataset.analysisId;
+  if (!analysisId) return;
+  clearError();
+  const button = event.currentTarget;
+  button.disabled = true;
+  try {
+    const response = await apiFetch(`/api/analyses/${analysisId}/document`);
+    if (!response.ok) {
+      showError(`Не удалось собрать заключение: HTTP ${response.status}`);
+      return;
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `second-opinion-${analysisId.slice(0, 8)}.docx`;
+    link.click();
+    URL.revokeObjectURL(url);
+  } finally {
+    button.disabled = false;
+  }
+});
+
 $("download-json").addEventListener("click", async (event) => {
   event.preventDefault();
   const analysisId = event.currentTarget.dataset.analysisId;

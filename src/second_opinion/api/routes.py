@@ -6,6 +6,7 @@ from typing import Annotated, Any
 
 from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
+from fastapi.responses import Response as FileLikeResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -39,6 +40,11 @@ from .schemas import (
     NormDetailResponse,
     NormListResponse,
     SearchResponse,
+)
+
+#: Тип содержимого .docx — заключение для подшивки в дело (ФТ-34).
+DOCX_MEDIA_TYPE = (
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 )
 
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
@@ -239,6 +245,47 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
         except DocumentNotFound as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return {"deleted": document_id}
+
+    @app.get(
+        "/api/analyses/{analysis_id}/document",
+        # Ответ — файл, а не JSON. Без явного описания схема объявляла бы
+        # его «любым объектом», и по спецификации нельзя было бы понять,
+        # что эндпойнт отдаёт документ.
+        response_class=FileLikeResponse,
+        responses={
+            200: {
+                "description": "Заключение в формате .docx",
+                "content": {DOCX_MEDIA_TYPE: {"schema": {"type": "string", "format": "binary"}}},
+            }
+        },
+    )
+    def download_analysis_document(analysis_id: str):  # noqa: ANN202
+        """Заключение в .docx — файл, который можно подшить в дело.
+
+        Печать из браузера годится посмотреть, но не переслать и не
+        приложить к материалам.
+        """
+        from ..export import build_docx
+
+        report = pipeline.get_analysis(analysis_id)
+        if report is None:
+            raise HTTPException(status_code=404, detail="отчёт не найден")
+        try:
+            document = pipeline.get_document(report.document_id)
+        except DocumentNotFound:
+            # Документ удалён по праву на забвение, отчёт остался:
+            # заключение собирается без реквизитов файла, а не падает.
+            document = None
+        payload = build_docx(report, document)
+        return FileLikeResponse(
+            content=payload,
+            media_type=DOCX_MEDIA_TYPE,
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="second-opinion-{analysis_id[:8]}.docx"'
+                )
+            },
+        )
 
     @app.delete("/api/analyses/{analysis_id}")
     def delete_analysis(analysis_id: str, request: Request) -> DeletedResponse:
