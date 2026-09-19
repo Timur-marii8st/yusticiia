@@ -141,16 +141,71 @@ function clearFactError() {
   $("add-fact-error").hidden = true;
 }
 
+/* Бейджи двух разных словарей: результат проверки правила (PASS…UNKNOWN)
+   и достоверность обстоятельства (VERIFIED…CONFLICT). Прежде символ знали
+   только первые три статуса правил, а все остальные — в том числе все пять
+   статусов обстоятельств — падали в «?». Подтверждённое обстоятельство и
+   обстоятельство с противоречием выглядели одинаково: вопросительный знак
+   в цветной рамке. Цвет их различал, но цвет — не текст, и читается он
+   не всеми.
+
+   Подпись даётся по-русски: скринридер зачитывает `aria-label`, и «VERIFIED»
+   в русском интерфейсе он произносит по буквам. */
+const STATUS_BADGES = {
+  // Результат детерминированной проверки.
+  PASS: ["✓", "проверка пройдена"],
+  WARNING: ["⚠", "требует внимания"],
+  FAIL: ["✗", "нарушение"],
+  UNKNOWN: ["?", "данных недостаточно"],
+  // Достоверность обстоятельства.
+  VERIFIED: ["✓", "подтверждено"],
+  LIKELY: ["≈", "вероятно, не подтверждено"],
+  UNCERTAIN: ["⚠", "требует проверки"],
+  CONFLICT: ["≠", "противоречие в документе"],
+  NOT_FOUND: ["—", "исключено из проверок"],
+};
+
 function badge(status) {
   const span = document.createElement("span");
   span.className = `status-badge status-${status}`;
-  span.textContent =
-    status === "PASS" ? "✓" : status === "WARNING" ? "⚠" : status === "FAIL" ? "✗" : "?";
-  span.title = status;
+  // Неизвестный статус не притворяется известным: «?» и само имя статуса.
+  const [glyph, label] = STATUS_BADGES[status] || ["?", status];
+  span.textContent = glyph;
+  span.title = label;
   // Скринридер должен слышать статус, а не символ.
   span.setAttribute("role", "img");
-  span.setAttribute("aria-label", status);
+  span.setAttribute("aria-label", label);
   return span;
+}
+
+/** Название статуса по-русски для подписей вне бейджа. */
+function statusLabel(status) {
+  return (STATUS_BADGES[status] || [null, status])[1];
+}
+
+/* Статус сверки текста нормы. Различие «сверено юристом / черновик» —
+   то самое, на котором держится запрет применять непроверенный текст,
+   поэтому оно должно читаться, а не требовать знания слова `draft`. */
+const VERIFICATION_LABELS = {
+  verified: "сверено юристом",
+  draft: "черновик, юристом не сверен",
+};
+
+function verificationLabel(status) {
+  return VERIFICATION_LABELS[status] || status;
+}
+
+/* Чем получено обстоятельство. Короткая пометка в списке (`fact-origin`)
+   отвечает на вопрос «откуда это взялось» и потому написана глаголом;
+   здесь — название способа, оно стоит после двоеточия. */
+const METHOD_LABELS = {
+  pattern: "разбор по шаблонам",
+  llm: "языковая модель",
+  user: "внесено судьёй",
+};
+
+function methodLabel(method) {
+  return METHOD_LABELS[method] || method;
 }
 
 function toggleDetail(detail, trigger) {
@@ -277,8 +332,8 @@ function renderFact(fact, analysisId, usedIn) {
 
   const detail = div("detail hidden");
   const meta = div("meta");
-  meta.appendChild(div("", `Статус: ${fact.status}`));
-  meta.appendChild(div("", `Метод извлечения: ${fact.extraction_method}`));
+  meta.appendChild(div("", `Статус: ${statusLabel(fact.status)}`));
+  meta.appendChild(div("", `Метод извлечения: ${methodLabel(fact.extraction_method)}`));
   meta.appendChild(div("", `Уверенность: ${fact.confidence}`));
   if (fact.prompt_version) meta.appendChild(div("", `Промпт: ${fact.prompt_version}`));
 
@@ -791,7 +846,7 @@ function renderSearchHit(hit) {
   meta.appendChild(div("", `Источник: ${hit.source_document}`));
   if (hit.source_url) meta.appendChild(div("", `URL: ${hit.source_url}`));
   meta.appendChild(div("", `Извлечено: ${hit.retrieved_at}; SHA-256: ${hit.sha256.slice(0, 16)}…`));
-  meta.appendChild(div("", `Статус сверки: ${hit.verification_status}` +
+  meta.appendChild(div("", `Статус сверки: ${verificationLabel(hit.verification_status)}` +
     (hit.synthetic ? "; СИНТЕТИЧЕСКАЯ фикстура" : "")));
   meta.appendChild(div("", `Совпавшие термины: ${hit.matched_terms.join(", ")}`));
   detail.appendChild(meta);
@@ -1049,9 +1104,19 @@ function historyRow(item) {
   li.appendChild(title);
 
   const meta = div("meta");
+  // Не «PASS: 8»: в списке дел судья читает по-русски, а имена статусов —
+  // внутренние. Здесь нужна считаемая форма («нарушений 1»), а не название
+  // статуса («нарушение»), поэтому подписи свои, а не из бейджей.
+  // Порядок от худшего к лучшему: важное стоит первым.
+  const COUNT_LABELS = {
+    FAIL: "нарушений",
+    WARNING: "требуют внимания",
+    UNKNOWN: "без данных",
+    PASS: "пройдено",
+  };
   const counts = ["FAIL", "WARNING", "UNKNOWN", "PASS"]
     .filter((key) => checks[key])
-    .map((key) => `${key}: ${checks[key]}`)
+    .map((key) => `${COUNT_LABELS[key]} ${checks[key]}`)
     .join(", ");
   meta.textContent =
     `обстоятельств: ${item.facts_total}` +
