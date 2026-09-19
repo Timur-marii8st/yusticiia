@@ -16,7 +16,6 @@ from __future__ import annotations
 import bisect
 import os
 import threading
-from collections import defaultdict
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -221,12 +220,3 @@ METRIC_HELP: dict[str, str] = {
     RETRIEVAL_DURATION_SECONDS: "Case retrieval duration (s)",
 }
 
-
-def group_by_status(evaluations: list[object]) -> dict[str, int]:
-    """Подсчёт статусов правил для одной оценки (для метрик)."""
-    counts: dict[str, int] = defaultdict(int)
-    for ev in evaluations:
-        status = getattr(ev, "status", None)
-        if status is not None:
-            counts[str(getattr(status, "value", status))] += 1
-    return dict(counts)

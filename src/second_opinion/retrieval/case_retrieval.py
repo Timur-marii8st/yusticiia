@@ -58,7 +58,7 @@ class CaseRetriever:
         matches.sort(key=lambda m: (-m.score, m.case.case_id))
         return matches[:limit]
 
-    # -- внутреннее -----------------------------------------------------------
+    # -- внутреннее
 
     @staticmethod
     def _criteria_has_substance(criteria: CaseFacts) -> bool:

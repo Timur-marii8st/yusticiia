@@ -10,7 +10,9 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from second_opinion.api.routes import REQUEST_ID_HEADER, create_app, human_message
+from second_opinion.api.app import create_app
+from second_opinion.api.errors import human_message
+from second_opinion.api.request_context import REQUEST_ID_HEADER
 
 
 def test_key_error_message_has_no_repr_quotes() -> None:

@@ -75,24 +75,6 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class TokenRefreshRequest(BaseModel):
-    """Запрос на обновление токена."""
-
-    refresh_token: str
-
-
-class UserProfile(BaseModel):
-    """Профиль пользователя (без пароля)."""
-
-    user_id: str
-    email: EmailStr
-    full_name: str
-    role: UserRole
-    is_active: bool
-    created_at: datetime
-    last_login: datetime | None = None
-
-
 class LoginAttempt(BaseModel):
     """Запись аудита входов (без паролей)."""
 

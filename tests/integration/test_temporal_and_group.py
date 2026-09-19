@@ -9,7 +9,7 @@ def _analysis(pipeline, path, applicable_at=None):
     return report
 
 
-# -- групповое деяние -------------------------------------------------------------
+# -- групповое деяние
 
 
 def test_group_offense_extracted_from_fraud_sample(pipeline) -> None:
@@ -32,7 +32,7 @@ def test_group_criterion_used_in_case_retrieval(pipeline) -> None:
     assert "group" in report.analytics.feature_spread
 
 
-# -- временные редакции: исход проверки зависит от применимой редакции -------------
+# -- временные редакции: исход проверки зависит от применимой редакции
 
 
 def test_same_document_different_editions_change_rule_outcome(pipeline) -> None:

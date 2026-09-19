@@ -5,7 +5,7 @@ import io
 import pytest
 from fastapi.testclient import TestClient
 
-from second_opinion.api.routes import create_app
+from second_opinion.api.app import create_app
 
 
 @pytest.fixture()
@@ -43,7 +43,7 @@ def test_metrics_enabled_after_increments(pipeline, monkeypatch) -> None:
     monkeypatch.setenv("SO_METRICS_ENABLED", "1")
     reset_metrics_for_tests()
     try:
-        from second_opinion.api.routes import create_app
+        from second_opinion.api.app import create_app
 
         client = TestClient(create_app(pipeline))
         # Прямой инкремент счётчика — снимок должен показать ненулевое значение.

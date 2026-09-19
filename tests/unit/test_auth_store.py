@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from fastapi.testclient import TestClient
 
-from second_opinion.api.routes import create_app
+from second_opinion.api.app import create_app
 from second_opinion.auth.repository import InMemoryUserStore
 from second_opinion.auth.service import (
     AccountLockedError,
@@ -159,7 +159,7 @@ def test_api_admin_password_reset_refreshes_expiry(pipeline, monkeypatch) -> Non
     assert auth.is_password_expired(auth.get_user(uid)) is False
 
 
-# -- парольные политики: история и блокировка ----------------------------------
+# -- парольные политики: история и блокировка
 
 
 def test_password_history_rejects_reuse() -> None:

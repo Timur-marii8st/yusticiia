@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from second_opinion.api.routes import create_app
+from second_opinion.api.app import create_app
 from second_opinion.legal_sources.coverage import analyze_store, needs_legal_review
 
 

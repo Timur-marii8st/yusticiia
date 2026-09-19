@@ -106,7 +106,7 @@ def test_norm_version_rejects_reversed_dates() -> None:
         )
 
 
-# -- сборка CaseFacts: приоритет форм группового деяния ---------------------------
+# -- сборка CaseFacts: приоритет форм группового деяния
 
 
 def _group_fact(value: str) -> LegalFact:

@@ -89,7 +89,7 @@ def run(norm_store: NormStore, case: CaseFacts) -> dict[str, RuleEvaluation]:
     return {e.rule_id: e for e in evaluations}
 
 
-# -- R-001: пределы санкции --------------------------------------------------
+# -- R-001: пределы санкции
 
 
 def test_r001_fail_when_term_exceeds_sanction_max(norm_store: NormStore) -> None:
@@ -123,7 +123,7 @@ def test_r001_unknown_when_norm_absent(norm_store: NormStore) -> None:
     assert evaluation.missing
 
 
-# -- R-002: неоконченное преступление ----------------------------------------
+# -- R-002: неоконченное преступление
 
 
 def test_r002_attempt_fail_over_three_quarters(norm_store: NormStore) -> None:
@@ -151,7 +151,7 @@ def test_r002_not_applicable_for_completed(norm_store: NormStore) -> None:
     assert "не применимо" in evaluation.headline
 
 
-# -- R-003: особый порядок ----------------------------------------------------
+# -- R-003: особый порядок
 
 
 def test_r003_special_procedure_fail(norm_store: NormStore) -> None:
@@ -178,7 +178,7 @@ def test_r003_unknown_when_procedure_not_extracted(norm_store: NormStore) -> Non
     )
 
 
-# -- R-004: смягчающие пп. «и»/«к» ---------------------------------------------
+# -- R-004: смягчающие пп. «и»/«к»
 
 
 def test_r004_mitigating_two_thirds_fail(norm_store: NormStore) -> None:
@@ -205,7 +205,7 @@ def test_r004_not_applicable_without_ik(norm_store: NormStore) -> None:
     assert evaluation.status.value == "PASS"
 
 
-# -- R-010: неоконченное в особом порядке (п. 14 ППВС № 60) ---------------------
+# -- R-010: неоконченное в особом порядке (п. 14 ППВС № 60)
 
 
 def test_r010_attempt_special_fail_over_combined_limit(norm_store: NormStore) -> None:
@@ -260,7 +260,7 @@ def test_r010_cites_norm_versions(norm_store: NormStore) -> None:
     assert ("ppvs-rf:n60-p14", "v-2021") in refs
 
 
-# -- R-006: условное осуждение --------------------------------------------------
+# -- R-006: условное осуждение
 
 
 def test_r006_suspended_over_8_years_fail(norm_store: NormStore) -> None:
@@ -289,7 +289,7 @@ def test_r006_unknown_without_suspended_fact(norm_store: NormStore) -> None:
     )
 
 
-# -- provenance в оценках -------------------------------------------------------
+# -- provenance в оценках
 
 
 def test_conclusive_evaluation_cites_norm_version(norm_store: NormStore) -> None:
@@ -305,7 +305,7 @@ def test_evaluation_records_used_fact_ids(norm_store: NormStore) -> None:
     evaluation = run(norm_store, case)["R-001"]
     assert evaluation.facts_used or evaluation.missing
 
-# -- R-007: особый порядок и несовершеннолетие ---------------------------------
+# -- R-007: особый порядок и несовершеннолетие
 
 
 def test_r007_minor_with_special_procedure_fails(norm_store: NormStore) -> None:
@@ -345,7 +345,7 @@ def test_r007_cites_upk_norm_version(norm_store: NormStore) -> None:
 # test_r004_not_applicable_with_aggravating. ------------------------------------
 
 
-# -- R-009: полнота данных о наказании -------------------------------------------
+# -- R-009: полнота данных о наказании
 
 
 def test_r009_complete_pair_passes(norm_store: NormStore) -> None:

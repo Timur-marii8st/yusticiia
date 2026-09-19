@@ -44,43 +44,5 @@ class MockLLMProvider:
             return None, result
         try:
             return validate_payload(schema, raw), result
-        except (ValueError, Exception):
+        except ValueError:
             return None, result
-
-
-class FlakyMockLLMProvider(MockLLMProvider):
-    """Мок, который первые ``fail_times`` попыток возвращает невалидный JSON.
-
-    Используется в тестах деградированного вывода модели.
-    """
-
-    def __init__(self, canned: dict[str, str], fail_times: int = 1) -> None:
-        super().__init__(canned)
-        self._fail_left = fail_times
-
-    def generate_structured(
-        self,
-        *,
-        prompt_name: str,
-        prompt_version: str,
-        prompt_template: str,
-        document_text: str,
-        schema: type[BaseModel],
-        max_attempts: int = 2,
-    ) -> tuple[BaseModel | None, LLMResult]:
-        if self._fail_left > 0:
-            self._fail_left -= 1
-            return None, LLMResult(
-                provider=self.name,
-                model=self._model,
-                prompt_name=prompt_name,
-                prompt_version=prompt_version,
-            )
-        return super().generate_structured(
-            prompt_name=prompt_name,
-            prompt_version=prompt_version,
-            prompt_template=prompt_template,
-            document_text=document_text,
-            schema=schema,
-            max_attempts=max_attempts,
-        )

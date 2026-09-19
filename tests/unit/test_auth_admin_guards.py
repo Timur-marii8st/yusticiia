@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from second_opinion.api.routes import create_app
+from second_opinion.api.app import create_app
 from second_opinion.auth.repository import InMemoryUserStore
 from second_opinion.auth.service import AuthService, LastAdminError
 from second_opinion.domain.users import User, UserRole
@@ -65,7 +65,7 @@ def copying_backend(monkeypatch):
     return auth
 
 
-# --- сохранность полей при одновременной смене пароля -----------------------
+# -- сохранность полей при одновременной смене пароля
 
 
 def test_patch_password_with_other_fields_keeps_them(client, copying_backend) -> None:
@@ -110,7 +110,7 @@ def test_patch_without_password_still_saves_fields(client, copying_backend) -> N
     assert copying_backend.get_user(uid).full_name == "Стало"
 
 
-# --- последний администратор -------------------------------------------------
+# -- последний администратор
 
 
 def test_service_blocks_removing_last_admin() -> None:

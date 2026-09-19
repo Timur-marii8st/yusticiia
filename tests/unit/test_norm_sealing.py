@@ -60,7 +60,7 @@ def _corpus(tmp_path, *versions):
     return tmp_path
 
 
-# --- что покрывает хэш -------------------------------------------------------
+# -- что покрывает хэш
 
 
 def test_record_digest_covers_sanctions_not_only_text() -> None:
@@ -86,7 +86,7 @@ def test_record_digest_ignores_own_checksum() -> None:
     )
 
 
-# --- сверка ------------------------------------------------------------------
+# -- сверка
 
 
 def test_unsealed_corpus_is_reported(tmp_path) -> None:
@@ -170,7 +170,7 @@ def test_removed_version_is_detected(tmp_path) -> None:
     assert report.missing_from_corpus == ["uk-rf:art-158-part-1@v-2003"]
 
 
-# --- загрузка ----------------------------------------------------------------
+# -- загрузка
 
 
 def test_store_refuses_unsealed_corpus(tmp_path) -> None:
@@ -192,7 +192,7 @@ def test_manifest_is_not_read_as_norms(tmp_path) -> None:
     assert len(NormStore.from_directory(directory).list_norms()) == 1
 
 
-# --- реальный корпус ----------------------------------------------------------
+# -- реальный корпус
 
 
 def test_project_corpus_is_sealed() -> None:

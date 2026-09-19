@@ -13,7 +13,7 @@ import json
 
 import pytest
 
-from second_opinion.api.routes import create_app
+from second_opinion.api.app import create_app
 
 #: Поля модели User, которым нельзя оказаться в ответе ни одного эндпоинта.
 SECRET_FIELDS = ("password_hash", "password_history")

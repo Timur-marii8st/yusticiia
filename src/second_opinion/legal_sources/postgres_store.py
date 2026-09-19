@@ -72,7 +72,7 @@ class PostgresNormStore:
                 f"ON {self._versions_table} (norm_id, effective_from)"
             )
 
-    # -- запись ------------------------------------------------------------
+    # -- запись
 
     def add_norm(self, norm: LegalNorm, versions: list[NormVersion]) -> None:
         """Сохранить норму с редакциями, проверив инварианты."""
@@ -114,7 +114,7 @@ class PostgresNormStore:
             count += 1
         return count
 
-    # -- чтение ------------------------------------------------------------
+    # -- чтение
 
     @staticmethod
     def _parse(data, model):

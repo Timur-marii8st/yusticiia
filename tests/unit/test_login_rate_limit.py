@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from second_opinion.api.routes import create_app
+from second_opinion.api.app import create_app
 from second_opinion.auth.rate_limit import LoginRateLimiter
 from second_opinion.config import reset_config_cache
 
@@ -13,7 +13,7 @@ def _limiter(max_attempts: int = 3, window: int = 60, **kwargs) -> LoginRateLimi
     return LoginRateLimiter(max_attempts, window, **kwargs)
 
 
-# --- скользящее окно ---------------------------------------------------------
+# -- скользящее окно
 
 
 def test_attempts_within_limit_pass() -> None:
@@ -75,7 +75,7 @@ def test_tracked_clients_are_bounded() -> None:
     assert len(limiter._hits) <= 10
 
 
-# --- эндпоинт ----------------------------------------------------------------
+# -- эндпоинт
 
 
 def test_login_returns_429_with_retry_after(pipeline, monkeypatch) -> None:

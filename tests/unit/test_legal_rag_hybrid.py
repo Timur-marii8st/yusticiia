@@ -15,7 +15,7 @@ def hybrid_rag(norm_store) -> LegalRag:
     return LegalRag(norm_store, embedder=HashingTfidfEmbedder())
 
 
-# -- HashingTfidfEmbedder ------------------------------------------------------
+# -- HashingTfidfEmbedder
 
 
 def test_embedding_deterministic() -> None:
@@ -54,7 +54,7 @@ def test_semantic_ordering_by_topic() -> None:
     assert cosine(query, stage_text) > cosine(query, theft_text)
 
 
-# -- Гибридный реранкинг --------------------------------------------------------
+# -- Гибридный реранкинг
 
 
 def test_hybrid_returns_stored_fragments_only(hybrid_rag: LegalRag) -> None:
@@ -102,7 +102,7 @@ def test_hybrid_respects_limit(hybrid_rag: LegalRag) -> None:
     assert len(hits) <= 2
 
 
-# -- Внешний провайдер эмбеддингов ----------------------------------------------
+# -- Внешний провайдер эмбеддингов
 
 
 def test_openai_embedder_requires_key() -> None:

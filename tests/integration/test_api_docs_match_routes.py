@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from second_opinion.api.routes import create_app
+from second_opinion.api.app import create_app
 
 API_DOC = Path(__file__).resolve().parents[2] / "docs" / "API.md"
 

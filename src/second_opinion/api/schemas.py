@@ -27,7 +27,7 @@ from ..legal_rag.search import SearchHit
 #: (факт → цитата → норма → редакция) обязан доходить до клиента целиком.
 AnalysisReportResponse = AnalysisReport
 
-# -- служебные ---------------------------------------------------------------
+# -- служебные
 
 
 class HealthResponse(BaseModel):
@@ -56,7 +56,7 @@ class MetricsResponse(BaseModel):
     metrics: MetricsSnapshot | None = None
 
 
-# -- документы ----------------------------------------------------------------
+# -- документы
 
 
 class DocumentCreated(BaseModel):
@@ -77,7 +77,7 @@ class DeletedResponse(BaseModel):
     deleted: str
 
 
-# -- нормы --------------------------------------------------------------------
+# -- нормы
 
 
 class NormSummary(BaseModel):
@@ -152,7 +152,7 @@ class NormDetailResponse(BaseModel):
     version: NormVersion | None = None
 
 
-# -- практика и поиск ----------------------------------------------------------
+# -- практика и поиск
 
 
 class CaseListResponse(BaseModel):
@@ -191,7 +191,7 @@ class HistoryResponse(BaseModel):
     items: list[HistoryItem]
 
 
-# -- аутентификация ------------------------------------------------------------
+# -- аутентификация
 
 
 class UserSummary(BaseModel):

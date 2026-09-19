@@ -27,7 +27,7 @@ class NormStore:
         self._norms: dict[str, LegalNorm] = {}
         self._versions: dict[str, list[NormVersion]] = {}
 
-    # -- загрузка ---------------------------------------------------------
+    # -- загрузка
 
     @classmethod
     def from_directory(cls, directory: Path) -> NormStore:
@@ -91,7 +91,7 @@ class NormStore:
             versions, key=lambda v: v.effective_from
         )
 
-    # -- запросы ----------------------------------------------------------
+    # -- запросы
 
     def get_norm_meta(self, norm_id: str) -> LegalNorm:
         try:

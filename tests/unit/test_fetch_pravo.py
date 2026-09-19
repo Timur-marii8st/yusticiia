@@ -96,7 +96,7 @@ def test_build_fixture_rejects_empty_text() -> None:
         )
 
 
-# --- извлечение текста из PDF ------------------------------------------------
+# -- извлечение текста из PDF
 
 
 def test_extract_pdf_text_reads_text_layer() -> None:
@@ -150,7 +150,7 @@ def test_pdf_and_text_file_are_mutually_exclusive(tmp_path) -> None:
         )
 
 
-# --- карточка документа ------------------------------------------------------
+# -- карточка документа
 
 
 def test_missing_card_file_is_not_an_error(tmp_path) -> None:

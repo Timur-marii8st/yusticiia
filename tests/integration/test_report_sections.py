@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from second_opinion.api.routes import create_app
+from second_opinion.api.app import create_app
 
 
 def test_summary_is_assembled_from_extracted_facts(pipeline, sample_clean_text) -> None:

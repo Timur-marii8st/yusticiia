@@ -91,7 +91,7 @@ def _evaluations_by_id(report):
     return {e.rule_id: e for e in report.evaluations}
 
 
-# -- краевые случаи на новых синтетических образцах -----------------------------
+# -- краевые случаи на новых синтетических образцах
 
 
 def test_minor_with_special_procedure_flags_r007(pipeline) -> None:

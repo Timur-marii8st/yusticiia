@@ -9,7 +9,8 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from second_opinion.api.routes import REQUEST_ID_HEADER, create_app, request_id
+from second_opinion.api.app import create_app
+from second_opinion.api.request_context import REQUEST_ID_HEADER, request_id
 from second_opinion.audit.trail import AuditTrail
 
 

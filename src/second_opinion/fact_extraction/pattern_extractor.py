@@ -108,7 +108,7 @@ class PatternFactExtractor:
         self._extract_sentence(document, emit)
         return [found[key] for key in order]
 
-    # -- квалификации ------------------------------------------------------
+    # -- квалификации
 
     _QUAL_PART_FIRST = re.compile(
         r"ч\.?\s*(\d)\s*ст\.?\s*(\d{1,3}(?:\.\d+)?)\s*(?:УК|Уголовного)", re.IGNORECASE
@@ -139,7 +139,7 @@ class PatternFactExtractor:
                 match.end(),
             )
 
-    # -- дата совершения ---------------------------------------------------
+    # -- дата совершения
 
     _DATE = re.compile(
         r"(\d{1,2})\s+(" + "|".join(_MONTHS) + r")\s+(\d{4})\s+(?:года|г\.)",
@@ -160,7 +160,7 @@ class PatternFactExtractor:
             emit(FactType.DATE_OF_OFFENSE, value, match.start(), match.end())
             return  # первая дата совершения
 
-    # -- данные о подсудимом ----------------------------------------------
+    # -- данные о подсудимом
 
     _AGE = re.compile(r"возраст\w*[^0-9]{0,20}(\d{2})\s*(?:лет|год)", re.IGNORECASE)
     _MINOR_DEPENDENTS = re.compile(
@@ -191,7 +191,7 @@ class PatternFactExtractor:
         for match in self._PRIOR.finditer(text):
             emit(FactType.PRIOR_CONVICTIONS, True, match.start(), match.end())
 
-    # -- смягчающие ---------------------------------------------------------
+    # -- смягчающие
 
     _GUILTY_PLEA = re.compile(
         r"вину\s+(?:призна[еа]л\w*|признает|признал\w*)"
@@ -217,7 +217,7 @@ class PatternFactExtractor:
         for match in self._RESTITUTION.finditer(text):
             emit(FactType.RESTITUTION, True, match.start(), match.end())
 
-    # -- отягчающие ---------------------------------------------------------
+    # -- отягчающие
 
     _RECIDIVISM = re.compile(r"рецидив\w*", re.IGNORECASE)
 
@@ -225,7 +225,7 @@ class PatternFactExtractor:
         for match in self._RECIDIVISM.finditer(text):
             emit(FactType.AGGRAVATING_RECIDIVISM, True, match.start(), match.end())
 
-    # -- процедурные ---------------------------------------------------------
+    # -- процедурные
 
     _SPECIAL_PROCEDURE = re.compile(r"особ\w+\s+поряд\w+", re.IGNORECASE)
     _JURY = re.compile(r"суд\w*\s+присяжн\w+|с участием присяжных", re.IGNORECASE)
@@ -268,7 +268,7 @@ class PatternFactExtractor:
             )
             return
 
-    # -- наказание -----------------------------------------------------------
+    # -- наказание
 
     _IMPRISONMENT = re.compile(r"лишени[ея]\s+свободы", re.IGNORECASE)
     _SUSPENDED_ART73 = re.compile(r"ст\.?\s*73\s*(?:УК|Уголовного)", re.IGNORECASE)

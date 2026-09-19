@@ -12,7 +12,8 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from second_opinion.api.routes import create_app, resolve_auth_mode
+from second_opinion.api.app import create_app
+from second_opinion.api.auth_mode import resolve_auth_mode
 from second_opinion.auth.service import ensure_password_length
 from second_opinion.config import load_config
 

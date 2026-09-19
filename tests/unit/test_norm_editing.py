@@ -48,7 +48,7 @@ def _corpus(tmp_path):
     return tmp_path
 
 
-# --- сверка истории ----------------------------------------------------------
+# -- сверка истории
 
 
 def test_confirmed_history_leaves_review_list(tmp_path) -> None:
@@ -82,7 +82,7 @@ def test_confirm_reports_unknown_norm(tmp_path) -> None:
         confirm_history(_corpus(tmp_path), "нет-такой", checked_through=TODAY, source="КП")
 
 
-# --- добавление редакции -----------------------------------------------------
+# -- добавление редакции
 
 
 def test_added_version_closes_previous_interval(tmp_path) -> None:

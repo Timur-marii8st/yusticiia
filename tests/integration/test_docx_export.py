@@ -13,7 +13,7 @@ import io
 from docx import Document as DocxDocument
 from fastapi.testclient import TestClient
 
-from second_opinion.api.routes import create_app
+from second_opinion.api.app import create_app
 from second_opinion.export import build_docx
 
 DOCX_MEDIA_TYPE = (

@@ -179,7 +179,7 @@ class LegalRag:
             return hits[:limit]
         return self._rerank(hits, query, limit)
 
-    # -- внутреннее -----------------------------------------------------------
+    # -- внутреннее
 
     def _rerank(
         self, hits: list[SearchHit], query: str, limit: int

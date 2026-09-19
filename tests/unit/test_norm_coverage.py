@@ -59,7 +59,7 @@ def _version(
     )
 
 
-# --- разрывы в покрытии -----------------------------------------------------
+# -- разрывы в покрытии
 
 
 def test_contiguous_versions_have_no_gaps() -> None:
@@ -91,7 +91,7 @@ def test_gap_between_versions_is_detected() -> None:
     assert needs_legal_review([coverage], TODAY) == [coverage]
 
 
-# --- незафиксированная история ----------------------------------------------
+# -- незафиксированная история
 
 
 def test_single_open_version_over_threshold_is_flagged() -> None:
@@ -142,7 +142,7 @@ def test_reference_norm_without_sanctions_is_not_flagged() -> None:
     assert needs_legal_review([coverage], TODAY) == []
 
 
-# --- связь с движком правил -------------------------------------------------
+# -- связь с движком правил
 
 
 def test_referenced_norm_ids_match_rule_engine_source() -> None:
@@ -171,7 +171,7 @@ def test_norms_used_by_rules_are_marked_relevant() -> None:
         assert by_id[norm_id].rule_relevant is True, norm_id
 
 
-# --- отчёт ------------------------------------------------------------------
+# -- отчёт
 
 
 def test_report_declines_years_correctly() -> None:

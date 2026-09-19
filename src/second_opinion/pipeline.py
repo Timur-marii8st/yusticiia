@@ -101,7 +101,7 @@ class AnalysisPipeline:
     def llm_provider(self) -> LLMProvider:
         return self._llm
 
-    # -- загрузка документа -------------------------------------------------
+    # -- загрузка документа
 
     def ingest(
         self,
@@ -135,7 +135,7 @@ class AnalysisPipeline:
             raise DocumentNotFound(f"документ не найден: {document_id}")
         return document
 
-    # -- анализ -------------------------------------------------------------
+    # -- анализ
 
     def analyze(
         self,
@@ -207,7 +207,7 @@ class AnalysisPipeline:
             for report in reports[:limit]
         ]
 
-    # -- удаление (право на забвение, docs/PRIVACY.md) ------------------------
+    # -- удаление (право на забвение, docs/PRIVACY.md)
 
     def delete_document(self, document_id: str, *, actor: str = "anonymous") -> None:
         """Удалить документ и все отчёты по нему."""
@@ -237,7 +237,7 @@ class AnalysisPipeline:
             input_hash=analysis_id,
         )
 
-    # -- человек в контуре: коррекция фактов ---------------------------------
+    # -- человек в контуре: коррекция фактов
 
     def update_fact(
         self,
@@ -313,7 +313,7 @@ class AnalysisPipeline:
         )
         return report
 
-    # -- человек в контуре: добавление факта «с нуля» -------------------------
+    # -- человек в контуре: добавление факта «с нуля»
 
     def add_fact(
         self,
@@ -397,7 +397,7 @@ class AnalysisPipeline:
         )
         return report
 
-    # -- общий вывод ----------------------------------------------------------
+    # -- общий вывод
 
     def _prepare(
         self,
@@ -567,7 +567,8 @@ class AnalysisPipeline:
 
         Используется только из ``analyze`` (новые отчёты). Для пересчёта
         существующего отчёта (``update_fact``/``add_fact``) — отдельный
-        путь без таймера ``analyze_complete``.
+        путь: он не замеряет стадию ``analysis_complete``, потому что
+        измерять там нечего, полного прохода не было.
         """
         self._apply_derived(report, derived)
         self._analyses.save(report)

@@ -142,7 +142,7 @@ class AuthService:
                 return InMemoryUserStore()
         return JsonFileUserStore(cfg.store_dir / "auth")
 
-    # --- Управление пользователями ---
+    # -- Управление пользователями
 
     def create_user(
         self,
@@ -342,7 +342,7 @@ class AuthService:
         """Аудит входов (новые первыми)."""
         return self._store.list_login_attempts(limit=limit)
 
-    # --- Работа с токенами ---
+    # -- Работа с токенами
 
     def _create_token(
         self,

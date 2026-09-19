@@ -6,7 +6,7 @@ import re
 
 from fastapi.testclient import TestClient
 
-from second_opinion.api.routes import create_app
+from second_opinion.api.app import create_app
 
 
 def test_index_has_a11y_landmarks(pipeline) -> None:

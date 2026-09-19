@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from second_opinion.api.routes import create_app
+from second_opinion.api.app import create_app
 from second_opinion.audit.trail import ANONYMOUS_ACTOR, SHARED_TOKEN_ACTOR
 
 SHARED = "test-secret"

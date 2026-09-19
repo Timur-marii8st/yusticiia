@@ -123,7 +123,7 @@ class PostgresUserStore:
                 "id text PRIMARY KEY, data jsonb NOT NULL)"
             )
 
-    # -- пользователи ----------------------------------------------------
+    # -- пользователи
 
     def save_user(self, user: User) -> None:
         payload = user.model_dump_json()
@@ -170,7 +170,7 @@ class PostgresUserStore:
             )
             return (cursor.rowcount or 0) > 0
 
-    # -- refresh blacklist -------------------------------------------------
+    # -- refresh blacklist
 
     def is_refresh_revoked(self, jti: str) -> bool:
         with self._connect() as conn:
@@ -188,7 +188,7 @@ class PostgresUserStore:
                 (jti, user_id, datetime.now(UTC)),
             )
 
-    # -- аудит входов --------------------------------------------------------
+    # -- аудит входов
 
     def record_login(self, attempt: LoginAttempt) -> None:
         with self._lock, self._connect() as conn:
@@ -235,7 +235,7 @@ class JsonFileUserStore:
         self._lock = threading.RLock()
         self._users_dir.mkdir(parents=True, exist_ok=True)
 
-    # -- пользователи ----------------------------------------------------
+    # -- пользователи
 
     def _user_path(self, user_id: str) -> Path:
         # Идентификатор попадает в имя файла: пускаем только безопасный набор,
@@ -282,7 +282,7 @@ class JsonFileUserStore:
             path.unlink()
             return True
 
-    # -- refresh blacklist -------------------------------------------------
+    # -- refresh blacklist
 
     def _read_blacklist(self) -> dict[str, str]:
         if not self._blacklist_path.exists():
@@ -304,7 +304,7 @@ class JsonFileUserStore:
             blacklist[jti] = user_id
             atomic_write_json(self._blacklist_path, json.dumps(blacklist, ensure_ascii=False))
 
-    # -- аудит входов --------------------------------------------------------
+    # -- аудит входов
 
     def record_login(self, attempt: LoginAttempt) -> None:
         with self._lock:

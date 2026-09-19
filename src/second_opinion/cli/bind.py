@@ -27,7 +27,7 @@ def check_bind_safety(host: str) -> int:
     текстам судебных актов. Вернуть код выхода (0 — можно продолжать).
     """
     config = load_config()
-    from ..api.routes import AUTH_MODE_ACCOUNTS, resolve_auth_mode
+    from ..api.auth_mode import AUTH_MODE_ACCOUNTS, resolve_auth_mode
 
     mode = resolve_auth_mode(config.auth_mode, config.auth_token)
     # В режиме accounts общего секрета нет по замыслу, и его отсутствие
