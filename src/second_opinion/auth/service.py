@@ -25,7 +25,6 @@ from .repository import (
 
 logger = logging.getLogger(__name__)
 
-# Алгоритм и параметры JWT
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
@@ -419,7 +418,6 @@ class AuthService:
         return True
 
 
-# Глобальный экземпляр сервиса (MVP)
 _auth_service: AuthService | None = None
 
 

@@ -2,7 +2,8 @@
 
 Модульный монолит на Python 3.11+. Один процесс, слои разделены интерфейсами;
 модули не ходят друг к другу в обход контрактов. Выбор против микросервисов —
-см. [ENGINEERING_RULES.md](ENGINEERING_RULES.md) («modular monolith > premature microservices») и ADR-001/ADR-006.
+см. ADR-001 и ADR-006: модульный монолит предпочтён преждевременному
+делению на службы.
 
 ## Конвейер
 
@@ -30,11 +31,45 @@ graph TD
 
 | Слой | Модуль | Ответственность | Запрещено |
 |---|---|---|---|
-| Представление | `api`, `static` | HTTP DTO, раздача UI | Бизнес-логика в хендлерах |
+| Представление | `api`, `static`, `cli` | HTTP DTO, раздача UI, консольные команды | Бизнес-логика в хендлерах |
 | Оркестрация | `pipeline.py` | Последовательность этапов анализа | Собственные юридические утверждения |
 | Домен | `domain` | Pydantic-модели фактов, норм, оценок | I/O, сеть, файлы |
 | Приложение | `fact_extraction`, `rule_engine`, `legal_sources`, `retrieval`, `analytics` | Реализация этапов | Прямые LLM-вызовы вне `llm` |
 | Инфраструктура | `storage`, `llm`, `audit` | Репозитории, LLM-провайдеры, журнал | Юридическая семантика |
+
+## Как разложен код
+
+Файл называется по предмету, а не по техническому слою: путь в адресной
+строке и имя модуля совпадают.
+
+```
+api/
+  app.py            сборка приложения: middleware, обработчики ошибок, маршруты
+  auth_mode.py      режимы авторизации (open / shared / accounts)
+  errors.py         единый формат ошибки
+  request_context.py  идентификатор запроса и актор
+  uploads.py        чтение загружаемого файла в пределах лимита
+  routers/          обработчики по ресурсам: documents, analyses, norms,
+                    cases, search, service
+  schemas.py        модели ответов
+  auth_routes.py    вход, профиль, управление учётными записями
+  deps.py           сборка конвейера, поисковика и носителей
+  routes.py         совместимость: прежний адрес `create_app`
+
+cli/
+  __init__.py       разбор аргументов и таблица команд
+  bind.py           проверка связки «адрес привязки ↔ авторизация»
+  serve.py          запуск приложения, первый администратор
+  documents.py      разбор файла, обезличивание, метрики
+  norms.py          корпус норм: покрытие, импорт, опечатывание, редакции
+  redactions.py     сверка с ИПС pravo.gov.ru
+
+rule_engine/rules/  правила по предмету: sanction, stage, procedure,
+                    mitigating, sentence, base
+```
+
+Канонический путь API — `/api/v1/...`; те же маршруты подключены вторым
+разом под прежним `/api/...` и скрыты из спецификации (см. `app.py`).
 
 ## Компоненты
 
@@ -110,7 +145,7 @@ Recall@K/MRR/nDCG поиска; полнота цитирования; корр�
 `AuthService` (bcrypt, JWT access/refresh, in-memory `dict[str, User]`,
 `AuthUser`/`TokenPayload`/`TokenPair` модели), RBAC через `require_role`.
 Эндпоинты `/auth/{login,refresh,me,change-password,logout,users}`.
-MVP без БД; миграция на PostgreSQL — ROADMAP (нужны refresh-токены
+MVP без БД; миграция на PostgreSQL выполнена (нужны refresh-токены
 с ротацией, blacklist, истечение паролей).
 
 ### Metrics (`metrics.py`)

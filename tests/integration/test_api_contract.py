@@ -164,3 +164,34 @@ def test_interface_calls_the_versioned_path(pipeline) -> None:
     # Путей без версии в интерфейсе остаться не должно: псевдоним — для
     # чужих клиентов, а не для нашего собственного.
     assert '"/api/analyses' not in js and "`/api/analyses" not in js
+
+
+def test_process_entry_point_builds_an_app() -> None:
+    """`second-opinion serve` поднимает приложение через `make_app`.
+
+    Регрессия: модуль сборки был записан поверх существующего `api/app.py`,
+    и `make_app` — та самая точка входа, которую зовёт uvicorn, — исчезла.
+    Прогон остался зелёным: тесты собирают приложение через
+    `create_app(pipeline)` и до `make_app` не доходят.
+    """
+    import importlib
+
+    from second_opinion.api.app import make_app
+
+    # Имя должно совпадать со строкой, которую CLI передаёт uvicorn:
+    # опечатка там обнаружилась бы только при запуске.
+    serve_source = importlib.import_module("second_opinion.cli.serve")
+    target = "second_opinion.api.app:make_app"
+    assert target in serve_source.serve.__code__.co_consts, (
+        f"CLI зовёт не {target}: сверьте строку в cli/serve.py"
+    )
+
+    # Проверка запросом, а не осмотром `app.routes`: подключённые роутеры
+    # лежат там вложенными, и «маршрута нет» по этому списку не отличить от
+    # «маршрут есть, но завёрнут».
+    client = TestClient(make_app())
+    assert client.get("/health").status_code == 200
+
+    # Развёртывание может требовать авторизации, поэтому проверяется не 200,
+    # а «маршрут существует»: 404 означал бы, что роутер не подключён.
+    assert client.get("/api/v1/norms?limit=1").status_code != 404

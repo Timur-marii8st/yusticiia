@@ -12,8 +12,6 @@ from .domain.enums import (
     ExtractionMethod,
     FactStatus,
     FactType,
-    OffenseStage,
-    PunishmentType,
     VerificationStatus,
 )
 from .domain.facts import CaseFacts, LegalFact
@@ -22,6 +20,11 @@ from .domain.rules import RuleEvaluation
 from .fact_extraction.builder import build_case_facts
 from .fact_extraction.llm_extractor import LLMFactExtractor
 from .fact_extraction.pattern_extractor import PatternFactExtractor, _value_key
+from .fact_values import (
+    USER_ALLOWED_STATUSES,
+    FactValidationError,
+    validate_fact_value,
+)
 from .ingestion.parser import parse_document
 from .legal_sources.store import NormNotFoundError, NormStore
 from .llm.provider import LLMProvider
@@ -56,98 +59,6 @@ class FactNotFound(KeyError):
     pass
 
 
-class FactValidationError(ValueError):
-    """Данные нового/исправляемого факта не проходят валидацию."""
-
-
-_BOOLEAN_FACT_TYPES = frozenset(
-    {
-        FactType.PRIOR_CONVICTIONS,
-        FactType.MINOR_DEPENDENTS,
-        FactType.GUILTY_PLEA,
-        FactType.SURRENDER_OR_CONFESSION,
-        FactType.RESTITUTION,
-        FactType.AGGRAVATING_RECIDIVISM,
-        FactType.SPECIAL_PROCEDURE,
-        FactType.JURY_TRIAL,
-        FactType.SUSPENDED_SENTENCE,
-    }
-)
-
-_GROUP_ROLES = frozenset(
-    {"organized_group", "group_with_conspiracy", "group_of_persons"}
-)
-
-
-def _validate_fact_value(fact_type: FactType, value: object) -> None:
-    """Схемная проверка значения нового факта (человек вводит руками)."""
-    if fact_type in _BOOLEAN_FACT_TYPES:
-        if not isinstance(value, bool):
-            raise FactValidationError(
-                f"значение факта {fact_type.value} должно быть true/false"
-            )
-        return
-    if fact_type is FactType.DEFENDANT_AGE:
-        if not isinstance(value, int) or isinstance(value, bool) or not 0 <= value <= 150:
-            raise FactValidationError("defendant_age: ожидается целое число 0–150")
-        return
-    if fact_type is FactType.PUNISHMENT_TERM:
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
-            raise FactValidationError("punishment_term: ожидается число месяцев ≥ 0")
-        return
-    if fact_type is FactType.QUALIFICATION:
-        if (
-            not isinstance(value, dict)
-            or not isinstance(value.get("article"), int)
-            or isinstance(value.get("article"), bool)
-            or value["article"] < 1
-        ):
-            raise FactValidationError(
-                'qualification: ожидается {"article": int, "part": int|null}'
-            )
-        part = value.get("part")
-        if part is not None and (isinstance(part, bool) or not isinstance(part, int) or part < 1):
-            raise FactValidationError("qualification.part: целое число ≥ 1 или null")
-        return
-    if fact_type is FactType.DATE_OF_OFFENSE:
-        try:
-            date.fromisoformat(str(value))
-        except ValueError as exc:
-            raise FactValidationError(
-                "date_of_offense: ожидается дата в формате ГГГГ-ММ-ДД"
-            ) from exc
-        return
-    if fact_type is FactType.GROUP_OFFENSE:
-        if value not in _GROUP_ROLES:
-            raise FactValidationError(
-                f"group_offense: одно из {sorted(_GROUP_ROLES)}"
-            )
-        return
-    if fact_type is FactType.OFFENSE_STAGE:
-        if value not in {stage.value for stage in OffenseStage}:
-            raise FactValidationError(
-                f"offense_stage: одно из {sorted(stage.value for stage in OffenseStage)}"
-            )
-        return
-    if fact_type is FactType.PUNISHMENT_TYPE:
-        if value not in {pt.value for pt in PunishmentType}:
-            raise FactValidationError(
-                f"punishment_type: одно из {sorted(pt.value for pt in PunishmentType)}"
-            )
-        return
-    # HEALTH_FACTOR и остальные строковые типы: непустая строка.
-    if not isinstance(value, str) or not value.strip():
-        raise FactValidationError(f"{fact_type.value}: ожидается непустая строка")
-
-
-#: Статусы, которые вправе устанавливать пользователь (человек в контуре).
-USER_ALLOWED_STATUSES = (
-    FactStatus.VERIFIED,
-    FactStatus.UNCERTAIN,
-    FactStatus.NOT_FOUND,
-)
-
-
 class AnalysisPipeline:
     """Сквозной конвейер: документ → факты → проверки → практика → отчёт."""
 
@@ -173,7 +84,6 @@ class AnalysisPipeline:
         self._engine = rule_engine or RuleEngine()
         self._pattern_extractor = PatternFactExtractor()
         self._llm_extractor = LLMFactExtractor(llm_provider, audit)
-        self.auth_service = None  # Опциональный сервис аутентификации
 
     @property
     def max_upload_bytes(self) -> int:
@@ -427,7 +337,7 @@ class AnalysisPipeline:
             typed = FactType(fact_type)
         except ValueError as exc:
             raise FactValidationError(f"неизвестный тип факта: {fact_type}") from exc
-        _validate_fact_value(typed, value)
+        validate_fact_value(typed, value)
 
         document = self.get_document(report.document_id)
         quote = quote.strip()

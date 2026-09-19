@@ -39,7 +39,8 @@ class UncertainPeriod(BaseModel):
     """Период, для которого источник не уверен в действии редакции.
 
     Хранится и показывается наравне с остальным: скрывать неопределённость
-    запрещено принципами проекта (`docs/ENGINEERING_RULES.md`).
+    запрещено принципами проекта (`docs/LEGAL_SAFETY_PRINCIPLES.md` §4,
+    инвариант И-09 в `docs/TZ.md`).
     """
 
     valid_from: date | None = None

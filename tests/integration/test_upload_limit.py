@@ -12,7 +12,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from second_opinion.api.routes import UPLOAD_CHUNK_BYTES, _read_within_limit, create_app
+from second_opinion.api.routes import UPLOAD_CHUNK_BYTES, create_app, read_within_limit
 
 LIMIT = 4 * UPLOAD_CHUNK_BYTES
 
@@ -36,7 +36,7 @@ def test_oversized_upload_is_not_buffered_whole() -> None:
     upload = FakeUpload(LIMIT * 1000)
 
     with pytest.raises(HTTPException) as exc:
-        asyncio.run(_read_within_limit(upload, LIMIT))
+        asyncio.run(read_within_limit(upload, LIMIT))
 
     assert exc.value.status_code == 400
     assert upload.served <= LIMIT + UPLOAD_CHUNK_BYTES
@@ -45,7 +45,7 @@ def test_oversized_upload_is_not_buffered_whole() -> None:
 
 def test_content_at_limit_is_read_fully() -> None:
     """Граница: файл ровно по лимиту не должен отвергаться."""
-    content = asyncio.run(_read_within_limit(FakeUpload(LIMIT), LIMIT))
+    content = asyncio.run(read_within_limit(FakeUpload(LIMIT), LIMIT))
     assert len(content) == LIMIT
 
 

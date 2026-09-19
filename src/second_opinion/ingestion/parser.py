@@ -112,7 +112,6 @@ def parse_pdf(filename: str, content: bytes) -> Document:
     for page in reader.pages:
         pages.append(page.extract_text() or "")
     if not any(p.strip() for p in pages):
-        # Попытка OCR-фолбэка, если зависимости доступны
         if _ocr_available():
             try:
                 ocr_pages = _ocr_pdf_pages(content)

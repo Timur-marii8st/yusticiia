@@ -162,13 +162,14 @@ second-opinion eval     # или: make eval
 - [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md) — источники данных и процесс наполнения
 - [docs/NORM_COVERAGE.md](docs/NORM_COVERAGE.md) — полнота редакционной истории норм
 - [docs/EVALUATION.md](docs/EVALUATION.md) — метрики и пороги
-- [.claude/skills/legal-data-sources/references/history/](.claude/skills/legal-data-sources/references/history/) — архив: исследование конкурса, аудиты, план M0–M10
-- [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md) — фактический статус
 - [docs/GLOSSARY.md](docs/GLOSSARY.md) — глоссарий
-- [docs/ENGINEERING_RULES.md](docs/ENGINEERING_RULES.md) — инженерные правила и Definition of Done
-- [docs/OPEN_QUESTIONS.md](docs/OPEN_QUESTIONS.md) — открытые вопросы и варианты решений
-- [CHANGELOG.md](CHANGELOG.md) — история итераций
 - [docs/ADR/](docs/ADR/) — архитектурные решения
+- [CHANGELOG.md](CHANGELOG.md) — история итераций
+
+Рабочие материалы разработки — инженерные правила, открытые вопросы,
+архив аудитов и статусов — вынесены в [.claude/skills/](.claude/skills/):
+они нужны тому, кто правит код, и только запутали бы читателя, который
+разбирается в системе.
 
 ## Безопасность
 
@@ -199,8 +200,8 @@ docker compose up          # или: docker build -t second-opinion . && docker 
 Подробности профилей развёртывания — [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md),
 для разработчиков — [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
-## Дорожная карта
+## Что сделано и что впереди
 
-Выполнено M0–M9 и основная часть M10 — см.
-[docs/ROADMAP.md](docs/ROADMAP.md) и
-[docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md).
+Требования пронумерованы в [docs/TZ.md](docs/TZ.md); там же, в разделе 7,
+очереди работ с указанием, что именно мешает закрыть каждую. История
+итераций — в [CHANGELOG.md](CHANGELOG.md).

@@ -75,7 +75,10 @@ class _Histogram:
         with self._lock:
             self._sum += value
             self._count += 1
-            # bisect_right: первый бакет, верхняя граница которого > value
+            # Бакет считается по правилу Prometheus `le`: значение попадает
+            # в первый бакет, верхняя граница которого >= value. Поэтому
+            # bisect_left, а не bisect_right: ровно на границе значение
+            # остаётся в своём бакете, а не уезжает в следующий.
             index = bisect.bisect_left(self.buckets, value)
             if index >= len(self.buckets):
                 index = len(self.buckets) - 1
@@ -206,7 +209,6 @@ EXTRACT_DURATION_SECONDS = "second_opinion_extract_duration_seconds"
 RULE_ENGINE_DURATION_SECONDS = "second_opinion_rule_engine_duration_seconds"
 RETRIEVAL_DURATION_SECONDS = "second_opinion_retrieval_duration_seconds"
 
-# Помощник для кратких текстов подсказок (для дампа).
 METRIC_HELP: dict[str, str] = {
     ANALYSES_TOTAL: "Total number of successful analyses",
     ANALYSES_FAILED_TOTAL: "Total number of failed analyses",

@@ -139,7 +139,7 @@ second-opinion norms-add-version \
 Автоматика **обнаруживает и зовёт юриста, но не обновляет норму**: ни один
 шаг не трогает `data/fixtures/norms`. Молча подставить свежую редакцию
 запрещено правилом «never» из
-[ENGINEERING_RULES.md](ENGINEERING_RULES.md), и на этот workflow оно
+[LEGAL_SAFETY_PRINCIPLES.md](LEGAL_SAFETY_PRINCIPLES.md), и на этот workflow оно
 распространяется тоже.
 
 Недоступность ИПС и устаревание нормы различаются по коду возврата

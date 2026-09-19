@@ -37,7 +37,6 @@ def tokenize(text: str) -> list[str]:
             continue
         if raw.isdigit() or len(raw) >= 3:
             tokens.append(raw)
-    # Убираем дубликаты, сохраняя порядок.
     seen: set[str] = set()
     unique: list[str] = []
     for token in tokens:
@@ -191,7 +190,6 @@ class LegalRag:
         Если подключён pgvector-store, семантические близости берутся из БД
         (ANN-поиск), иначе — in-memory косинус.
         """
-        # Попытка взять семантику из pgvector (если настроен и синхронизирован)
         similarities: list[float] | None = None
         if self._vector_store is not None:
             try:

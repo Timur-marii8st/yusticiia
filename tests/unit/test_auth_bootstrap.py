@@ -9,7 +9,8 @@ from second_opinion.auth.service import (
     bootstrap_admin,
     get_auth_service,
 )
-from second_opinion.cli import _check_bind_safety, _is_loopback, main
+from second_opinion.cli import main
+from second_opinion.cli.bind import check_bind_safety, is_loopback
 from second_opinion.config import reset_config_cache
 from second_opinion.domain.users import UserRole
 
@@ -122,20 +123,20 @@ def test_cli_create_admin_without_password_fails_non_interactive(
     ],
 )
 def test_is_loopback(host: str, expected: bool) -> None:
-    assert _is_loopback(host) is expected
+    assert is_loopback(host) is expected
 
 
 def test_bind_safety_allows_loopback_without_token(monkeypatch) -> None:
     monkeypatch.delenv("SO_AUTH_TOKEN", raising=False)
     reset_config_cache()
-    assert _check_bind_safety("127.0.0.1") == 0
+    assert check_bind_safety("127.0.0.1") == 0
 
 
 def test_bind_safety_warns_on_external_without_token(monkeypatch, capsys) -> None:
     monkeypatch.delenv("SO_AUTH_TOKEN", raising=False)
     reset_config_cache()
 
-    assert _check_bind_safety("0.0.0.0") == 0
+    assert check_bind_safety("0.0.0.0") == 0
     assert "ВНИМАНИЕ" in capsys.readouterr().err
 
 
@@ -144,11 +145,11 @@ def test_bind_safety_blocks_external_when_auth_required(monkeypatch, capsys) -> 
     monkeypatch.setenv("SO_REQUIRE_AUTH", "1")
     reset_config_cache()
 
-    assert _check_bind_safety("0.0.0.0") == 2
+    assert check_bind_safety("0.0.0.0") == 2
     assert "ОШИБКА" in capsys.readouterr().err
 
 
 def test_bind_safety_silent_when_token_set(capsys) -> None:
     """SO_AUTH_TOKEN задан в conftest — внешняя привязка допустима."""
-    assert _check_bind_safety("0.0.0.0") == 0
+    assert check_bind_safety("0.0.0.0") == 0
     assert capsys.readouterr().err == ""

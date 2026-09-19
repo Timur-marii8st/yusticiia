@@ -12,9 +12,12 @@ from pydantic import BaseModel, EmailStr, Field
 class UserRole(StrEnum):
     """Роли пользователей системы."""
 
-    JUDGE = "judge"      # Судья - полный доступ к анализам
-    CLERK = "clerk"      # Судебный пристав/секретарь - создание/редактирование документов
-    ADMIN = "admin"      # Администратор - управление пользователями, настройки системы
+    #: Судья: полный доступ к разборам.
+    JUDGE = "judge"
+    #: Работник аппарата суда: готовит документы и запускает разбор.
+    CLERK = "clerk"
+    #: Администратор: учётные записи и настройки системы.
+    ADMIN = "admin"
 
 
 class User(BaseModel):
@@ -37,14 +40,15 @@ class User(BaseModel):
     #: Вход заблокирован до момента (SO_LOGIN_MAX_ATTEMPTS / SO_LOGIN_LOCKOUT_MINUTES).
     locked_until: datetime | None = None
 
-    # Хэш пароля (не хранится в открытом виде)
+    #: bcrypt-хэш; открытый пароль не хранится и не логируется.
     password_hash: str = ""
 
 
 class TokenPayload(BaseModel):
     """Полезная нагрузка JWT токена."""
 
-    sub: str  # user_id
+    #: ``user_id`` владельца токена.
+    sub: str
     email: EmailStr
     role: UserRole
     exp: datetime
@@ -60,7 +64,8 @@ class TokenPair(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
-    expires_in: int  # секунды до истечения access token
+    #: Секунды до истечения access-токена.
+    expires_in: int
 
 
 class LoginRequest(BaseModel):

@@ -47,10 +47,11 @@ SO_TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55432/second_opini
 зелёным, ничего не проверив. Docker Desktop на этой машине периодически
 гаснет сам — проверяйте `docker info`, а не надейтесь.
 
-После работы обновить: `docs/TZ.md` (статус требования),
-`docs/IMPLEMENTATION_STATUS.md`, `CHANGELOG.md`. Это не бюрократия:
-правило записано в `docs/ENGINEERING_RULES.md`, и один раз документация
-уже отстала от кода на тринадцать итераций.
+После работы обновить: `docs/TZ.md` (статус требования) и
+`CHANGELOG.md`. Это не бюрократия: один раз документация уже отстала от
+кода на тринадцать итераций. Полные инженерные правила —
+`references/engineering-rules.md`, открытые вопросы —
+`references/open-questions.md`.
 
 ## Инварианты, которые не обсуждаются
 
@@ -86,6 +87,7 @@ SO_TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55432/second_opini
 | Прогон зелёный, но ничего не проверил | не задан `SO_TEST_DATABASE_URL` |
 | У всех обстоятельств один значок «?» | `badge()` знала только статусы правил; статусы обстоятельств — другой словарь и уходили в запасной вариант |
 | В интерфейсе видно `draft`, `PASS`, `pattern` | значение перечисления подставлено в текст напрямую, минуя таблицу подписей |
+| Тесты зелёные, а `serve` не стартует | новый модуль записан поверх существующего; точка входа `make_app` в тестах не участвует |
 
 ## Карта проекта
 
@@ -94,23 +96,37 @@ src/second_opinion/
   domain/          модели: факты, нормы, отчёт, проблемные места
   ingestion/       парсеры TXT/MD/DOCX/PDF + OCR-фолбэк
   fact_extraction/ паттерны и модель за интерфейсом
-  rule_engine/     8 детерминированных правил;
-                   rules/ разложены по предмету: sanction, stage,
-                   procedure, mitigating, sentence, base
+  fact_values.py   проверка значения обстоятельства, введённого человеком
+  rule_engine/     8 детерминированных правил; rules/ разложены по
+                   предмету: sanction, stage, procedure, mitigating,
+                   sentence, base
   legal_sources/   корпус норм, редакции, ИПС/ГАРАНТ, опечатывание
   legal_rag/       поиск по источникам с цитированием
   retrieval/       сопоставимые дела
   analytics/       описательная статистика, положение срока
+  pipeline.py      конвейер: документ → факты → проверки → практика → отчёт
   reporting.py     изложение дела и проблемные места
   privacy.py       обнаружение и маскирование ПДн
   export/          заключение в .docx
-  api/             FastAPI, режимы авторизации, схемы ответов
+  api/             app.py (сборка), routers/ по ресурсам, auth_mode,
+                   errors, request_context, uploads, schemas, deps
+  cli/             разбор аргументов + команды: serve, documents,
+                   norms, redactions, bind
   storage/         файловый и PostgreSQL носители за протоколом
 ```
 
-Документация: `docs/TZ.md` (требования и статусы), `ARCHITECTURE.md`,
-`API.md`, `DATA_SOURCES.md`, `NORM_COVERAGE.md`, `SECURITY.md`,
-`PRIVACY.md`, ADR в `docs/ADR/`.
+Файл называется по предмету, а не по слою. Модуль за 700 строк — повод
+разложить его: так уже сделано с `rule_engine/rules.py`, `api/routes.py`
+и `cli.py`. Публичные имена при этом сохраняются re-export'ом, чтобы
+перестановка не расходилась с настоящим рефакторингом.
+
+Документация в репозитории — для читателя системы: `docs/TZ.md`
+(требования и статусы), `ARCHITECTURE.md`, `API.md`, `DATA_SOURCES.md`,
+`NORM_COVERAGE.md`, `SECURITY.md`, `PRIVACY.md`,
+`LEGAL_SAFETY_PRINCIPLES.md`, ADR в `docs/ADR/`.
+
+Рабочие материалы разработки — здесь, в `references/`: инженерные
+правила, открытые вопросы, архив статусов и дорожной карты.
 
 Про источники текстов законодательства — отдельный скилл
 `legal-data-sources`: что даёт ИПС, почему отклонены RusLawOD и
@@ -122,3 +138,9 @@ Russian-Law-MCP, чего ждать от ГАРАНТ.
   что выглядят как чужая ошибка, а оказываются своей
 - `references/review-checklist.md` — что проверить в собственной правке
   до того, как её увидит человек
+- `references/engineering-rules.md` — инженерные правила и Definition of
+  Done (перенесены из репозитория: они про то, как работать, а не про то,
+  как устроена система)
+- `references/open-questions.md` — что ещё не решено и почему
+- `references/history/` — архив: помесячные статусы реализации и
+  дорожная карта M0–M10, на смену которой пришли очереди работ в ТЗ

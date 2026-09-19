@@ -45,7 +45,6 @@ class PgVectorNormStore:
     def _ensure_schema(self) -> None:
         with self._lock, self._connect() as conn:
             conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
-            # Регистрируем тип vector для psycopg (если установлен pgvector)
             try:
                 from pgvector.psycopg import register_vector
 
@@ -60,7 +59,7 @@ class PgVectorNormStore:
                     PRIMARY KEY (norm_id, version_id)
                 )"""
             )
-            # HNSW индекс для ANN-поиска (коснусная дистанция)
+            # HNSW: приближённый поиск по косинусной близости.
             conn.execute(
                 f"""CREATE INDEX IF NOT EXISTS {self._table}_embedding_idx
                     ON {self._table} USING hnsw (embedding vector_cosine_ops)"""
@@ -71,8 +70,8 @@ class PgVectorNormStore:
 
         Возвращает число upsert-нутых записей.
         """
-        # Собираем тексты для пакетной векторизации
-        items: list[tuple[str, str, str]] = []  # (norm_id, version_id, haystack)
+        #: (norm_id, version_id, текст для векторизации)
+        items: list[tuple[str, str, str]] = []
         for norm in norm_store.list_norms():
             for version in norm_store.versions(norm.norm_id):
                 haystack = f"{norm.title} {norm.ref} {version.text}"
@@ -113,7 +112,6 @@ class PgVectorNormStore:
         if not hits:
             return []
         query_vector = self._embedder.embed([query])[0]
-        # Карта (norm_id, version_id) -> индекс хита
         index_map: dict[tuple[str, str], int] = {
             (hit.norm_id, hit.version_id): idx for idx, hit in enumerate(hits)
         }
@@ -126,8 +124,6 @@ class PgVectorNormStore:
                     register_vector(conn)
                 except Exception:  # noqa: BLE001
                     pass
-                # Запрашиваем близость для кандидатов одним запросом через IN
-                # с использованием оператора <=> (cosine distance)
                 norm_ids = list({hit.norm_id for hit in hits})
                 version_ids = list({hit.version_id for hit in hits})
                 # pgvector: 1 - cosine_distance = cosine_similarity (для L2-нормированных)

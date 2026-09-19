@@ -9,11 +9,11 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from second_opinion.api.routes import REQUEST_ID_HEADER, _request_id, create_app
+from second_opinion.api.routes import REQUEST_ID_HEADER, create_app, request_id
 from second_opinion.audit.trail import AuditTrail
 
 
-def test_response_carries_a_request_id(pipeline) -> None:
+def test_response_carries_arequest_id(pipeline) -> None:
     client = TestClient(create_app(pipeline))
     response = client.get("/api/v1/norms")
     assert response.status_code == 200
@@ -46,9 +46,9 @@ def test_unsafe_identifier_is_replaced_before_it_reaches_the_log() -> None:
         def __init__(self, value: str) -> None:
             self.headers = {REQUEST_ID_HEADER: value}
 
-    assert _request_id(_Request("trace-1")) == "trace-1"
+    assert request_id(_Request("trace-1")) == "trace-1"
     for unsafe in ("строка", "trace\nподделка", "a" * 200, "\t", ""):
-        produced = _request_id(_Request(unsafe))
+        produced = request_id(_Request(unsafe))
         assert produced != unsafe
         assert produced.isascii() and produced.isprintable()
 
