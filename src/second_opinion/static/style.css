@@ -59,7 +59,9 @@ body {
   border-bottom: 1px solid var(--line);
 }
 
-.brand-name { font-size: 18px; font-weight: 600; }
+/* Название системы — единственный h1 документа; визуально это по-прежнему
+   строка шапки, поэтому отступы браузера снимаются. */
+.brand-name { font-size: 18px; font-weight: 600; margin: 0; display: inline; }
 .brand-sub { color: var(--muted); margin-left: 10px; font-size: 13px; }
 .topbar-note { color: var(--muted); font-size: 13px; }
 
@@ -79,7 +81,7 @@ main {
   padding: 18px 22px;
 }
 
-h1 { font-size: 16px; margin: 0 0 10px; }
+h2 { font-size: 16px; margin: 0 0 10px; }
 .hint { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
 
 textarea {

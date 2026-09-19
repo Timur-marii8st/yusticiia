@@ -7,13 +7,13 @@
   <!-- ?v= — метка версии статики: после обновления интерфейса браузер
        иначе продолжает показывать закэшированные стили и скрипт.
        Меняется вручную вместе с правкой style.css / app.js. -->
-  <link rel="stylesheet" href="/static/style.css?v=0.44">
+  <link rel="stylesheet" href="/static/style.css?v=0.46">
 </head>
 <body>
   <a class="skip-link" href="#upload-panel">Перейти к форме анализа</a>
   <header class="topbar">
     <div class="brand">
-      <span class="brand-name">Второе мнение</span>
+      <h1 class="brand-name">Второе мнение</h1>
       <span class="brand-sub">юридический аудит проекта судебного акта</span>
     </div>
     <div class="topbar-note">
@@ -22,8 +22,8 @@
   </header>
 
   <main>
-    <div id="auth-box" class="panel" hidden>
-      <h1>Доступ защищён</h1>
+    <div id="auth-box" class="panel" role="region" aria-labelledby="section-title-1" hidden>
+      <h2 id="section-title-1">Доступ защищён</h2>
       <p class="hint">
         Введите токен доступа (общий секрет развёртывания). Он хранится
         только в текущей сессии браузера.
@@ -39,8 +39,8 @@
       </p>
     </div>
 
-    <section class="panel" id="account-panel">
-      <h1>Личный кабинет</h1>
+    <section aria-labelledby="section-title-2" class="panel" id="account-panel">
+      <h2 id="section-title-2">Личный кабинет</h2>
 
       <div id="account-login">
         <p class="hint">
@@ -74,8 +74,8 @@
       </div>
     </section>
 
-    <section class="panel" id="upload-panel">
-      <h1>Документ</h1>
+    <section aria-labelledby="section-title-3" class="panel" id="upload-panel">
+      <h2 id="section-title-3">Документ</h2>
       <p class="hint">
         Вставьте текст проекта судебного акта или выберите файл
         (TXT, MD, DOCX, PDF с текстовым слоем).
@@ -98,8 +98,8 @@
       <div id="upload-error" class="error" role="alert" aria-live="assertive" hidden></div>
     </section>
 
-    <section class="panel" id="corpus-panel">
-      <h1>Состояние нормативного корпуса</h1>
+    <section aria-labelledby="section-title-4" class="panel" id="corpus-panel">
+      <h2 id="section-title-4">Состояние нормативного корпуса</h2>
       <p class="hint">
         На чём система основывает проверки и что ещё требует юридической
         сверки. Раздел открытый намеренно: неназванная слабость данных
@@ -120,8 +120,8 @@
     </section>
 
     <div id="results" hidden>
-      <section class="panel">
-        <h1>Дело / документ</h1>
+      <section aria-labelledby="section-title-5" class="panel">
+        <h2 id="section-title-5">Дело / документ</h2>
         <div class="report-actions no-print">
           <button id="print-btn" class="secondary">Печать отчёта</button>
           <button id="download-docx" class="secondary">Скачать заключение (DOCX)</button>
@@ -131,8 +131,8 @@
         <div id="doc-card" class="card"></div>
       </section>
 
-      <section class="panel" id="summary-panel">
-        <h1>Краткое изложение дела</h1>
+      <section aria-labelledby="section-title-6" class="panel" id="summary-panel">
+        <h2 id="section-title-6">Краткое изложение дела</h2>
         <p class="hint">
           Собрано из извлечённых обстоятельств, а не пересказано моделью:
           каждая строка раскрывается до тех же цитат, что и обстоятельства ниже.
@@ -141,8 +141,8 @@
         <ul id="summary-list" class="items"></ul>
       </section>
 
-      <section class="panel" id="concerns-panel">
-        <h1>Проблемные места</h1>
+      <section aria-labelledby="section-title-7" class="panel" id="concerns-panel">
+        <h2 id="section-title-7">Проблемные места</h2>
         <p class="hint">
           На что посмотреть отдельно. Нарушение предела и нехватка данных
           разведены: первое требует проверить расчёт, второе — дополнить
@@ -151,8 +151,8 @@
         <ul id="concerns-list" class="items"></ul>
       </section>
 
-      <section class="panel">
-        <h1>Обнаруженные обстоятельства</h1>
+      <section aria-labelledby="section-title-8" class="panel">
+        <h2 id="section-title-8">Обнаруженные обстоятельства</h2>
         <p class="hint">Нажмите на обстоятельство, чтобы увидеть цитату из документа.</p>
         <ul id="facts-list" class="items"></ul>
 
@@ -184,13 +184,13 @@
         </details>
       </section>
 
-      <section class="panel">
-        <h1>Проверка норм</h1>
+      <section aria-labelledby="section-title-9" class="panel">
+        <h2 id="section-title-9">Проверка норм</h2>
         <ul id="evaluations-list" class="items"></ul>
       </section>
 
-      <section class="panel" id="sources-panel">
-        <h1>Источники</h1>
+      <section aria-labelledby="section-title-10" class="panel" id="sources-panel">
+        <h2 id="section-title-10">Источники</h2>
         <p class="hint">
           Поиск по базе норм: каждый результат — фрагмент реального источника
           с редакцией и реквизитами. Если ничего не найдено, система не додумывает.
@@ -207,25 +207,25 @@
         <ul id="search-results" class="items" aria-live="polite"></ul>
       </section>
 
-      <section class="panel">
-        <h1>Сопоставимая практика</h1>
+      <section aria-labelledby="section-title-11" class="panel">
+        <h2 id="section-title-11">Сопоставимая практика</h2>
         <p class="hint">
           Справочный материал. Сходство не является основанием для вывода о наказании.
         </p>
         <ul id="cases-list" class="items"></ul>
       </section>
 
-      <section class="panel" id="analytics-panel">
-        <h1>Аналитика (описательная)</h1>
+      <section aria-labelledby="section-title-12" class="panel" id="analytics-panel">
+        <h2 id="section-title-12">Аналитика (описательная)</h2>
         <div id="analytics" class="card"></div>
       </section>
 
-      <section class="panel disclaimers-panel">
+      <section class="panel disclaimers-panel" aria-label="Оговорки и ограничения системы">
         <ul id="disclaimers" class="disclaimers"></ul>
       </section>
     </div>
   </main>
 
-  <script src="/static/app.js?v=0.44"></script>
+  <script src="/static/app.js?v=0.46"></script>
 </body>
 </html>

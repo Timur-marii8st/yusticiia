@@ -105,6 +105,44 @@ def test_search_score_is_explained(pipeline) -> None:
     assert "лексическая релевантность" in js
 
 
+def test_document_has_one_heading_of_the_first_level(pipeline) -> None:
+    """Двенадцать h1 читаются скринридером как двенадцать документов.
+
+    Заголовок первого уровня — название системы; разделы идут вторым
+    уровнем, иначе навигация по структуре страницы бессмысленна.
+    """
+    client = TestClient(create_app(pipeline))
+    html = client.get("/").text
+
+    assert html.count("<h1") == 1, "заголовков первого уровня должно быть ровно один"
+    assert html.count("<h2") >= 10
+
+
+def test_every_section_is_a_named_landmark(pipeline) -> None:
+    """Секция без доступного имени не объявляется ориентиром вовсе."""
+    client = TestClient(create_app(pipeline))
+    html = client.get("/").text
+
+    sections = re.findall(r"<section[^>]*>", html)
+    assert sections
+    unnamed = [s for s in sections if "aria-label" not in s]
+    assert not unnamed, f"секции без имени: {unnamed}"
+
+
+def test_dynamic_fields_carry_labels(pipeline) -> None:
+    """Поля, которые рисует скрипт, тоже должны иметь подпись.
+
+    Плейсхолдер подписью не является: он исчезает при вводе и читается
+    не всеми скринридерами.
+    """
+    client = TestClient(create_app(pipeline))
+    js = client.get("/static/app.js").text
+
+    assert 'for="nf-article"' in js
+    assert 'for="nf-part"' in js
+    assert 'setAttribute("aria-label", "Значение обстоятельства")' in js
+
+
 def test_css_has_focus_and_responsive(pipeline) -> None:
     client = TestClient(create_app(pipeline))
     css = client.get("/static/style.css").text

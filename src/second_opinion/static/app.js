@@ -63,7 +63,9 @@ function buildValueInput(type) {
   const kind = FACT_VALUE_KINDS[type];
   if (type === "qualification") {
     container.innerHTML =
+      '<label class="visually-hidden" for="nf-article">Номер статьи</label>' +
       '<input type="number" id="nf-article" min="1" placeholder="статья" style="width:7em"> ' +
+      '<label class="visually-hidden" for="nf-part">Номер части (необязательно)</label>' +
       '<input type="number" id="nf-part" min="1" placeholder="часть (необязательно)" style="width:12em">';
     newValueAccessor = () => {
       const article = Number($("nf-article").value);
@@ -76,6 +78,7 @@ function buildValueInput(type) {
   if (typeof kind === "object") {
     const select = document.createElement("select");
     select.id = "nf-value";
+    select.setAttribute("aria-label", "Значение обстоятельства");
     Object.entries(kind).forEach(([value, label]) => {
       const option = document.createElement("option");
       option.value = value;
@@ -89,6 +92,7 @@ function buildValueInput(type) {
   if (isBooleanFactType(type)) {
     const select = document.createElement("select");
     select.id = "nf-value";
+    select.setAttribute("aria-label", "Значение обстоятельства");
     [["true", "да"], ["false", "нет"]].forEach(([value, label]) => {
       const option = document.createElement("option");
       option.value = value;
@@ -102,6 +106,7 @@ function buildValueInput(type) {
   const input = document.createElement("input");
   input.type = kind === "number" ? "number" : kind === "date" ? "date" : "text";
   input.id = "nf-value";
+  input.setAttribute("aria-label", "Значение обстоятельства");
   if (kind === "number") input.min = "0";
   container.appendChild(input);
   newValueAccessor = () => {
