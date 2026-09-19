@@ -116,6 +116,19 @@ def _request_id(request: Request) -> str:
     return uuid.uuid4().hex
 
 
+def human_message(exc: Exception) -> str:
+    """Сообщение об ошибке без служебного обрамления.
+
+    ``KeyError`` — основа половины наших исключений («норма не найдена»,
+    «документ не найден»), а ``str()`` у него возвращает **repr** аргумента:
+    наружу уходило `"'норма не найдена: uk-rf:art-1'"` вместе с кавычками.
+    Для судьи это выглядит как сбой, а не как объяснение.
+    """
+    if isinstance(exc, KeyError) and exc.args:
+        return str(exc.args[0])
+    return str(exc)
+
+
 def _actor(request: Request) -> str:
     """Кто выполняет запрос. Опознание делает middleware выше."""
     return getattr(request.state, "actor", ANONYMOUS_ACTOR)
@@ -221,6 +234,73 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
         response.headers[REQUEST_ID_HEADER] = request.state.request_id
         return response
 
+    # Единый формат ошибок (техдолг из OPEN_QUESTIONS).
+    #
+    # Было: 404 отдавал строку в `detail`, а 422 — список объектов там же.
+    # Клиенту приходилось угадывать форму по коду ответа. Теперь рядом с
+    # `detail` (его читает текущий интерфейс, поэтому поле сохранено)
+    # едет `error` с кодом, сообщением, полями и идентификатором запроса —
+    # тем самым, который стоит в заголовке ответа и в аудит-журнале.
+    from fastapi.exceptions import RequestValidationError
+    from fastapi.responses import JSONResponse as _JSONResponse
+
+    _ERROR_CODES = {
+        400: "bad_request",
+        401: "unauthorized",
+        403: "forbidden",
+        404: "not_found",
+        409: "conflict",
+        413: "payload_too_large",
+        422: "validation_error",
+        429: "too_many_requests",
+    }
+
+    def _error_body(
+        status_code: int, message: str, request, fields: list[dict] | None = None
+    ) -> dict:
+        body: dict[str, object] = {
+            "detail": message,
+            "error": {
+                "code": _ERROR_CODES.get(status_code, "error"),
+                "message": message,
+                "request_id": getattr(request.state, "request_id", ""),
+            },
+        }
+        if fields:
+            body["error"]["fields"] = fields  # type: ignore[index]
+        return body
+
+    @app.exception_handler(HTTPException)
+    async def _http_error(request, exc: HTTPException):  # noqa: ANN202
+        message = exc.detail if isinstance(exc.detail, str) else human_message(exc)
+        # Заголовки исключения обязаны дожить до ответа: в них едет
+        # Retry-After у 429 и WWW-Authenticate у 401. Единый формат тела
+        # не повод терять часть протокола.
+        headers = dict(exc.headers or {})
+        headers[REQUEST_ID_HEADER] = getattr(request.state, "request_id", "")
+        return _JSONResponse(
+            status_code=exc.status_code,
+            content=_error_body(exc.status_code, message, request),
+            headers=headers,
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def _validation_error(request, exc: RequestValidationError):  # noqa: ANN202
+        fields = [
+            {
+                "location": ".".join(str(part) for part in error.get("loc", ())),
+                "message": error.get("msg", ""),
+            }
+            for error in exc.errors()
+        ]
+        first = fields[0] if fields else {"location": "", "message": "неверный запрос"}
+        message = f"{first['location']}: {first['message']}" if first["location"] else first["message"]
+        return _JSONResponse(
+            status_code=422,
+            content=_error_body(422, message, request, fields),
+            headers={REQUEST_ID_HEADER: getattr(request.state, "request_id", "")},
+        )
+
     # -- служебные ----------------------------------------------------------
 
     @app.get("/health")
@@ -261,7 +341,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
                 request_id=request.state.request_id,
             )
         except ParseError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+            raise HTTPException(status_code=400, detail=human_message(exc)) from exc
         return {
             "document_id": document.document_id,
             "filename": document.filename,
@@ -282,7 +362,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
                 request_id=request.state.request_id,
             )
         except ParseError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+            raise HTTPException(status_code=400, detail=human_message(exc)) from exc
         return {
             "document_id": document.document_id,
             "filename": document.filename,
@@ -295,7 +375,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
         try:
             document = pipeline.get_document(document_id)
         except DocumentNotFound as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+            raise HTTPException(status_code=404, detail=human_message(exc)) from exc
         return {
             "document_id": document.document_id,
             "filename": document.filename,
@@ -309,7 +389,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
         try:
             pipeline.delete_document(document_id, actor=_actor(request))
         except DocumentNotFound as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+            raise HTTPException(status_code=404, detail=human_message(exc)) from exc
         return {"deleted": document_id}
 
     @app.get(
@@ -362,7 +442,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
         try:
             pipeline.delete_analysis(analysis_id, actor=_actor(request))
         except AnalysisNotFound as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+            raise HTTPException(status_code=404, detail=human_message(exc)) from exc
         return {"deleted": analysis_id}
 
     @app.post("/api/documents/{document_id}/analyze")
@@ -379,7 +459,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
                 request_id=request.state.request_id,
             )
         except DocumentNotFound as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+            raise HTTPException(status_code=404, detail=human_message(exc)) from exc
         return report
 
     @app.get("/api/analyses")
@@ -453,9 +533,9 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
                 actor=_actor(request),
             )
         except (AnalysisNotFound, DocumentNotFound) as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+            raise HTTPException(status_code=404, detail=human_message(exc)) from exc
         except FactValidationError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+            raise HTTPException(status_code=400, detail=human_message(exc)) from exc
         return report
 
     @app.patch("/api/analyses/{analysis_id}/facts/{fact_id}")
@@ -477,21 +557,37 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
                 actor=_actor(request),
             )
         except (AnalysisNotFound, FactNotFound) as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+            raise HTTPException(status_code=404, detail=human_message(exc)) from exc
         except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+            raise HTTPException(status_code=400, detail=human_message(exc)) from exc
         return report
 
     # -- нормы --------------------------------------------------------------
 
     @app.get("/api/norms")
-    def list_norms() -> NormListResponse:
+    def list_norms(
+        limit: int = Query(default=100, ge=1, le=500),
+        offset: int = Query(default=0, ge=0),
+    ) -> NormListResponse:
+        """Список норм корпуса окном.
+
+        Значение по умолчанию покрывает нынешние 27 норм целиком, поэтому
+        существующие клиенты ничего не заметят; окно появляется заранее,
+        чтобы рост корпуса не стал ломающим изменением.
+        """
         store = pipeline.norm_store
+        norms = store.list_norms()
+        window = norms[offset : offset + limit]
         return {
             "norms": [
-                {"norm_id": n.norm_id, "ref": n.ref, "title": n.title}
-                for n in store.list_norms()
-            ]
+                {"norm_id": n.norm_id, "ref": n.ref, "title": n.title} for n in window
+            ],
+            "page": {
+                "total": len(norms),
+                "limit": limit,
+                "offset": offset,
+                "has_more": offset + len(window) < len(norms),
+            },
         }
 
     @app.get("/api/norms/coverage")
@@ -565,7 +661,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
         try:
             meta = store.get_norm_meta(norm_id)
         except NormNotFoundError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+            raise HTTPException(status_code=404, detail=human_message(exc)) from exc
         if applicable_at:
             try:
                 when = date.fromisoformat(applicable_at)
@@ -576,7 +672,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
             try:
                 version = store.get_norm(norm_id, when)
             except NoApplicableVersionError as exc:
-                raise HTTPException(status_code=404, detail=str(exc)) from exc
+                raise HTTPException(status_code=404, detail=human_message(exc)) from exc
             return {"norm": meta, "version": version}
         return {"norm": meta, "versions": store.versions(norm_id)}
 
@@ -586,7 +682,8 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
     def list_cases(
         article: int | None = Query(default=None),
         part: int | None = Query(default=None),
-        limit: int = Query(default=50, le=200),
+        limit: int = Query(default=50, ge=1, le=200),
+        offset: int = Query(default=0, ge=0),
     ) -> CaseListResponse:
         cases = pipeline.retriever.cases
         selected: list[ComparableCase] = []
@@ -596,7 +693,17 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
             if part is not None and case.part != part:
                 continue
             selected.append(case)
-        return {"total": len(selected), "cases": selected[:limit]}
+        window = selected[offset : offset + limit]
+        return {
+            "total": len(selected),
+            "cases": window,
+            "page": {
+                "total": len(selected),
+                "limit": limit,
+                "offset": offset,
+                "has_more": offset + len(window) < len(selected),
+            },
+        }
 
     # -- поиск по базе источников ---------------------------------------------
 

@@ -86,8 +86,25 @@ class NormSummary(BaseModel):
     title: str
 
 
+class Page(BaseModel):
+    """Окно выдачи для списочных ответов.
+
+    Корпус норм сейчас маленький, и соблазн отдавать его целиком велик.
+    Но список растёт по плану (наряд на сверку — 15 норм, дальше обзоры
+    практики), а клиент, привыкший к полной выдаче, ломается ровно в тот
+    момент, когда список наконец вырос.
+    """
+
+    total: int
+    limit: int
+    offset: int
+    #: Есть ли что-то за текущим окном: избавляет клиента от арифметики.
+    has_more: bool
+
+
 class NormListResponse(BaseModel):
     norms: list[NormSummary]
+    page: Page | None = None
 
 
 class NormCoverageItem(BaseModel):
@@ -141,6 +158,7 @@ class NormDetailResponse(BaseModel):
 class CaseListResponse(BaseModel):
     total: int
     cases: list[ComparableCase]
+    page: Page | None = None
 
 
 class SearchResponse(BaseModel):
@@ -256,6 +274,7 @@ __all__ = [
     "NormDetailResponse",
     "NormListResponse",
     "NormSummary",
+    "Page",
     "RefreshResponse",
     "SearchResponse",
     "TokenPairResponse",
