@@ -49,3 +49,51 @@ def test_served_endpoints_are_documented(pipeline) -> None:
     """Необъявленных эндпоинтов быть не должно: API — часть контракта."""
     undocumented = sorted(_served_endpoints(pipeline) - _documented_endpoints())
     assert not undocumented, f"сервер отдаёт, но docs/API.md молчит: {undocumented}"
+
+
+#: Файлы-летописи: в них записано, что было сделано в такой-то итерации.
+#: Пути там верны на момент записи, и переписывать их — подделывать историю.
+_HISTORICAL = {"IMPLEMENTATION_STATUS.md", "CHANGELOG.md", "OPEN_QUESTIONS.md"}
+
+#: Любое упоминание пути API в тексте — и в обратных кавычках, и в команде
+#: `curl`, и просто в скобках. Метод рядом стоит не всегда, поэтому
+#: сверяется сам путь, без него.
+_ANY_PATH = re.compile(r"/api/[^\s`\"'()\[\]{},;]*(?:\{[^}]+\}[^\s`\"'()\[\]{},;]*)*")
+
+
+def _served_paths(pipeline) -> set[str]:
+    return {path for _method, path in _served_endpoints(pipeline)}
+
+
+def test_paths_in_other_docs_are_real_routes(pipeline) -> None:
+    """Справочные документы не должны звать читателя по несуществующему пути.
+
+    Регрессия: после перевода API на `/api/v1` в README, ARCHITECTURE,
+    DEPLOYMENT, LEGAL_RAG и PRIVACY остались прежние пути. Они отвечали —
+    через псевдоним, — но читатель списывал оттуда путь, которого в
+    спецификации уже нет.
+
+    Сверяется путь, а не пара «метод + путь»: в тексте метод стоит рядом
+    не всегда, зато сам путь встречается и в команде `curl`, и в скобках
+    посреди фразы — там прежние пути и остались.
+    """
+    root = API_DOC.parents[1]
+    served = _served_paths(pipeline)
+
+    stale: list[str] = []
+    for doc in [root / "README.md", *sorted((root / "docs").rglob("*.md"))]:
+        if doc.name in _HISTORICAL:
+            continue
+        text = doc.read_text(encoding="utf-8")
+        for match in _ANY_PATH.finditer(text):
+            path = match.group(0).split("?", 1)[0].rstrip(".,:;")
+            # `/api/*`, `/api/v1` — обозначение класса путей или самого
+            # префикса версии, а не обращение к эндпойнту.
+            if path.endswith("*") or path.rstrip("/") in {"/api", "/api/v1"}:
+                continue
+            if _normalize(path) not in served:
+                stale.append(f"{doc.relative_to(root)}: {path}")
+
+    assert not stale, "в документации пути, которых сервер не отдаёт: " + "; ".join(
+        sorted(set(stale))
+    )

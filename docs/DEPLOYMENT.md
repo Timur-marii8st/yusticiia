@@ -111,7 +111,7 @@ PostgreSQL — `SO_TEST_DATABASE_URL=... pytest -k postgres` (и `-k pgvector`).
 ```bash
 curl http://127.0.0.1:8000/health          # {"status":"ok",...}
 curl http://127.0.0.1:8000/metrics        # {"enabled": false} или {"enabled": true, "metrics": {...}}
-curl "http://127.0.0.1:8000/api/search?q=покушение"
+curl "http://127.0.0.1:8000/api/v1/search?q=покушение"
 ```
 
 и смоук-сценарий из README («Демо-образец» → «Проанализировать»).

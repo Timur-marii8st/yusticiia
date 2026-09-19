@@ -37,7 +37,7 @@
 ## API
 
 ```
-GET /api/search?q=покушение&limit=10&code=УК РФ&applicable_at=2022-05-01
+GET /api/v1/search?q=покушение&limit=10&code=УК РФ&applicable_at=2022-05-01
 ```
 
 Ответ:
