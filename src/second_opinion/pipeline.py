@@ -194,7 +194,12 @@ class AnalysisPipeline:
     # -- загрузка документа -------------------------------------------------
 
     def ingest(
-        self, filename: str, content: bytes, *, actor: str = "anonymous"
+        self,
+        filename: str,
+        content: bytes,
+        *,
+        actor: str = "anonymous",
+        request_id: str | None = None,
     ) -> Document:
         document = parse_document(filename, content, self._max_upload_bytes)
         # Владелец записывается сразу: восстановить его задним числом можно
@@ -205,7 +210,10 @@ class AnalysisPipeline:
             operation="document_ingest",
             actor=actor,
             component="ingestion",
-            request_id=document.document_id,
+            # Сквозной идентификатор запроса, если он пришёл снаружи:
+            # тогда запись журнала совпадает с тем, что человек видел в
+            # заголовке ответа.
+            request_id=request_id or document.document_id,
             input_hash=document.sha256,
             details={"filename": document.filename, "chars": len(document.text)},
         )
@@ -225,8 +233,9 @@ class AnalysisPipeline:
         applicable_at: str | None = None,
         *,
         actor: str = "anonymous",
+        request_id: str | None = None,
     ) -> AnalysisReport:
-        request_id = uuid.uuid4().hex
+        request_id = request_id or uuid.uuid4().hex
         metrics = get_metrics()
         with metrics.time_histogram(ANALYZE_DURATION_SECONDS):
             try:

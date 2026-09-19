@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from datetime import date
 from pathlib import Path
 from typing import Annotated, Any
@@ -95,6 +96,26 @@ class FactAddPayload(BaseModel):
     quote: str = Field(min_length=1)
 
 
+#: Заголовок сквозного идентификатора запроса.
+#:
+#: Конвейер уже пишет request_id в структурные логи и в аудит-журнал, но
+#: снаружи его было не узнать: судья или оператор, наткнувшись на ошибку,
+#: не мог назвать, какую именно запись искать. Заголовок связывает то,
+#: что видел человек, с тем, что записано в журнале.
+REQUEST_ID_HEADER = "X-Request-Id"
+
+
+def _request_id(request: Request) -> str:
+    """Идентификатор запроса: принятый от клиента или свой."""
+    incoming = request.headers.get(REQUEST_ID_HEADER, "").strip()
+    # Чужое значение принимается только в безопасном виде: оно попадает в
+    # журнал и в заголовок ответа, а значит может стать вектором подмены
+    # строк лога.
+    if incoming and len(incoming) <= 64 and incoming.isascii() and incoming.isprintable():
+        return incoming
+    return uuid.uuid4().hex
+
+
 def _actor(request: Request) -> str:
     """Кто выполняет запрос. Опознание делает middleware выше."""
     return getattr(request.state, "actor", ANONYMOUS_ACTOR)
@@ -167,6 +188,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
     @app.middleware("http")
     async def _identify_and_authorize(request, call_next):  # noqa: ANN202
         request.state.actor = ANONYMOUS_ACTOR
+        request.state.request_id = _request_id(request)
         header = request.headers.get("authorization", "")
         # В режиме accounts общий секрет не принимается вовсе: в судебной
         # системе действие должно быть привязано к человеку, а под общим
@@ -193,8 +215,11 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
             return JSONResponse(
                 status_code=401,
                 content={"detail": "требуется авторизация"},
+                headers={REQUEST_ID_HEADER: request.state.request_id},
             )
-        return await call_next(request)
+        response = await call_next(request)
+        response.headers[REQUEST_ID_HEADER] = request.state.request_id
+        return response
 
     # -- служебные ----------------------------------------------------------
 
@@ -230,7 +255,10 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
     ) -> DocumentCreated:
         try:
             document = pipeline.ingest(
-                payload.filename, payload.text.encode("utf-8"), actor=_actor(request)
+                payload.filename,
+                payload.text.encode("utf-8"),
+                actor=_actor(request),
+                request_id=request.state.request_id,
             )
         except ParseError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -248,7 +276,10 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
         content = await _read_within_limit(file, pipeline.max_upload_bytes)
         try:
             document = pipeline.ingest(
-                file.filename or "upload.txt", content, actor=_actor(request)
+                file.filename or "upload.txt",
+                content,
+                actor=_actor(request),
+                request_id=request.state.request_id,
             )
         except ParseError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -341,6 +372,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
                 document_id,
                 applicable_at=payload.applicable_at if payload else None,
                 actor=_actor(request),
+                request_id=request.state.request_id,
             )
         except DocumentNotFound as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc

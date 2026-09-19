@@ -1,10 +1,19 @@
 from __future__ import annotations
 
+import os
 import threading
 from datetime import UTC, datetime
 from pathlib import Path
 
 from pydantic import BaseModel, Field
+
+#: Порог ротации журнала в байтах. Журнал пишется вечно и в судебной
+#: системе удалять его нельзя, поэтому ротация — переименование, а не
+#: усечение: файл закрывается с отметкой времени и рядом начинается
+#: новый. Без этого один файл растёт до размеров, при которых его нечем
+#: открыть, а запись в него — единственная операция, которая держит
+#: блокировку на каждом действии пользователя.
+DEFAULT_MAX_BYTES = 64 * 1024 * 1024
 
 #: Действие выполнено без опознанной учётной записи.
 ANONYMOUS_ACTOR = "anonymous"
@@ -41,12 +50,44 @@ class AuditTrail:
     документов (см. docs/LEGAL_SAFETY_PRINCIPLES.md §8).
     """
 
-    def __init__(self, path: Path | None = None) -> None:
+    def __init__(self, path: Path | None = None, max_bytes: int = DEFAULT_MAX_BYTES) -> None:
         self._path = path
+        self._max_bytes = max_bytes
         self._lock = threading.Lock()
         self._recent: list[AuditEvent] = []
         if path is not None:
             path.parent.mkdir(parents=True, exist_ok=True)
+
+    def _rotate_if_needed(self) -> None:
+        """Закрыть разросшийся журнал и начать новый.
+
+        Старый файл переименовывается с отметкой времени и остаётся на
+        месте: записи аудита не удаляются и не перезаписываются — это
+        провенанс, а не отладочный лог.
+        """
+        if self._path is None or self._max_bytes <= 0:
+            return
+        try:
+            size = self._path.stat().st_size
+        except FileNotFoundError:
+            return
+        if size < self._max_bytes:
+            return
+        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        rotated = self._path.with_name(f"{self._path.stem}-{stamp}{self._path.suffix}")
+        # Отметка времени с точностью до секунды: две ротации в одну
+        # секунду дали бы одно имя, и os.replace затёр бы предыдущий файл.
+        # Для отладочного лога это мелочь, для аудита — потеря записей,
+        # ради которых журнал и ведётся.
+        serial = 2
+        while rotated.exists():
+            rotated = self._path.with_name(
+                f"{self._path.stem}-{stamp}-{serial}{self._path.suffix}"
+            )
+            serial += 1
+        # Переименование в пределах каталога атомарно; при гонке двух
+        # процессов проигравший просто продолжит писать в новый файл.
+        os.replace(self._path, rotated)
 
     def log(
         self,
@@ -67,6 +108,7 @@ class AuditTrail:
             if len(self._recent) > 1000:
                 self._recent = self._recent[-500:]
             if self._path is not None:
+                self._rotate_if_needed()
                 with self._path.open("a", encoding="utf-8") as fh:
                     fh.write(event.model_dump_json() + "\n")
         return event
