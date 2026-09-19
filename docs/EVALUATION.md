@@ -20,7 +20,7 @@ python -m evaluation.run
 
 ## Структура
 
-```
+```text
 evaluation/
     datasets/     # оценочные наборы (входы оценки)
         golden_v1.json      # извлечение фактов: документы + ожидаемые типы фактов

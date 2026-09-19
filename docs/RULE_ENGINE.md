@@ -5,7 +5,7 @@
 
 ## Контракт
 
-```
+```text
 CaseFacts + NormStore + applicable_at
     → RuleEngine.evaluate(...)
     → list[RuleEvaluation]

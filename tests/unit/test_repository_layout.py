@@ -1,0 +1,178 @@
+"""Документация обязана совпадать с репозиторием.
+
+Две вещи гниют тише всего: ссылка на переехавший файл и карта модулей,
+списанная с раскладки полугодичной давности. Обе выглядят достоверно и
+обе врут читателю, который только пришёл в проект. Проверяются здесь,
+потому что глазами их никто не сверяет.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PACKAGE = PROJECT_ROOT / "src" / "second_opinion"
+
+#: Каталоги, которые не относятся к репозиторию как таковому.
+IGNORED = {".venv", ".git", "__pycache__", ".pytest_cache", ".ruff_cache", ".mypy_cache", ".claude"}
+
+LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
+
+
+def _markdown_files() -> list[Path]:
+    return [
+        p
+        for p in sorted(PROJECT_ROOT.rglob("*.md"))
+        if not any(part in IGNORED for part in p.relative_to(PROJECT_ROOT).parts)
+    ]
+
+
+def test_markdown_links_resolve() -> None:
+    """Относительная ссылка обязана открываться.
+
+    Регрессия: после переноса рабочих материалов из репозитория часть
+    ссылок вела в никуда. Ничего не ломалось — просто читатель получал
+    пустоту там, где ему обещали объяснение.
+    """
+    broken: list[str] = []
+    for path in _markdown_files():
+        for match in LINK.finditer(path.read_text(encoding="utf-8")):
+            target = match.group(1).split("#", 1)[0]
+            if not target or target.startswith(("http://", "https://", "mailto:")):
+                continue
+            if not (path.parent / target).resolve().exists():
+                broken.append(f"{path.relative_to(PROJECT_ROOT)} → {target}")
+
+    assert not broken, "ссылки ведут в никуда:\n  " + "\n  ".join(broken)
+
+
+def test_contributing_describes_the_real_layout() -> None:
+    """Карта модулей в CONTRIBUTING.md и каталоги на диске — одно и то же.
+
+    Прежняя карта в README отстала настолько, что называла `cli.py` файлом
+    (давно пакет), не знала про `export/` и `api/routers/`, а про учётные
+    записи писала «in-memory, MVP» при живом хранилище на PostgreSQL.
+    """
+    text = (PROJECT_ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
+    block = text[text.index("src/second_opinion/") : text.index("evaluation/")]
+
+    described = {
+        line.strip().rstrip("/").split()[0].rstrip("/")
+        for line in block.splitlines()
+        if line.startswith("  ") and line.strip() and not line.strip().startswith("#")
+    }
+    described_packages = {name for name in described if not name.endswith(".py")}
+    described_modules = {name for name in described if name.endswith(".py")}
+
+    real_packages = {
+        p.name for p in PACKAGE.iterdir() if p.is_dir() and p.name != "__pycache__"
+    }
+    real_modules = {p.name for p in PACKAGE.glob("*.py") if p.name != "__init__.py"}
+
+    assert described_packages == real_packages, (
+        f"в карте лишние: {sorted(described_packages - real_packages)}; "
+        f"не описаны: {sorted(real_packages - described_packages)}"
+    )
+    assert described_modules == real_modules, (
+        f"в карте лишние: {sorted(described_modules - real_modules)}; "
+        f"не описаны: {sorted(real_modules - described_modules)}"
+    )
+
+
+def test_docs_index_lists_every_document() -> None:
+    """Указатель не умалчивает ни об одном документе в docs/.
+
+    Документ, которого нет в указателе, не существует для читателя: его
+    находят только поиском по репозиторию, а значит — случайно.
+    """
+    index = (PROJECT_ROOT / "docs" / "README.md").read_text(encoding="utf-8")
+    listed = {m.group(1).split("#", 1)[0] for m in LINK.finditer(index)}
+
+    docs = {
+        p.name
+        for p in (PROJECT_ROOT / "docs").glob("*.md")
+        if p.name != "README.md"
+    }
+    missing = sorted(name for name in docs if name not in listed)
+
+    assert not missing, f"не названы в docs/README.md: {missing}"
+
+
+def test_working_notes_stay_out_of_the_repository() -> None:
+    """Заметки о ведении разработки в поставляемый репозиторий не попадают.
+
+    Проект отдаётся жюри конкурса. Материалы о том, как над ним работает
+    ассистент, — не часть продукта, и читателя они только путают.
+    """
+    assert not (PROJECT_ROOT / ".claude").exists(), (
+        "каталог .claude снова в репозитории: рабочие материалы хранятся вне него"
+    )
+
+    ignore = (PROJECT_ROOT / ".gitignore").read_text(encoding="utf-8")
+    assert ".claude/" in ignore, "правило .claude/ пропало из .gitignore"
+
+
+def test_markdown_follows_the_house_style() -> None:
+    """Оформление документов единообразно.
+
+    Правила перечислены в CONTRIBUTING.md. Проверяются те, которые можно
+    проверить машиной: один заголовок первого уровня, иерархия без
+    пропусков, у блока кода назван язык. Без этого подсветка выбирается
+    наугад, а оглавление по заголовкам собирается неправильно.
+    """
+    problems: list[str] = []
+    for path in _markdown_files():
+        name = path.relative_to(PROJECT_ROOT)
+        in_fence = False
+        first_levels = 0
+        previous = 0
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if line.lstrip().startswith("```"):
+                if not in_fence and not line.strip()[3:].strip():
+                    problems.append(f"{name}:{number} блок кода без языка")
+                in_fence = not in_fence
+                continue
+            if in_fence:
+                continue
+            heading = re.match(r"^(#{1,6})\s", line)
+            if not heading:
+                continue
+            level = len(heading.group(1))
+            if level == 1:
+                first_levels += 1
+            if previous and level > previous + 1:
+                problems.append(f"{name}:{number} пропущен уровень заголовка")
+            previous = level
+        if first_levels != 1:
+            problems.append(f"{name} заголовков первого уровня: {first_levels}, нужен один")
+
+    assert not problems, "оформление разошлось с правилами:\n  " + "\n  ".join(problems)
+
+
+def test_documented_module_entry_point_runs() -> None:
+    """`python -m second_opinion.cli` работает: README обещает этот путь.
+
+    Регрессия: пока команды жили в одном модуле `cli.py`, запуск через
+    `-m` получался сам собой. После разбиения на пакет он отвалился —
+    у пакета точка входа объявляется отдельным `__main__.py`. Тесты
+    молчали: они зовут `main()` напрямую, а README отсылал читателя к
+    команде, которая падала с «is a package and cannot be directly
+    executed».
+    """
+    import subprocess
+    import sys
+
+    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+    assert "python -m second_opinion.cli" in readme, (
+        "README больше не описывает этот путь — проверка потеряла смысл"
+    )
+
+    result = subprocess.run(
+        [sys.executable, "-m", "second_opinion.cli", "--help"],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "serve" in result.stdout

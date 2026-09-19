@@ -37,6 +37,10 @@ evaluation/reports/
 .eval_stdout.json
 .eval_stderr.txt
 
+# Рабочие материалы ассистента: заметки о том, как вести разработку.
+# К поставляемому продукту не относятся и в репозитории не хранятся.
+.claude/
+
 # OS / editor
 .DS_Store
 Thumbs.db

@@ -11,7 +11,7 @@
 
 Конвейер:
 
-```
+```text
 Судебный документ
   → извлечение юридически значимых фактов (с цитатами-доказательствами)
   → детерминированные проверки правил (пределы санкций, ст. 62/66/73 УК РФ)
@@ -100,35 +100,23 @@ second-opinion analyze data/fixtures/sample_documents/sample_228_attempt_violati
 
 ## Структура проекта
 
-```
-src/second_opinion/
-    domain/            # Pydantic-модели: факты, нормы, оценки, отчёт
-    ingestion/         # парсеры TXT/MD/DOCX/PDF(текстовый слой + опциональный OCR)
-    fact_extraction/   # паттерновый + LLM экстракторы, сборка обстоятельств
-    legal_sources/     # NormStore: нормы с версиями, SHA-256
-    rule_engine/       # детерминированные проверки (ст. 60–73 УК РФ)
-    legal_rag/         # лексический поиск по базе источников (с цитированием)
-    retrieval/         # поиск сопоставимых дел (структурные фильтры)
-    analytics/         # описательная статистика
-    llm/               # провайдеро-независимый LLM-слой (мок по умолчанию)
-    audit/             # JSONL аудит-журнал (версии моделей/промптов/правил)
-    auth/              # JWT-сервис (in-memory user store, MVP)
-    api/               # FastAPI + auth_routes (login/refresh/me/users/...)
-    storage/           # файловые и Postgres-репозитории за интерфейсом
-    static/            # UI (vanilla JS, без шага сборки)
-    prompts/           # версионируемые промпты (часть пакета)
-data/fixtures/         # нормы (verified 03.09.2026) + демо, СИНТЕТИЧЕСКИЕ дела, образцы
-tests/                 # unit + integration (271 зелёный)
-evaluation/            # метрики и датасеты (make eval)
-docs/                  # документация и ADR (архив исследований — в скилле)
-```
+Модульный монолит: `src/second_opinion/` — код, `tests/` — проверки,
+`docs/` — документация, `data/fixtures/` — нормы и синтетические дела,
+`evaluation/` — метрики и датасеты.
+
+Карта модулей с назначением каждого — в
+[CONTRIBUTING.md](CONTRIBUTING.md#раскладка-исходников); границы между
+слоями и конвейер разбора — в
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Тестирование
 
 ```bash
-pytest          # или: make test
-ruff check .    # или: make lint
+make check      # линтер, типы, тесты с покрытием, печать корпуса, метрики
 ```
+
+Отдельные шаги и то, как поднять базу для тестов PostgreSQL (без неё они
+молча пропускаются), — [CONTRIBUTING.md](CONTRIBUTING.md#что-проверяется-перед-коммитом).
 
 ## Оценка качества (evaluation)
 
@@ -152,24 +140,14 @@ second-opinion eval     # или: make eval
 
 ## Документация
 
-- [docs/TZ.md](docs/TZ.md) — техническое задание: требования, статус каждого, план работ
-- [docs/PRODUCT_VISION.md](docs/PRODUCT_VISION.md) — видение и non-goals
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — архитектура
-- [docs/API.md](docs/API.md) — справочник HTTP API
-- [docs/DOMAIN_MODEL.md](docs/DOMAIN_MODEL.md) — доменная модель
-- [docs/RULE_ENGINE.md](docs/RULE_ENGINE.md) — реестр правил и как добавлять новые
-- [docs/LEGAL_RAG.md](docs/LEGAL_RAG.md) — поиск по базе источников
-- [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md) — источники данных и процесс наполнения
-- [docs/NORM_COVERAGE.md](docs/NORM_COVERAGE.md) — полнота редакционной истории норм
-- [docs/EVALUATION.md](docs/EVALUATION.md) — метрики и пороги
-- [docs/GLOSSARY.md](docs/GLOSSARY.md) — глоссарий
-- [docs/ADR/](docs/ADR/) — архитектурные решения
-- [CHANGELOG.md](CHANGELOG.md) — история итераций
+Указатель по документам — [docs/README.md](docs/README.md): что читать,
+смотря какая у вас задача.
 
-Рабочие материалы разработки — инженерные правила, открытые вопросы,
-архив аудитов и статусов — вынесены в [.claude/skills/](.claude/skills/):
-они нужны тому, кто правит код, и только запутали бы читателя, который
-разбирается в системе.
+Самое нужное сразу: [docs/TZ.md](docs/TZ.md) — требования и статус
+каждого; [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — устройство
+системы; [docs/API.md](docs/API.md) — справочник HTTP API;
+[CONTRIBUTING.md](CONTRIBUTING.md) — как работать с кодом;
+[CHANGELOG.md](CHANGELOG.md) — история изменений.
 
 ## Безопасность
 
@@ -198,7 +176,7 @@ docker compose up          # или: docker build -t second-opinion . && docker 
 ```
 
 Подробности профилей развёртывания — [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md),
-для разработчиков — [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+порядок работы с кодом — [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Что сделано и что впереди
 
