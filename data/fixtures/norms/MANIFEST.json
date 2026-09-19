@@ -1,5 +1,5 @@
 {
-  "sealed_at": "2026-09-11",
+  "sealed_at": "2026-09-19",
   "versions": {
     "ppvs-rf:n58-p1@v-2015": "b3266d5694b2e672354f35ee1a7e84f9a417a3006d22a558da482d9e6ca69580",
     "ppvs-rf:n58-p34@v-2015": "68a8f6dffe10223ee4fcc712c3f244d2021018f5494e1a0de2eacf11103c44b0",
@@ -37,7 +37,7 @@
     "upk-rf:art-420@v-current": "7e76c73d9773f60eedf8b277b62f16258fa4875612263e34df505566272bf696"
   },
   "norms": {
-    "ppvs-rf:n58-p1": "056ce4de12efb9f356806433a7dc7e5efe59bdff4fae3b18aac50677c63db1ab",
+    "ppvs-rf:n58-p1": "d2f83cfaf09562c888cd1a391943c2677040decc77873574fb4167493cb8a0f9",
     "ppvs-rf:n58-p34": "7762327e648ffcb50af034ef4b8d98dd608b6ef379a37d205615492dfcd6d414",
     "ppvs-rf:n58-p36": "d02dc7f86ef6f0a5fc11031ea3cd4835f6f981df73bf192d4b39b764f29d731e",
     "ppvs-rf:n60-p13": "bc1d23431c35d4781c053e707a103a46a70170498493f11af9701982da806960",

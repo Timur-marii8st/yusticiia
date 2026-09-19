@@ -7,7 +7,12 @@ from datetime import date
 from pathlib import Path
 
 from second_opinion.domain.enums import PunishmentType
-from second_opinion.domain.norms import LegalNorm, NormVersion, SanctionSpec
+from second_opinion.domain.norms import (
+    PLENUM_CODE,
+    LegalNorm,
+    NormVersion,
+    SanctionSpec,
+)
 from second_opinion.legal_sources.coverage import (
     analyze_norm,
     analyze_store,
@@ -185,3 +190,32 @@ def test_report_states_when_nothing_needs_review() -> None:
         norm, [_version(norm.norm_id, "v1", date(2025, 1, 1), sanctions=True)]
     )
     assert "не обнаружено" in format_report([coverage], TODAY)
+
+
+def test_plenum_points_name_their_number_in_the_record() -> None:
+    """Пункт постановления, названный в идентификаторе, назван и в поле.
+
+    Регрессия: у `ppvs-rf:n58-p1` поле `part` осталось пустым, и ссылка
+    печаталась как «ППВС № 58» — то есть как отсылка ко всему
+    постановлению сразу, тогда как разъяснение взято из одного пункта.
+    Проверка сравнивает запись саму с собой и ничего не утверждает о
+    праве: номер пункта берётся из идентификатора, который юрист сверял
+    вместе с текстом.
+    """
+    store = NormStore.from_directory(FIXTURES / "norms")
+    point_in_id = re.compile(r"-p(\d+)$")
+
+    mismatched = []
+    plenum = [n for n in store.list_norms() if n.code.startswith(PLENUM_CODE)]
+    assert plenum, "в корпусе не нашлось ни одного постановления Пленума"
+
+    for norm in plenum:
+        match = point_in_id.search(norm.norm_id)
+        if not match:
+            continue
+        if norm.part != int(match.group(1)):
+            mismatched.append(f"{norm.norm_id}: part={norm.part}, ссылка «{norm.ref}»")
+
+    assert not mismatched, "пункт назван в идентификаторе, но не в записи: " + "; ".join(
+        mismatched
+    )
