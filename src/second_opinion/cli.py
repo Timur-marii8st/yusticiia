@@ -30,7 +30,12 @@ def _check_bind_safety(host: str) -> int:
     текстам судебных актов. Вернуть код выхода (0 — можно продолжать).
     """
     config = load_config()
-    if config.auth_token or _is_loopback(host):
+    from .api.routes import AUTH_MODE_ACCOUNTS, resolve_auth_mode
+
+    mode = resolve_auth_mode(config.auth_mode, config.auth_token)
+    # В режиме accounts общего секрета нет по замыслу, и его отсутствие
+    # не означает открытого доступа: /api/* требует личный токен.
+    if mode == AUTH_MODE_ACCOUNTS or config.auth_token or _is_loopback(host):
         return 0
     message = (
         f"привязка к {host} без SO_AUTH_TOKEN: /api/* будет доступен из сети "
@@ -42,7 +47,8 @@ def _check_bind_safety(host: str) -> int:
         return 2
     print(f"ВНИМАНИЕ: {message}.", file=sys.stderr)
     print(
-        "Задайте SO_AUTH_TOKEN, а для отказа от запуска без него — "
+        "Задайте SO_AUTH_TOKEN либо SO_AUTH_MODE=accounts (доступ только по "
+        "личным учётным записям); для отказа от запуска без защиты — "
         "SO_REQUIRE_AUTH=1.",
         file=sys.stderr,
     )

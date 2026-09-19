@@ -42,6 +42,31 @@ from .schemas import (
     SearchResponse,
 )
 
+#: Режимы авторизации /api/* (ФТ-40). Описание — в docs/SECURITY.md.
+AUTH_MODE_OPEN = "open"
+AUTH_MODE_SHARED = "shared"
+AUTH_MODE_ACCOUNTS = "accounts"
+AUTH_MODES = (AUTH_MODE_OPEN, AUTH_MODE_SHARED, AUTH_MODE_ACCOUNTS)
+
+
+def resolve_auth_mode(configured: str, auth_token: str) -> str:
+    """Определить режим авторизации.
+
+    Пустое значение сохраняет прежнее поведение развёртываний, где о
+    режиме никто не объявлял: есть общий секрет — принимаются оба способа,
+    нет — доступ открыт. Молчаливое ужесточение сломало бы работающие
+    установки, молчаливое ослабление — открыло бы их.
+    """
+    mode = (configured or "").strip().lower()
+    if mode in AUTH_MODES:
+        return mode
+    if mode:
+        raise ValueError(
+            f"SO_AUTH_MODE: ожидается одно из {', '.join(AUTH_MODES)} (получено: {mode!r})"
+        )
+    return AUTH_MODE_SHARED if auth_token else AUTH_MODE_OPEN
+
+
 #: Тип содержимого .docx — заключение для подшивки в дело (ФТ-34).
 DOCX_MEDIA_TYPE = (
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -112,6 +137,8 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
     # Лимитер привязан к приложению, а не к модулю: иначе экземпляры
     # делили бы счётчики между собой.
     _config = load_config()
+    auth_mode = resolve_auth_mode(_config.auth_mode, auth_token)
+    app.state.auth_mode = auth_mode
     app.state.login_rate_limiter = LoginRateLimiter(
         _config.login_rate_limit, _config.login_rate_window_seconds
     )
@@ -125,23 +152,28 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
 
     rag = build_legal_rag(pipeline.norm_store)
 
-    # Опознание вызывающего и авторизация (ADR-008).
+    # Опознание вызывающего и авторизация (ADR-008, режимы — ФТ-40).
     #
-    # Опознание идёт всегда, даже когда SO_AUTH_TOKEN пуст и доступ открыт:
-    # аудит должен записывать, кто выполнил действие, а в открытом режиме
-    # вход по личной учётной записи по-прежнему возможен.
+    # Опознание идёт всегда, даже в открытом режиме: аудит должен
+    # записывать, кто выполнил действие, а вход по личной учётной записи
+    # возможен и там, где доступ не ограничен.
     #
-    # Принуждение остаётся условным: без SO_AUTH_TOKEN /api/* открыт
-    # (loopback-MVP). При заданном секрете принимается общий Bearer ИЛИ
-    # валидный JWT; /auth/login и /auth/refresh открыты всегда, иначе для
-    # получения токена требовался бы токен.
+    # Принуждение зависит от режима:
+    #   open     — /api/* открыт (демонстрация на loopback);
+    #   shared   — общий секрет ИЛИ личный токен;
+    #   accounts — только личный токен, общий секрет не принимается.
+    # /auth/login и /auth/refresh открыты всегда, иначе для получения
+    # токена требовался бы токен.
     @app.middleware("http")
     async def _identify_and_authorize(request, call_next):  # noqa: ANN202
         request.state.actor = ANONYMOUS_ACTOR
         header = request.headers.get("authorization", "")
-        authorized = not auth_token
+        # В режиме accounts общий секрет не принимается вовсе: в судебной
+        # системе действие должно быть привязано к человеку, а под общим
+        # секретом все записи в журнале обезличены.
+        authorized = auth_mode == AUTH_MODE_OPEN
 
-        if auth_token and header == f"Bearer {auth_token}":
+        if auth_mode == AUTH_MODE_SHARED and auth_token and header == f"Bearer {auth_token}":
             request.state.actor = SHARED_TOKEN_ACTOR
             authorized = True
         elif header.startswith("Bearer "):
@@ -168,7 +200,10 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
 
     @app.get("/health")
     def health() -> HealthResponse:
-        return {"status": "ok", "version": __version__}
+        # Режим авторизации — факт развёртывания, а не секрет: интерфейсу
+        # он нужен, чтобы не предлагать судье вход по общему секрету там,
+        # где секрет не принимается.
+        return {"status": "ok", "version": __version__, "auth_mode": auth_mode}
 
     # exclude_none сохраняет документированную форму `{"enabled": false}`:
     # у вложенных моделей метрик необязательных полей нет, поэтому побочных

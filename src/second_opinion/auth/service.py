@@ -36,6 +36,20 @@ MIN_JWT_SECRET_BYTES = 32
 MIN_ADMIN_PASSWORD_LENGTH = 12
 
 
+def ensure_password_length(password: str, minimum: int) -> None:
+    """Отклонить пароль короче порога.
+
+    Проверка живёт отдельной функцией, потому что путей задать пароль
+    несколько — создание пользователя админом, смена владельцем, сброс, —
+    и пропуск хотя бы одного из них обнуляет всю политику.
+    """
+    if len(password) < minimum:
+        raise ValueError(
+            f"пароль короче {minimum} символов; это минимальная длина, "
+            "заданная SO_PASSWORD_MIN_LENGTH"
+        )
+
+
 def resolve_jwt_secret(config: AppConfig) -> str:
     """Ключ подписи JWT: только из ``SO_JWT_SECRET`` либо эфемерный.
 
@@ -105,6 +119,7 @@ class AuthService:
             if password_history_depth is None
             else password_history_depth
         )
+        self._password_min_length = cfg.password_min_length
         self._login_max_attempts = (
             cfg.login_max_attempts if login_max_attempts is None else login_max_attempts
         )
@@ -156,6 +171,7 @@ class AuthService:
         role: UserRole = UserRole.JUDGE,
     ) -> User:
         """Создать нового пользователя."""
+        ensure_password_length(password, self._password_min_length)
         if self._store.get_user_by_email(email):
             raise ValueError(f"Пользователь с email {email} уже существует")
 
@@ -220,6 +236,7 @@ class AuthService:
         ][: self._password_history_depth]
 
     def _apply_new_password(self, user: User, new_password: str) -> None:
+        ensure_password_length(new_password, self._password_min_length)
         self._check_password_reuse(user, new_password)
         self._remember_password(user)
         user.password_hash = hash_password(new_password)

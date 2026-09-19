@@ -182,14 +182,43 @@ function div(className, text) {
    запись (JWT), `so-token` — общий секрет развёртывания. Оба принимаются
    сервером (ADR-008). Личный приоритетнее: под ним действия попадают в
    журнал с именем исполнителя, а не обезличенно. */
+let authMode = "open";
+
 function apiFetch(url, options = {}) {
   const token = sessionStorage.getItem("so-access") || sessionStorage.getItem("so-token");
   const headers = { ...(options.headers || {}) };
   if (token) headers["Authorization"] = `Bearer ${token}`;
   return fetch(url, { ...options, headers }).then((response) => {
-    if (response.status === 401) $("auth-box").hidden = false;
+    if (response.status === 401) {
+      // В режиме accounts общий секрет не принимается вовсе — предлагать
+      // его означало бы звать судью вводить то, что заведомо не сработает.
+      if (authMode === "accounts") {
+        $("account-panel").scrollIntoView({ behavior: "smooth" });
+        $("login-email").focus();
+      } else {
+        $("auth-box").hidden = false;
+      }
+    }
     return response;
   });
+}
+
+/* Режим авторизации — факт развёртывания, а не секрет: интерфейс
+   спрашивает его, чтобы не предлагать неработающий способ входа. */
+async function loadAuthMode() {
+  try {
+    const response = await fetch("/health");
+    if (!response.ok) return;
+    authMode = (await response.json()).auth_mode || "open";
+    if (authMode === "accounts") {
+      $("auth-box").hidden = true;
+      $("auth-hint").textContent =
+        "Развёртывание принимает только личные учётные записи: " +
+        "общий секрет не подойдёт.";
+    }
+  } catch {
+    // Недоступный /health не должен ломать страницу: остаёмся на «open».
+  }
 }
 
 function factValueLabel(fact) {
@@ -1115,4 +1144,4 @@ $("login-email").addEventListener("keydown", (e) => {
 $("history-btn").addEventListener("click", loadHistory);
 $("logout-btn").addEventListener("click", logout);
 
-loadProfile();
+loadAuthMode().then(loadProfile);

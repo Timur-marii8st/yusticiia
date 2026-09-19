@@ -30,6 +30,16 @@ class AppConfig:
     jwt_secret: str = ""
     #: Требовать авторизацию жёстко: при пустом auth_token сервер не стартует.
     require_auth: bool = False
+    #: Режим авторизации /api/*:
+    #:   "open"     — доступ без авторизации (демонстрация на loopback);
+    #:   "shared"   — общий секрет ИЛИ личный токен (ADR-008);
+    #:   "accounts" — только личная учётная запись; общий секрет отвергается.
+    #: Пусто — режим выводится из наличия SO_AUTH_TOKEN, как было до
+    #: появления параметра: пустой секрет означает "open", заданный — "shared".
+    auth_mode: str = ""
+    #: Минимальная длина пароля пользователя. Для первого администратора
+    #: действует отдельный, более строгий порог (см. auth/service.py).
+    password_min_length: int = 8
     #: Носитель документов/отчётов: "file" (по умолчанию) | "postgres" (ADR-006).
     storage_backend: str = "file"
     #: DSN PostgreSQL для storage_backend="postgres".
@@ -115,6 +125,8 @@ def load_config() -> AppConfig:
         auth_token=_env("SO_AUTH_TOKEN"),
         jwt_secret=_env("SO_JWT_SECRET"),
         require_auth=_env("SO_REQUIRE_AUTH") in ("1", "true", "yes"),
+        auth_mode=(_env("SO_AUTH_MODE") or "").strip().lower(),
+        password_min_length=int(_env("SO_PASSWORD_MIN_LENGTH") or 8),
         storage_backend=_env("SO_STORAGE_BACKEND", "file") or "file",
         database_url=_env("SO_DATABASE_URL"),
         password_max_age_days=int(_env("SO_PASSWORD_MAX_AGE_DAYS") or 0),

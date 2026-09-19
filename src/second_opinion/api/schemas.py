@@ -33,6 +33,8 @@ AnalysisReportResponse = AnalysisReport
 class HealthResponse(BaseModel):
     status: str = Field(examples=["ok"])
     version: str
+    #: "open" | "shared" | "accounts" — см. docs/SECURITY.md.
+    auth_mode: str = "open"
 
 
 class HistogramSnapshot(BaseModel):
