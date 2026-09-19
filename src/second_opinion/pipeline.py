@@ -573,7 +573,12 @@ class AnalysisPipeline:
             corpus_size=self._retriever.total,
             matched=len(matches),
         )
-        analytics = compute_analytics([match.case for match in matches])
+        # Срок из проверяемого акта передаётся, чтобы показать его место в
+        # распределении (ФТ-27). Само сравнение остаётся описательным: оно
+        # не влияет ни на одну проверку правило-движка.
+        analytics = compute_analytics(
+            [match.case for match in matches], case_facts.sentence.term_months
+        )
         return case_facts, evaluations, norms_applied, matches, analytics
 
     def _apply_derived(

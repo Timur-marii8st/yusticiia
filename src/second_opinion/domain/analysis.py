@@ -10,6 +10,28 @@ from .norms import NormRef
 from .rules import RuleEvaluation
 
 
+class SentencePosition(BaseModel):
+    """Где назначенный срок стоит в распределении по сопоставимым делам.
+
+    Это **описательное наблюдение, а не оценка справедливости**. Выборка
+    синтетическая или малая, отбор дел неслучаен, а назначение наказания
+    зависит от обстоятельств, которых в сравнении нет. Поэтому здесь нет
+    ни «нормы», ни «отклонения от нормы» — только положение числа в ряду
+    чисел, и `band` названа так, чтобы это было видно.
+
+    ``band``: ``below`` — ниже нижней четверти, ``typical`` — между P25 и
+    P75, ``above`` — выше верхней четверти, ``outside`` — за пределами
+    всего наблюдаемого диапазона.
+    """
+
+    term_months: float
+    n_compared: int
+    band: str
+    #: Доля дел выборки со сроком не больше назначенного, 0.0–1.0.
+    share_at_or_below: float
+    note: str = ""
+
+
 class AnalyticsSummary(BaseModel):
     """Описательная (НЕ предписывающая) статистика по выборке дел."""
 
@@ -25,6 +47,9 @@ class AnalyticsSummary(BaseModel):
     suspended_share: float | None = None
     #: Доля дел с каждым признаком в выборке (описательная).
     feature_spread: dict[str, float] = Field(default_factory=dict)
+    #: Положение назначенного срока в распределении (ФТ-27). ``None`` —
+    #: сравнивать не с чем: срок не извлечён или в выборке нет сроков.
+    sentence_position: SentencePosition | None = None
 
 
 class SummaryLine(BaseModel):

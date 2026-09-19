@@ -153,6 +153,16 @@ button:disabled { opacity: 0.5; cursor: wait; }
 }
 .summary-line { font-size: 14px; }
 
+/* Положение назначенного срока в выборке: выделено как наблюдение,
+   а не как вывод — отсюда нейтральный фон без цвета статуса. */
+.sentence-position {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}
+
 /* Пометка происхождения обстоятельства в списке: внесено судьёй,
    извлечено моделью, исключено из проверок. */
 .fact-origin {

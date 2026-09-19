@@ -432,6 +432,28 @@ function renderAnalytics(analytics) {
   dist.className = "meta";
   dist.textContent = `Виды наказания: ${JSON.stringify(analytics.punishment_type_distribution)}`;
 
+  // Положение назначенного срока в выборке (ФТ-27). Формулировка
+  // описательная: «где стоит», а не «каким должен быть».
+  const position = analytics.sentence_position;
+  const positionBlock = div("sentence-position");
+  if (position) {
+    const share = Math.round(position.share_at_or_below * 100);
+    positionBlock.appendChild(
+      div(
+        "summary-line",
+        `${position.note} Срок не ниже, чем у ${share}% дел выборки ` +
+          `(сравнивалось дел: ${position.n_compared}).`
+      )
+    );
+    positionBlock.appendChild(
+      div(
+        "meta",
+        "Выборка неслучайна и мала, обстоятельства дел различаются: " +
+          "наблюдение не является основанием для изменения наказания."
+      )
+    );
+  }
+
   const spreadTable = document.createElement("table");
   spreadTable.className = "stats";
   const spreadHeader = document.createElement("tr");
@@ -455,6 +477,8 @@ function renderAnalytics(analytics) {
   const note = div("meta", "Статистика описательная и не является рекомендацией о наказании.");
   const wrap = $("analytics");
   wrap.innerHTML = "";
+  // Положение срока — первым: это то, ради чего судья открывает раздел.
+  if (position) wrap.appendChild(positionBlock);
   wrap.appendChild(table);
   wrap.appendChild(dist);
   if (Object.keys(analytics.feature_spread || {}).length) {
@@ -468,9 +492,17 @@ const CONCERN_LABELS = {
   violation: "Проверка не сошлась",
   attention: "Требует внимания",
   data: "Ограничение данных",
+  statistics: "Статистическое наблюдение",
 };
 
-const CONCERN_BADGE = { violation: "FAIL", attention: "WARNING", data: "UNKNOWN" };
+const CONCERN_BADGE = {
+  violation: "FAIL",
+  attention: "WARNING",
+  data: "UNKNOWN",
+  // Не «⚠»: статистика ничего не нарушает, и бейдж не должен намекать
+  // на нарушение.
+  statistics: "UNKNOWN",
+};
 
 function renderSummary(summary) {
   const panel = $("summary-panel");

@@ -35,7 +35,9 @@ PUNISHMENT_LABELS = {
 }
 
 #: Порядок разделов проблемных мест: сначала то, что не сошлось по праву.
-SEVERITY_ORDER = {"violation": 0, "attention": 1, "data": 2}
+#: Статистическое наблюдение идёт последним и намеренно отделено от
+#: остальных: это не нарушение и не предупреждение движка.
+SEVERITY_ORDER = {"violation": 0, "attention": 1, "data": 2, "statistics": 3}
 
 
 def _ids(facts: list[LegalFact], *types: str) -> list[str]:
@@ -226,6 +228,18 @@ def build_concerns(
                     + ", ".join(sorted(set(unverified_norms)))
                     + ". Проверьте их по официальному источнику."
                 ),
+            )
+        )
+
+    position = report.analytics.sentence_position if report.analytics else None
+    if position is not None and position.band == "outside":
+        # В раздел попадает только выход за весь наблюдаемый диапазон:
+        # «выше верхней четверти» — обычное дело и замечанием не является.
+        concerns.append(
+            Concern(
+                severity="statistics",
+                title="Срок вне диапазона по сопоставимым делам",
+                detail=position.note,
             )
         )
 
