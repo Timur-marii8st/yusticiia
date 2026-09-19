@@ -5,7 +5,7 @@ from collections.abc import Callable
 from typing import Any
 
 from ..domain.documents import Document
-from ..domain.enums import FactStatus, FactType, OffenseStage, PunishmentType
+from ..domain.enums import ExtractionMethod, FactStatus, FactType, OffenseStage, PunishmentType
 from ..domain.evidence import Evidence
 from ..domain.facts import LegalFact
 
@@ -93,7 +93,7 @@ class PatternFactExtractor:
                 value=value,
                 confidence=PATTERN_CONFIDENCE,
                 evidence=[evidence],
-                extraction_method="pattern",
+                extraction_method=ExtractionMethod.PATTERN,
                 status=FactStatus.VERIFIED,
             )
             found[key] = fact

@@ -25,6 +25,12 @@ data/processed/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 
+# Артефакты измерения покрытия (НТ-09): данные прогона, не исходник
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
 # Evaluation reports are generated artifacts
 evaluation/reports/
 .last_eval.json

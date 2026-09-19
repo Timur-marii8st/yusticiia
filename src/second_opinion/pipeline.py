@@ -39,7 +39,7 @@ from .metrics import (
 from .reporting import build_concerns, build_summary
 from .retrieval.case_retrieval import CaseRetriever
 from .rule_engine.engine import ENGINE_VERSION, RuleEngine
-from .storage.repositories import JsonFileRepository
+from .storage.repositories import Repository
 
 UNSET_VALUE = object()
 
@@ -154,8 +154,8 @@ class AnalysisPipeline:
     def __init__(
         self,
         *,
-        documents: JsonFileRepository[Document],
-        analyses: JsonFileRepository[AnalysisReport],
+        documents: Repository[Document],
+        analyses: Repository[AnalysisReport],
         norm_store: NormStore,
         retriever: CaseRetriever,
         llm_provider: LLMProvider,

@@ -189,7 +189,9 @@ def is_complete(payload: str) -> bool:
     признак проверяется явно.
     """
     found = _COMPLETED.search(payload)
-    return bool(found) and found.group("value").lower() == "true"
+    if found is None:
+        return False
+    return found.group("value").lower() == "true"
 
 
 class PravoGovSource:

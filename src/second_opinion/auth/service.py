@@ -147,7 +147,7 @@ class AuthService:
     # Для in-memory возвращаем живой словарь; для Postgres — read-only снимок
     # в dict-обёртке (запись через ``save_user``).
     @property
-    def _users(self) -> dict:  # type: ignore[no-redef]
+    def _users(self) -> dict:
         store = self._store
         if isinstance(store, InMemoryUserStore):
             return store._users

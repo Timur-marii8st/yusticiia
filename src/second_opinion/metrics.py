@@ -17,6 +17,7 @@ import bisect
 import os
 import threading
 from collections import defaultdict
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from time import perf_counter
@@ -132,7 +133,7 @@ class MetricsRegistry:
             return new
 
     @contextmanager
-    def time_histogram(self, name: str, help_text: str = "") -> object:
+    def time_histogram(self, name: str, help_text: str = "") -> Iterator[None]:
         """Контекст-менеджер: ``with registry.time_histogram(...):``.
 
         Гистограмма всегда регистрируется (для видимости в snapshot), но

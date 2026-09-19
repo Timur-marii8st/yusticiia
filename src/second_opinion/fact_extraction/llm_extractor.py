@@ -47,6 +47,10 @@ class LLMFactExtractor:
             )
         if payload is None:
             return []
+        # Протокол провайдера объявляет BaseModel — он не знает наших схем.
+        # Здесь схема известна: её передали в generate_structured выше.
+        if not isinstance(payload, LLMExtractionResult):
+            return []
 
         facts: list[LegalFact] = []
         text = document.text

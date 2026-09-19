@@ -112,7 +112,7 @@ def compute_analytics(
     p75 = percentile(sorted_terms, 0.75) if terms else None
     position = (
         _position(float(term_months), sorted_terms, p25, p75)
-        if term_months is not None and terms
+        if term_months is not None and terms and p25 is not None and p75 is not None
         else None
     )
     return AnalyticsSummary(

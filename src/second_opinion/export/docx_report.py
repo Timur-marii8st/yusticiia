@@ -17,7 +17,8 @@ from __future__ import annotations
 
 import io
 
-from docx import Document as DocxDocument
+from docx import Document as new_document
+from docx.document import Document as DocxDocument
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Pt
 
@@ -53,7 +54,7 @@ def _kv(doc: DocxDocument, label: str, value: str) -> None:
 
 def build_docx(report: AnalysisReport, document: Document | None = None) -> bytes:
     """Собрать заключение в .docx и вернуть его байтами."""
-    doc = DocxDocument()
+    doc = new_document()
 
     style = doc.styles["Normal"]
     style.font.name = "Times New Roman"

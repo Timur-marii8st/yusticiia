@@ -5,11 +5,29 @@ import os
 import tempfile
 import threading
 from pathlib import Path
-from typing import Generic, TypeVar
+from typing import Generic, Protocol, TypeVar
 
 from pydantic import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
+
+
+class Repository(Protocol[T]):
+    """Хранилище объектов одного типа.
+
+    ADR-006 обещает подменяемый носитель: файлы для MVP, PostgreSQL для
+    эксплуатации. В типах этого обещания не было — конвейер требовал
+    именно файловый класс, и подстановка Postgres держалась на честном
+    слове. Протокол делает обещание проверяемым.
+    """
+
+    def save(self, obj: T) -> T: ...
+
+    def get(self, obj_id: str) -> T | None: ...
+
+    def list(self) -> list[T]: ...
+
+    def delete(self, obj_id: str) -> bool: ...
 
 
 def atomic_write_json(path: Path, payload: str) -> None:

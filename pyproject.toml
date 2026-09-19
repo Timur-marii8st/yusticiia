@@ -25,6 +25,13 @@ dev = [
     # (tests/unit/test_ocr.py::test_real_ocr_on_scanned_image_pdf).
     # Без неё тест пропускается даже там, где tesseract установлен.
     "reportlab>=4.0",
+    # Измерение покрытия с порогом (НТ-09): без него регрессия в
+    # тестируемости остаётся незаметной до разбора после сдачи.
+    "pytest-cov>=5.0",
+    # Статическая проверка типов (НТ-10). Ловит то, что тесты ловят
+    # только случайным прогоном ветки: например, .group() у результата
+    # поиска, который может быть None.
+    "mypy>=1.11",
 ]
 pg = [
     "psycopg[binary]>=3.3.5",
@@ -71,3 +78,39 @@ src = ["src", "tests", "evaluation"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4"]
 ignore = ["E501"]
+
+[tool.coverage.run]
+source = ["src/second_opinion"]
+branch = true
+
+[tool.coverage.report]
+# Порог, а не цель. Измерено 19.09.2026 при включённом branch-покрытии:
+# 85.7% с поднятой базой и OCR (в CI так и есть). Порог 85 оставлял бы
+# запас в семь десятых пункта — одна новая непокрытая ветка роняла бы
+# сборку, и порог начали бы двигать вместо того, чтобы писать тесты.
+# 80 ловит настоящую просадку и не мешает работе.
+fail_under = 80
+show_missing = true
+skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src/second_opinion"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+[[tool.mypy.overrides]]
+# Обработчики FastAPI объявляют модель ответа и возвращают словарь —
+# фреймворк валидирует его по той же модели на выходе. Формально это
+# несовпадение типов, по существу — идиома, на которой стоит весь слой.
+# Переписывать три десятка обработчиков ради формальности значит
+# рисковать поведением там, где ошибку и так ловит валидация ответа и
+# тест test_openapi_schemas. Остальные проверки для слоя работают.
+module = "second_opinion.api.*"
+disable_error_code = ["return-value", "misc"]

@@ -9,11 +9,13 @@ from ..config import AppConfig, load_config
 from ..domain.analysis import AnalysisReport
 from ..domain.cases import ComparableCase
 from ..domain.documents import Document
+from ..legal_rag.embeddings import EmbeddingProvider
 from ..legal_sources.store import NormStore
 from ..llm.mock_provider import MockLLMProvider
+from ..llm.provider import LLMProvider
 from ..pipeline import AnalysisPipeline
 from ..retrieval.case_retrieval import CaseRetriever
-from ..storage.repositories import JsonFileRepository
+from ..storage.repositories import JsonFileRepository, Repository
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +49,7 @@ def build_legal_rag(norm_store: NormStore):
     if config.rag_mode not in ("hybrid", "hybrid_pgvector"):
         return LegalRag(norm_store)
 
+    embedder: EmbeddingProvider
     if config.embeddings_provider == "openai_compatible":
         embedder = OpenAICompatibleEmbeddingProvider(
             config.openai_base_url, config.openai_api_key, config.embedding_model
@@ -110,6 +113,8 @@ def build_norm_store(config: AppConfig):
 def build_pipeline(config: AppConfig | None = None) -> AnalysisPipeline:
     config = config or load_config()
 
+    documents: Repository[Document]
+    analyses: Repository[AnalysisReport]
     if config.storage_backend == "postgres":
         if not config.database_url:
             raise ValueError(
@@ -140,6 +145,7 @@ def build_pipeline(config: AppConfig | None = None) -> AnalysisPipeline:
     norm_store = build_norm_store(config)
     retriever = CaseRetriever(load_cases(config.fixtures_dir))
 
+    provider: LLMProvider
     if config.llm_provider == "openai_compatible":
         from ..llm.openai_compatible import OpenAICompatibleProvider
 
