@@ -15,14 +15,14 @@ from second_opinion.api.routes import create_app
 
 def _analyze(client: TestClient, text: str, headers: dict[str, str] | None = None) -> str:
     created = client.post(
-        "/api/documents",
+        "/api/v1/documents",
         json={"filename": "case.txt", "text": text},
         headers=headers or {},
     )
     assert created.status_code == 200, created.text
     document_id = created.json()["document_id"]
     report = client.post(
-        f"/api/documents/{document_id}/analyze", json={}, headers=headers or {}
+        f"/api/v1/documents/{document_id}/analyze", json={}, headers=headers or {}
     )
     assert report.status_code == 200, report.text
     return report.json()["analysis_id"]
@@ -55,7 +55,7 @@ def test_history_endpoint_returns_summary(pipeline, sample_clean_text) -> None:
     client = TestClient(create_app(pipeline))
     analysis_id = _analyze(client, sample_clean_text)
 
-    response = client.get("/api/analyses?limit=10")
+    response = client.get("/api/v1/analyses?limit=10")
     assert response.status_code == 200
     body = response.json()
     assert body["scope"] == "own"
@@ -83,12 +83,12 @@ def test_history_is_separated_by_actor_through_api(pipeline, sample_clean_text) 
     access = login.json()["tokens"]["access_token"]
     personal = {"Authorization": f"Bearer {access}"}
 
-    under_account = client.get("/api/analyses", headers=personal).json()
+    under_account = client.get("/api/v1/analyses", headers=personal).json()
     assert under_account["total"] == 0, "дело общего доступа не должно попадать в личную историю"
 
     _analyze(client, sample_clean_text, headers=personal)
-    assert client.get("/api/analyses", headers=personal).json()["total"] == 1
-    assert client.get("/api/analyses", headers=shared).json()["total"] == 1
+    assert client.get("/api/v1/analyses", headers=personal).json()["total"] == 1
+    assert client.get("/api/v1/analyses", headers=shared).json()["total"] == 1
 
 
 def test_only_admin_sees_every_case(pipeline, sample_clean_text) -> None:
@@ -101,14 +101,14 @@ def test_only_admin_sees_every_case(pipeline, sample_clean_text) -> None:
     access = login.json()["tokens"]["access_token"]
     admin = {"Authorization": f"Bearer {access}"}
 
-    full = client.get("/api/analyses?scope=all", headers=admin)
+    full = client.get("/api/v1/analyses?scope=all", headers=admin)
     assert full.status_code == 200
     assert full.json()["scope"] == "all"
     assert full.json()["total"] == 1
 
     # Без учётной записи расширенная область запрещена, а не молча сужена:
     # молчаливое сужение выглядело бы как «дел нет».
-    denied = client.get("/api/analyses?scope=all")
+    denied = client.get("/api/v1/analyses?scope=all")
     assert denied.status_code == 403
 
 
@@ -124,7 +124,7 @@ def test_account_panel_is_wired_in_the_interface(pipeline) -> None:
 
     assert '"/auth/login"' in js
     assert '"/auth/me"' in js
-    assert "/api/analyses?limit=" in js
+    assert "/api/v1/analyses?limit=" in js
     # Личный токен приоритетнее общего: под ним действия попадают в журнал
     # с именем исполнителя.
     assert 'sessionStorage.getItem("so-access") || sessionStorage.getItem("so-token")' in js

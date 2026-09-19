@@ -64,13 +64,13 @@ def test_docx_survives_a_deleted_document(pipeline, sample_clean_text) -> None:
 
 def test_endpoint_returns_a_docx_file(pipeline, sample_clean_text) -> None:
     client = TestClient(create_app(pipeline))
-    created = client.post("/api/documents", json={"filename": "c.txt", "text": sample_clean_text})
+    created = client.post("/api/v1/documents", json={"filename": "c.txt", "text": sample_clean_text})
     document_id = created.json()["document_id"]
-    analysis_id = client.post(f"/api/documents/{document_id}/analyze", json={}).json()[
+    analysis_id = client.post(f"/api/v1/documents/{document_id}/analyze", json={}).json()[
         "analysis_id"
     ]
 
-    response = client.get(f"/api/analyses/{analysis_id}/document")
+    response = client.get(f"/api/v1/analyses/{analysis_id}/document")
     assert response.status_code == 200
     assert response.headers["content-type"] == DOCX_MEDIA_TYPE
     assert "attachment;" in response.headers["content-disposition"]
@@ -81,7 +81,7 @@ def test_endpoint_returns_a_docx_file(pipeline, sample_clean_text) -> None:
 
 def test_unknown_analysis_gives_404(pipeline) -> None:
     client = TestClient(create_app(pipeline))
-    assert client.get("/api/analyses/нет-такого/document").status_code == 404
+    assert client.get("/api/v1/analyses/нет-такого/document").status_code == 404
 
 
 def test_download_goes_through_api_fetch(pipeline) -> None:
@@ -91,7 +91,7 @@ def test_download_goes_through_api_fetch(pipeline) -> None:
     js = client.get("/static/app.js").text
 
     assert 'id="download-docx"' in html
-    assert "apiFetch(`/api/analyses/${analysisId}/document${mask}`)" in js
+    assert "apiFetch(`/api/v1/analyses/${analysisId}/document${mask}`)" in js
 
 
 def test_masked_export_hides_personal_data(pipeline, sample_clean_text) -> None:
@@ -103,19 +103,19 @@ def test_masked_export_hides_personal_data(pipeline, sample_clean_text) -> None:
     это и есть реальный путь утечки при пересылке заключения.
     """
     client = TestClient(create_app(pipeline))
-    created = client.post("/api/documents", json={"filename": "c.txt", "text": sample_clean_text})
+    created = client.post("/api/v1/documents", json={"filename": "c.txt", "text": sample_clean_text})
     document_id = created.json()["document_id"]
-    analysis_id = client.post(f"/api/documents/{document_id}/analyze", json={}).json()[
+    analysis_id = client.post(f"/api/v1/documents/{document_id}/analyze", json={}).json()[
         "analysis_id"
     ]
     added = client.post(
-        f"/api/analyses/{analysis_id}/facts",
+        f"/api/v1/analyses/{analysis_id}/facts",
         json={"type": "defendant_age", "value": 34, "quote": "Смирнова А.В., возраст 34 года"},
     )
     assert added.status_code == 200, added.text
 
-    plain = _text_of(client.get(f"/api/analyses/{analysis_id}/document").content)
-    masked = _text_of(client.get(f"/api/analyses/{analysis_id}/document?mask=true").content)
+    plain = _text_of(client.get(f"/api/v1/analyses/{analysis_id}/document").content)
+    masked = _text_of(client.get(f"/api/v1/analyses/{analysis_id}/document?mask=true").content)
 
     assert "Смирнова А.В." in plain
     assert "Смирнова А.В." not in masked
@@ -123,5 +123,5 @@ def test_masked_export_hides_personal_data(pipeline, sample_clean_text) -> None:
     assert "Обнаружено возможных персональных данных" in plain
 
     # Хранимый документ не изменился: обезличивается то, что уходит.
-    stored = client.get(f"/api/documents/{document_id}").json()["text"]
+    stored = client.get(f"/api/v1/documents/{document_id}").json()["text"]
     assert "Смирнова А.В." in stored

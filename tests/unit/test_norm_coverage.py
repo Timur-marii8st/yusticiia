@@ -143,7 +143,9 @@ def test_reference_norm_without_sanctions_is_not_flagged() -> None:
 def test_referenced_norm_ids_match_rule_engine_source() -> None:
     """Список не должен разъезжаться со ссылками в коде движка."""
     found: set[str] = set()
-    for path in (PROJECT_ROOT / "src/second_opinion/rule_engine").glob("*.py"):
+    # rglob, а не glob: правила разложены по подмодулям rule_engine/rules/,
+    # и обход только верхнего уровня перестал бы что-либо проверять.
+    for path in (PROJECT_ROOT / "src/second_opinion/rule_engine").rglob("*.py"):
         found |= set(
             re.findall(r'"((?:uk|upk|ppvs)-rf:[a-z0-9:-]+)"', path.read_text(encoding="utf-8"))
         )

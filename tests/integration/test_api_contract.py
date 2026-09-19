@@ -23,7 +23,7 @@ def test_key_error_message_has_no_repr_quotes() -> None:
 
 def test_not_found_has_the_unified_shape(pipeline) -> None:
     client = TestClient(create_app(pipeline))
-    response = client.get("/api/norms/нет-такой")
+    response = client.get("/api/v1/norms/нет-такой")
 
     assert response.status_code == 404
     body = response.json()
@@ -36,7 +36,7 @@ def test_not_found_has_the_unified_shape(pipeline) -> None:
 
 def test_validation_error_has_the_same_shape(pipeline) -> None:
     client = TestClient(create_app(pipeline))
-    response = client.post("/api/documents", json={"filename": "a.txt"})
+    response = client.post("/api/v1/documents", json={"filename": "a.txt"})
 
     assert response.status_code == 422
     body = response.json()
@@ -49,7 +49,7 @@ def test_validation_error_has_the_same_shape(pipeline) -> None:
 
 def test_error_response_carries_the_request_id(pipeline) -> None:
     client = TestClient(create_app(pipeline))
-    response = client.get("/api/norms/нет", headers={REQUEST_ID_HEADER: "trace-err"})
+    response = client.get("/api/v1/norms/нет", headers={REQUEST_ID_HEADER: "trace-err"})
     assert response.json()["error"]["request_id"] == "trace-err"
     assert response.headers[REQUEST_ID_HEADER] == "trace-err"
 
@@ -57,24 +57,24 @@ def test_error_response_carries_the_request_id(pipeline) -> None:
 def test_norms_list_is_paginated(pipeline) -> None:
     client = TestClient(create_app(pipeline))
 
-    full = client.get("/api/norms").json()
+    full = client.get("/api/v1/norms").json()
     assert full["page"]["total"] == len(full["norms"])
     assert full["page"]["has_more"] is False
 
-    window = client.get("/api/norms?limit=5&offset=0").json()
+    window = client.get("/api/v1/norms?limit=5&offset=0").json()
     assert len(window["norms"]) == 5
     assert window["page"]["total"] == full["page"]["total"]
     assert window["page"]["has_more"] is True
 
-    tail = client.get(f"/api/norms?limit=5&offset={full['page']['total'] - 2}").json()
+    tail = client.get(f"/api/v1/norms?limit=5&offset={full['page']['total'] - 2}").json()
     assert len(tail["norms"]) == 2
     assert tail["page"]["has_more"] is False
 
 
 def test_cases_list_is_paginated(pipeline) -> None:
     client = TestClient(create_app(pipeline))
-    first = client.get("/api/cases?limit=3&offset=0").json()
-    second = client.get("/api/cases?limit=3&offset=3").json()
+    first = client.get("/api/v1/cases?limit=3&offset=0").json()
+    second = client.get("/api/v1/cases?limit=3&offset=3").json()
 
     assert len(first["cases"]) == 3
     assert first["page"]["has_more"] is True
@@ -87,8 +87,8 @@ def test_cases_list_is_paginated(pipeline) -> None:
 def test_bad_window_is_refused(pipeline) -> None:
     """Отрицательное смещение — ошибка запроса, а не тихая нормализация."""
     client = TestClient(create_app(pipeline))
-    assert client.get("/api/norms?offset=-1").status_code == 422
-    assert client.get("/api/norms?limit=0").status_code == 422
+    assert client.get("/api/v1/norms?offset=-1").status_code == 422
+    assert client.get("/api/v1/norms?limit=0").status_code == 422
 
 
 def test_error_keeps_protocol_headers(pipeline, monkeypatch) -> None:
@@ -115,3 +115,52 @@ def test_error_keeps_protocol_headers(pipeline, monkeypatch) -> None:
         assert blocked.json()["error"]["code"] == "too_many_requests"
     finally:
         load_config.cache_clear()
+
+
+def test_canonical_path_is_versioned(pipeline) -> None:
+    """Канонический путь — `/api/v1`; в спецификации только он."""
+    app = create_app(pipeline)
+    schema = app.openapi()
+    api_paths = [p for p in schema["paths"] if p.startswith("/api")]
+
+    assert api_paths, "в схеме нет ни одного пути API"
+    assert all(p.startswith("/api/v1/") for p in api_paths), (
+        f"в схеме остались пути без версии: {[p for p in api_paths if not p.startswith('/api/v1/')]}"
+    )
+
+
+def test_paths_without_version_keep_working(pipeline) -> None:
+    """Прежние клиенты не ломаются: путь без версии остаётся псевдонимом.
+
+    Интерфейс переведён на `/api/v1`, но скрипты и внешние вызовы могли
+    остаться на старом пути — одномоментная замена обошлась бы дороже,
+    чем стоит чистота.
+    """
+    client = TestClient(create_app(pipeline))
+
+    versioned = client.get("/api/v1/norms?limit=2")
+    legacy = client.get("/api/norms?limit=2")
+
+    assert versioned.status_code == legacy.status_code == 200
+    assert versioned.json() == legacy.json()
+
+    # Псевдоним строится копированием набора методов, поэтому проверяется
+    # не только GET: при потере methods запись прошла бы как 405.
+    body = {"filename": "legacy.txt", "text": "Приговор."}
+    by_alias = client.post("/api/documents", json=body)
+    canonical = client.post("/api/v1/documents", json=body)
+
+    # Сравнение идёт с каноническим ответом, а не с записанным числом:
+    # изменится код ответа эндпойнта — тест продолжит проверять равенство,
+    # а не начнёт падать на устаревшем ожидании.
+    assert by_alias.status_code == canonical.status_code == 200, by_alias.text
+
+
+def test_interface_calls_the_versioned_path(pipeline) -> None:
+    client = TestClient(create_app(pipeline))
+    js = client.get("/static/app.js").text
+
+    assert "/api/v1/" in js
+    # Путей без версии в интерфейсе остаться не должно: псевдоним — для
+    # чужих клиентов, а не для нашего собственного.
+    assert '"/api/analyses' not in js and "`/api/analyses" not in js

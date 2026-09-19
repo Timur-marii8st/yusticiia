@@ -239,7 +239,7 @@ function factValueLabel(fact) {
 
 async function updateFact(analysisId, factId, body) {
   clearError();
-  const response = await apiFetch(`/api/analyses/${analysisId}/facts/${factId}`, {
+  const response = await apiFetch(`/api/v1/analyses/${analysisId}/facts/${factId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -690,7 +690,7 @@ async function submitNewFact() {
     showFactError("Вставьте точную цитату из документа.");
     return;
   }
-  const response = await apiFetch(`/api/analyses/${box.dataset.analysisId}/facts`, {
+  const response = await apiFetch(`/api/v1/analyses/${box.dataset.analysisId}/facts`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ type, value, quote }),
@@ -707,7 +707,7 @@ async function analyzeDocument(docId) {
   const body = {};
   const applicableAt = $("applicable-at").value;
   if (applicableAt) body.applicable_at = applicableAt;
-  const response = await apiFetch(`/api/documents/${docId}/analyze`, {
+  const response = await apiFetch(`/api/v1/documents/${docId}/analyze`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -725,7 +725,7 @@ async function submit() {
   try {
     let docId;
     if (documentText) {
-      const response = await apiFetch("/api/documents", {
+      const response = await apiFetch("/api/v1/documents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ filename: "pasted_document.txt", text: documentText }),
@@ -740,7 +740,7 @@ async function submit() {
       }
       const form = new FormData();
       form.append("file", input.files[0]);
-      const response = await apiFetch("/api/documents/upload", { method: "POST", body: form });
+      const response = await apiFetch("/api/v1/documents/upload", { method: "POST", body: form });
       if (!response.ok) throw new Error((await response.json()).detail || `HTTP ${response.status}`);
       docId = (await response.json()).document_id;
     }
@@ -811,7 +811,7 @@ async function runSearch() {
   if (!query) return;
   try {
     const response = await apiFetch(
-      `/api/search?q=${encodeURIComponent(query)}&limit=10`
+      `/api/v1/search?q=${encodeURIComponent(query)}&limit=10`
     );
     if (!response.ok) {
       throw new Error((await response.json()).detail || `HTTP ${response.status}`);
@@ -895,7 +895,7 @@ async function loadCorpusState() {
   const errorBox = $("corpus-error");
   errorBox.hidden = true;
   try {
-    const response = await apiFetch("/api/norms/coverage");
+    const response = await apiFetch("/api/v1/norms/coverage");
     if (!response.ok) throw new Error(`сервер ответил ${response.status}`);
     renderCorpusState(await response.json());
   } catch (error) {
@@ -917,7 +917,7 @@ $("download-docx").addEventListener("click", async (event) => {
   button.disabled = true;
   try {
     const mask = $("mask-personal").checked ? "?mask=true" : "";
-    const response = await apiFetch(`/api/analyses/${analysisId}/document${mask}`);
+    const response = await apiFetch(`/api/v1/analyses/${analysisId}/document${mask}`);
     if (!response.ok) {
       showError(`Не удалось собрать заключение: HTTP ${response.status}`);
       return;
@@ -940,7 +940,7 @@ $("download-json").addEventListener("click", async (event) => {
   const analysisId = event.currentTarget.dataset.analysisId;
   if (!analysisId) return;
   clearError();
-  const response = await apiFetch(`/api/analyses/${analysisId}`);
+  const response = await apiFetch(`/api/v1/analyses/${analysisId}`);
   if (!response.ok) {
     showError(`Не удалось выгрузить отчёт: HTTP ${response.status}`);
     return;
@@ -1062,7 +1062,7 @@ function historyRow(item) {
   title.setAttribute("role", "button");
   title.setAttribute("tabindex", "0");
   const open = async () => {
-    const response = await apiFetch(`/api/analyses/${item.analysis_id}`);
+    const response = await apiFetch(`/api/v1/analyses/${item.analysis_id}`);
     if (!response.ok) {
       showLoginError(`Не удалось открыть дело: HTTP ${response.status}`);
       return;
@@ -1083,7 +1083,7 @@ function historyRow(item) {
 async function loadHistory() {
   const list = $("history-list");
   list.innerHTML = "";
-  const response = await apiFetch("/api/analyses?limit=20");
+  const response = await apiFetch("/api/v1/analyses?limit=20");
   if (!response.ok) {
     list.appendChild(div("hint", `История недоступна: HTTP ${response.status}`));
     return;

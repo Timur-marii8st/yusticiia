@@ -92,7 +92,9 @@ src/second_opinion/
   domain/          модели: факты, нормы, отчёт, проблемные места
   ingestion/       парсеры TXT/MD/DOCX/PDF + OCR-фолбэк
   fact_extraction/ паттерны и модель за интерфейсом
-  rule_engine/     8 детерминированных правил
+  rule_engine/     8 детерминированных правил;
+                   rules/ разложены по предмету: sanction, stage,
+                   procedure, mitigating, sentence, base
   legal_sources/   корпус норм, редакции, ИПС/ГАРАНТ, опечатывание
   legal_rag/       поиск по источникам с цитированием
   retrieval/       сопоставимые дела

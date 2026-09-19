@@ -67,7 +67,7 @@ def test_report_download_goes_through_api_fetch(pipeline) -> None:
     client = TestClient(create_app(pipeline))
     js = client.get("/static/app.js").text
 
-    assert 'href = `/api/analyses/' not in js, "ссылка снова ведёт мимо авторизации"
+    assert "href = `/api/" not in js, "ссылка снова ведёт мимо авторизации"
     assert "createObjectURL" in js
     assert 'download = "second-opinion-report.json"' in js
 

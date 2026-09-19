@@ -54,7 +54,7 @@ def test_api_rejects_oversized_file(pipeline) -> None:
     oversized = b"x" * (pipeline.max_upload_bytes + 1)
 
     response = client.post(
-        "/api/documents/upload",
+        "/api/v1/documents/upload",
         files={"file": ("big.txt", oversized, "text/plain")},
     )
     assert response.status_code == 400

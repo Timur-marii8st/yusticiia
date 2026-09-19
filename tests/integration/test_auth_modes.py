@@ -63,14 +63,14 @@ def test_accounts_mode_rejects_the_shared_secret(pipeline, auth_mode) -> None:
     auth_mode("accounts")
     client = TestClient(create_app(pipeline, auth_token="shared-secret"))
 
-    assert client.get("/api/norms").status_code == 401
+    assert client.get("/api/v1/norms").status_code == 401
     assert (
-        client.get("/api/norms", headers={"Authorization": "Bearer shared-secret"}).status_code
+        client.get("/api/v1/norms", headers={"Authorization": "Bearer shared-secret"}).status_code
         == 401
     ), "общий секрет принят в режиме, который его не принимает"
 
     access = _token(client)
-    assert client.get("/api/norms", headers={"Authorization": f"Bearer {access}"}).status_code == 200
+    assert client.get("/api/v1/norms", headers={"Authorization": f"Bearer {access}"}).status_code == 200
 
 
 def test_shared_mode_keeps_both_ways(pipeline, auth_mode) -> None:
@@ -78,11 +78,11 @@ def test_shared_mode_keeps_both_ways(pipeline, auth_mode) -> None:
     client = TestClient(create_app(pipeline, auth_token="shared-secret"))
 
     assert (
-        client.get("/api/norms", headers={"Authorization": "Bearer shared-secret"}).status_code
+        client.get("/api/v1/norms", headers={"Authorization": "Bearer shared-secret"}).status_code
         == 200
     )
     access = _token(client)
-    assert client.get("/api/norms", headers={"Authorization": f"Bearer {access}"}).status_code == 200
+    assert client.get("/api/v1/norms", headers={"Authorization": f"Bearer {access}"}).status_code == 200
 
 
 def test_health_reports_the_mode(pipeline, auth_mode) -> None:

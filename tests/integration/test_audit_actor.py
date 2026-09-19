@@ -31,7 +31,7 @@ DEMO = (
 
 def _create_document(client: TestClient, headers: dict | None = None):
     return client.post(
-        "/api/documents",
+        "/api/v1/documents",
         json={"filename": "d.txt", "text": DEMO},
         headers=headers or {},
     )
@@ -80,12 +80,12 @@ def test_fact_correction_records_actor(client, pipeline) -> None:
     headers = {"Authorization": f"Bearer {SHARED}"}
     document_id = _create_document(client, headers).json()["document_id"]
     analysis = client.post(
-        f"/api/documents/{document_id}/analyze", json={}, headers=headers
+        f"/api/v1/documents/{document_id}/analyze", json={}, headers=headers
     ).json()
     fact_id = analysis["facts"][0]["id"]
 
     response = client.patch(
-        f"/api/analyses/{analysis['analysis_id']}/facts/{fact_id}",
+        f"/api/v1/analyses/{analysis['analysis_id']}/facts/{fact_id}",
         json={"status": "NOT_FOUND"},
         headers=headers,
     )

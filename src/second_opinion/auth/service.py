@@ -143,24 +143,6 @@ class AuthService:
                 return InMemoryUserStore()
         return JsonFileUserStore(cfg.store_dir / "auth")
 
-    # Совместимость: старый код/тесты обращались к ``auth._users`` напрямую.
-    # Для in-memory возвращаем живой словарь; для Postgres — read-only снимок
-    # в dict-обёртке (запись через ``save_user``).
-    @property
-    def _users(self) -> dict:
-        store = self._store
-        if isinstance(store, InMemoryUserStore):
-            return store._users
-        return _ReadOnlyUsersView(store)
-
-    @_users.setter
-    def _users(self, value: dict) -> None:
-        if isinstance(self._store, InMemoryUserStore):
-            self._store._users = value
-        else:
-            for user in value.values():
-                self._store.save_user(user)
-
     # --- Управление пользователями ---
 
     def create_user(
@@ -435,14 +417,6 @@ class AuthService:
         if payload.jti:
             self._store.revoke_refresh(payload.jti, payload.sub)
         return True
-
-
-class _ReadOnlyUsersView(dict):
-    """Dict-совместимый снимок пользователей из внешнего store (для чтения)."""
-
-    def __init__(self, store: UserStore) -> None:
-        self._store_ref = store
-        super().__init__({u.user_id: u for u in store.list_users()})
 
 
 # Глобальный экземпляр сервиса (MVP)

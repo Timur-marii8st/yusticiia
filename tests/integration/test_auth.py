@@ -8,7 +8,7 @@ from second_opinion.api.routes import create_app
 
 def test_open_mode_by_default(pipeline) -> None:
     client = TestClient(create_app(pipeline))
-    assert client.get("/api/norms").status_code == 200
+    assert client.get("/api/v1/norms").status_code == 200
 
 
 def test_health_and_static_stay_public_when_secured(pipeline) -> None:
@@ -30,7 +30,7 @@ def test_health_and_static_stay_public_when_secured(pipeline) -> None:
 )
 def test_api_requires_valid_bearer(pipeline, headers: dict) -> None:
     client = TestClient(create_app(pipeline, auth_token="secret-token"))
-    response = client.get("/api/norms", headers=headers)
+    response = client.get("/api/v1/norms", headers=headers)
     assert response.status_code == 401
     assert "авторизация" in response.json()["detail"]
 
@@ -38,9 +38,9 @@ def test_api_requires_valid_bearer(pipeline, headers: dict) -> None:
 def test_api_accepts_correct_token(pipeline) -> None:
     client = TestClient(create_app(pipeline, auth_token="secret-token"))
     headers = {"Authorization": "Bearer secret-token"}
-    assert client.get("/api/norms", headers=headers).status_code == 200
+    assert client.get("/api/v1/norms", headers=headers).status_code == 200
     assert client.post(
-        "/api/documents",
+        "/api/v1/documents",
         json={"filename": "a.txt", "text": "Текст документа для проверки."},
         headers=headers,
     ).status_code == 200
@@ -49,7 +49,7 @@ def test_api_accepts_correct_token(pipeline) -> None:
 def test_write_operations_are_protected_too(pipeline) -> None:
     client = TestClient(create_app(pipeline, auth_token="secret-token"))
     response = client.post(
-        "/api/documents",
+        "/api/v1/documents",
         json={"filename": "a.txt", "text": "Содержимое."},
     )
     assert response.status_code == 401

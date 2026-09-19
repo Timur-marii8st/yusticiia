@@ -15,7 +15,7 @@ from second_opinion.audit.trail import AuditTrail
 
 def test_response_carries_a_request_id(pipeline) -> None:
     client = TestClient(create_app(pipeline))
-    response = client.get("/api/norms")
+    response = client.get("/api/v1/norms")
     assert response.status_code == 200
     assert response.headers.get(REQUEST_ID_HEADER)
 
@@ -23,14 +23,14 @@ def test_response_carries_a_request_id(pipeline) -> None:
 def test_client_identifier_is_kept(pipeline) -> None:
     """Свой идентификатор клиента уважается: он уже в его журналах."""
     client = TestClient(create_app(pipeline))
-    response = client.get("/api/norms", headers={REQUEST_ID_HEADER: "case-42-trace"})
+    response = client.get("/api/v1/norms", headers={REQUEST_ID_HEADER: "case-42-trace"})
     assert response.headers[REQUEST_ID_HEADER] == "case-42-trace"
 
 
 def test_overlong_identifier_is_replaced(pipeline) -> None:
     """Чужое значение попадает в журнал — длину ограничиваем."""
     client = TestClient(create_app(pipeline))
-    response = client.get("/api/norms", headers={REQUEST_ID_HEADER: "a" * 200})
+    response = client.get("/api/v1/norms", headers={REQUEST_ID_HEADER: "a" * 200})
     assert response.headers[REQUEST_ID_HEADER] != "a" * 200
 
 
@@ -56,7 +56,7 @@ def test_unsafe_identifier_is_replaced_before_it_reaches_the_log() -> None:
 def test_identifier_reaches_the_audit_record(pipeline, sample_clean_text) -> None:
     client = TestClient(create_app(pipeline))
     created = client.post(
-        "/api/documents",
+        "/api/v1/documents",
         json={"filename": "c.txt", "text": sample_clean_text},
         headers={REQUEST_ID_HEADER: "trace-ingest-1"},
     )
@@ -69,7 +69,7 @@ def test_identifier_reaches_the_audit_record(pipeline, sample_clean_text) -> Non
 def test_unauthorized_response_also_carries_the_identifier(pipeline) -> None:
     """Ошибка — как раз тот случай, когда идентификатор и нужен."""
     client = TestClient(create_app(pipeline, auth_token="secret"))
-    response = client.get("/api/norms")
+    response = client.get("/api/v1/norms")
     assert response.status_code == 401
     assert response.headers.get(REQUEST_ID_HEADER)
 

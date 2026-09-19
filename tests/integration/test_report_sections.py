@@ -93,9 +93,9 @@ def test_sections_are_recomputed_after_a_correction(pipeline, sample_violation_t
 
 def test_sections_reach_the_interface(pipeline, sample_clean_text) -> None:
     client = TestClient(create_app(pipeline))
-    created = client.post("/api/documents", json={"filename": "c.txt", "text": sample_clean_text})
+    created = client.post("/api/v1/documents", json={"filename": "c.txt", "text": sample_clean_text})
     document_id = created.json()["document_id"]
-    report = client.post(f"/api/documents/{document_id}/analyze", json={}).json()
+    report = client.post(f"/api/v1/documents/{document_id}/analyze", json={}).json()
 
     assert report["summary"]["lines"]
     assert "concerns" in report

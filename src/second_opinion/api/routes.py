@@ -8,6 +8,7 @@ from typing import Annotated, Any
 from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.responses import Response as FileLikeResponse
+from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -329,7 +330,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
 
     # -- документы ----------------------------------------------------------
 
-    @app.post("/api/documents")
+    @app.post("/api/v1/documents")
     def create_document(
         payload: TextDocumentPayload, request: Request
     ) -> DocumentCreated:
@@ -349,7 +350,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
             "chars": len(document.text),
         }
 
-    @app.post("/api/documents/upload")
+    @app.post("/api/v1/documents/upload")
     async def upload_document(
         file: Annotated[UploadFile, File(...)], request: Request
     ) -> DocumentCreated:
@@ -370,7 +371,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
             "chars": len(document.text),
         }
 
-    @app.get("/api/documents/{document_id}")
+    @app.get("/api/v1/documents/{document_id}")
     def get_document(document_id: str) -> DocumentContent:
         try:
             document = pipeline.get_document(document_id)
@@ -383,7 +384,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
             "sha256": document.sha256,
         }
 
-    @app.delete("/api/documents/{document_id}")
+    @app.delete("/api/v1/documents/{document_id}")
     def delete_document(document_id: str, request: Request) -> DeletedResponse:
         """Удалить документ и все отчёты по нему (право на забвение)."""
         try:
@@ -393,7 +394,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
         return {"deleted": document_id}
 
     @app.get(
-        "/api/analyses/{analysis_id}/document",
+        "/api/v1/analyses/{analysis_id}/document",
         # Ответ — файл, а не JSON. Без явного описания схема объявляла бы
         # его «любым объектом», и по спецификации нельзя было бы понять,
         # что эндпойнт отдаёт документ.
@@ -437,7 +438,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
             },
         )
 
-    @app.delete("/api/analyses/{analysis_id}")
+    @app.delete("/api/v1/analyses/{analysis_id}")
     def delete_analysis(analysis_id: str, request: Request) -> DeletedResponse:
         try:
             pipeline.delete_analysis(analysis_id, actor=_actor(request))
@@ -445,7 +446,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
             raise HTTPException(status_code=404, detail=human_message(exc)) from exc
         return {"deleted": analysis_id}
 
-    @app.post("/api/documents/{document_id}/analyze")
+    @app.post("/api/v1/documents/{document_id}/analyze")
     def analyze(
         document_id: str,
         request: Request,
@@ -462,7 +463,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
             raise HTTPException(status_code=404, detail=human_message(exc)) from exc
         return report
 
-    @app.get("/api/analyses")
+    @app.get("/api/v1/analyses")
     def list_analyses(
         request: Request, limit: int = 50, scope: str = "own"
     ) -> HistoryResponse:
@@ -510,14 +511,14 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
             )
         return {"scope": effective_scope, "total": len(items), "items": items}
 
-    @app.get("/api/analyses/{analysis_id}")
+    @app.get("/api/v1/analyses/{analysis_id}")
     def get_analysis(analysis_id: str) -> AnalysisReportResponse:
         report = pipeline.get_analysis(analysis_id)
         if report is None:
             raise HTTPException(status_code=404, detail="отчёт не найден")
         return report
 
-    @app.post("/api/analyses/{analysis_id}/facts")
+    @app.post("/api/v1/analyses/{analysis_id}/facts")
     def add_fact(
         analysis_id: str, payload: FactAddPayload, request: Request
     ) -> AnalysisReportResponse:
@@ -538,7 +539,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
             raise HTTPException(status_code=400, detail=human_message(exc)) from exc
         return report
 
-    @app.patch("/api/analyses/{analysis_id}/facts/{fact_id}")
+    @app.patch("/api/v1/analyses/{analysis_id}/facts/{fact_id}")
     def update_fact(
         analysis_id: str,
         fact_id: str,
@@ -564,7 +565,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
 
     # -- нормы --------------------------------------------------------------
 
-    @app.get("/api/norms")
+    @app.get("/api/v1/norms")
     def list_norms(
         limit: int = Query(default=100, ge=1, le=500),
         offset: int = Query(default=0, ge=0),
@@ -590,7 +591,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
             },
         }
 
-    @app.get("/api/norms/coverage")
+    @app.get("/api/v1/norms/coverage")
     def norms_coverage() -> NormCoverageResponse:
         """Состояние корпуса: что сверено, что требует юридической сверки.
 
@@ -653,7 +654,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
             "norms": items,
         }
 
-    @app.get("/api/norms/{norm_id}")
+    @app.get("/api/v1/norms/{norm_id}")
     def get_norm(
         norm_id: str, applicable_at: str | None = Query(default=None)
     ) -> NormDetailResponse:
@@ -678,7 +679,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
 
     # -- практика -------------------------------------------------------------
 
-    @app.get("/api/cases")
+    @app.get("/api/v1/cases")
     def list_cases(
         article: int | None = Query(default=None),
         part: int | None = Query(default=None),
@@ -707,7 +708,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
 
     # -- поиск по базе источников ---------------------------------------------
 
-    @app.get("/api/search")
+    @app.get("/api/v1/search")
     def search_sources(
         q: str = Query(min_length=1),
         limit: int = Query(default=10, ge=1, le=50),
@@ -729,6 +730,37 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
             q, limit=limit, code=code, article=article, applicable_at=when
         )
         return {"query": q, "results": hits}
+
+    # -- совместимость с путями без версии -------------------------------------
+    #
+    # Канонический путь теперь `/api/v1/...`: у будущих несовместимых
+    # изменений должно быть куда переезжать, иначе их либо не делают, либо
+    # ломают работающих клиентов. Прежние `/api/...` продолжают работать —
+    # их зовут интерфейс, скрипты и тесты, и одномоментная замена пути ради
+    # чистоты обошлась бы дороже, чем она стоит.
+    #
+    # Дубликаты скрыты из схемы: спецификация описывает один канонический
+    # путь, а не два одинаковых.
+    for route in list(app.router.routes):
+        # APIRoute, а не BaseRoute: у смонтированной статики нет ни метода,
+        # ни модели ответа, и копировать там нечего.
+        if not isinstance(route, APIRoute) or not route.path.startswith("/api/v1/"):
+            continue
+        path = route.path
+        app.router.add_api_route(
+            "/api/" + path[len("/api/v1/") :],
+            route.endpoint,
+            methods=sorted(route.methods or {"GET"}),
+            response_model=route.response_model,
+            response_class=route.response_class,
+            responses=route.responses,
+            # Код ответа копируется наравне с остальным: сегодня все
+            # обработчики отвечают 200, но появись завтра 201 — псевдоним
+            # обязан отвечать так же, а не откатываться к умолчанию.
+            status_code=route.status_code,
+            name=f"{route.name}__legacy",
+            include_in_schema=False,
+        )
 
     # -- статический UI -------------------------------------------------------
 
