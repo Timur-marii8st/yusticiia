@@ -916,7 +916,8 @@ $("download-docx").addEventListener("click", async (event) => {
   const button = event.currentTarget;
   button.disabled = true;
   try {
-    const response = await apiFetch(`/api/analyses/${analysisId}/document`);
+    const mask = $("mask-personal").checked ? "?mask=true" : "";
+    const response = await apiFetch(`/api/analyses/${analysisId}/document${mask}`);
     if (!response.ok) {
       showError(`Не удалось собрать заключение: HTTP ${response.status}`);
       return;
@@ -925,7 +926,8 @@ $("download-docx").addEventListener("click", async (event) => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `second-opinion-${analysisId.slice(0, 8)}.docx`;
+    link.download =
+      `second-opinion-${analysisId.slice(0, 8)}${mask ? "-обезличено" : ""}.docx`;
     link.click();
     URL.revokeObjectURL(url);
   } finally {

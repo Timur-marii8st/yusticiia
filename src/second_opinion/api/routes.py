@@ -325,11 +325,15 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
             }
         },
     )
-    def download_analysis_document(analysis_id: str):  # noqa: ANN202
+    def download_analysis_document(analysis_id: str, mask: bool = False):  # noqa: ANN202
         """Заключение в .docx — файл, который можно подшить в дело.
 
         Печать из браузера годится посмотреть, но не переслать и не
         приложить к материалам.
+
+        ``mask=true`` скрывает персональные данные в выгружаемом файле
+        (Д-06). Хранимый документ при этом не меняется: обезличивается
+        то, что покидает систему.
         """
         from ..export import build_docx
 
@@ -342,7 +346,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
             # Документ удалён по праву на забвение, отчёт остался:
             # заключение собирается без реквизитов файла, а не падает.
             document = None
-        payload = build_docx(report, document)
+        payload = build_docx(report, document, mask_personal_data=mask)
         return FileLikeResponse(
             content=payload,
             media_type=DOCX_MEDIA_TYPE,

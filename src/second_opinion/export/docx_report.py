@@ -25,6 +25,7 @@ from docx.shared import Pt
 from ..domain.analysis import AnalysisReport
 from ..domain.documents import Document
 from ..domain.enums import RuleStatus
+from ..privacy import detect_personal_data, mask_text
 
 STATUS_LABELS = {
     RuleStatus.PASS: "соблюдено",
@@ -52,8 +53,21 @@ def _kv(doc: DocxDocument, label: str, value: str) -> None:
     paragraph.add_run(value)
 
 
-def build_docx(report: AnalysisReport, document: Document | None = None) -> bytes:
-    """Собрать заключение в .docx и вернуть его байтами."""
+def build_docx(
+    report: AnalysisReport,
+    document: Document | None = None,
+    mask_personal_data: bool = False,
+) -> bytes:
+    """Собрать заключение в .docx и вернуть его байтами.
+
+    ``mask_personal_data`` скрывает персональные данные в цитатах и в
+    изложении (Д-06). Оригинал документа при этом не меняется:
+    обезличивается то, что уходит из системы, а не то, что хранится.
+    """
+
+    def visible(value: str) -> str:
+        return mask_text(value) if mask_personal_data else value
+
     doc = new_document()
 
     style = doc.styles["Normal"]
@@ -80,6 +94,15 @@ def build_docx(report: AnalysisReport, document: Document | None = None) -> byte
     if report.applicable_at_assumed:
         applicable += " (дата в документе не найдена, взята текущая — допущение)"
     _kv(doc, "Нормы применены на дату", applicable)
+    if document is not None:
+        found = detect_personal_data(document.text)
+        if found.total:
+            _kv(
+                doc,
+                "Обнаружено возможных персональных данных",
+                f"{found.total}"
+                + (" (скрыты в этом файле)" if mask_personal_data else " (в файле не скрыты)"),
+            )
 
     _heading(doc, "2. Краткое изложение дела")
     if report.summary.headline:
@@ -87,7 +110,7 @@ def build_docx(report: AnalysisReport, document: Document | None = None) -> byte
         headline.add_run(report.summary.headline).bold = True
     if report.summary.lines:
         for line in report.summary.lines:
-            doc.add_paragraph(line.text, style="List Bullet")
+            doc.add_paragraph(visible(line.text), style="List Bullet")
     else:
         doc.add_paragraph("Обстоятельства из документа не извлечены.")
 
@@ -97,9 +120,9 @@ def build_docx(report: AnalysisReport, document: Document | None = None) -> byte
             paragraph = doc.add_paragraph(style="List Bullet")
             label = SEVERITY_LABELS.get(concern.severity, concern.severity)
             paragraph.add_run(f"{label}. ").bold = True
-            paragraph.add_run(concern.title)
+            paragraph.add_run(visible(concern.title))
             if concern.detail:
-                doc.add_paragraph(concern.detail)
+                doc.add_paragraph(visible(concern.detail))
     else:
         doc.add_paragraph("Проверки прошли, данных хватило: отдельных замечаний нет.")
 
@@ -109,7 +132,7 @@ def build_docx(report: AnalysisReport, document: Document | None = None) -> byte
         status = STATUS_LABELS.get(evaluation.status, str(evaluation.status))
         paragraph.add_run(f"{evaluation.headline} — {status}").bold = True
         if evaluation.explanation:
-            doc.add_paragraph(evaluation.explanation)
+            doc.add_paragraph(visible(evaluation.explanation))
         if evaluation.norms_used:
             # Редакция обязана ехать вместе с нормой: без неё ссылка не
             # проверяема, а проверяемость — смысл всего отчёта.
@@ -127,7 +150,7 @@ def build_docx(report: AnalysisReport, document: Document | None = None) -> byte
         paragraph.add_run(str(fact.value))
         paragraph.add_run(f" [{fact.status}, метод: {fact.extraction_method}]")
         for evidence in fact.evidence:
-            quote = doc.add_paragraph(f"«{evidence.quote}»")
+            quote = doc.add_paragraph(f"«{visible(evidence.quote)}»")
             quote.paragraph_format.left_indent = Pt(24)
             doc.add_paragraph(
                 f"Фрагмент документа: символы {evidence.start_offset}–{evidence.end_offset}"
@@ -158,6 +181,14 @@ def build_docx(report: AnalysisReport, document: Document | None = None) -> byte
             _kv(doc, "Медиана срока, мес.", str(analytics.median_months))
         if analytics.sentence_position is not None:
             doc.add_paragraph(analytics.sentence_position.note)
+
+    if mask_personal_data:
+        note = doc.add_paragraph()
+        note.add_run(
+            "Персональные данные в этом файле скрыты автоматически. "
+            "Полнота обезличивания не гарантирована: перед передачей "
+            "документа проверьте его глазами."
+        ).italic = True
 
     _heading(doc, "7. Оговорки")
     for disclaimer in report.disclaimers:

@@ -91,5 +91,37 @@ def test_download_goes_through_api_fetch(pipeline) -> None:
     js = client.get("/static/app.js").text
 
     assert 'id="download-docx"' in html
-    assert "/document`)" in js
-    assert "apiFetch(`/api/analyses/${analysisId}/document`)" in js
+    assert "apiFetch(`/api/analyses/${analysisId}/document${mask}`)" in js
+
+
+def test_masked_export_hides_personal_data(pipeline, sample_clean_text) -> None:
+    """Обезличивание применяется к выгрузке, а не к хранимому документу (Д-06).
+
+    В заключении персональные данные появляются там, где в цитату попала
+    фамилия: сам текст документа в файл не переносится. Поэтому проверка
+    строится на обстоятельстве, добавленном судьёй с такой цитатой, —
+    это и есть реальный путь утечки при пересылке заключения.
+    """
+    client = TestClient(create_app(pipeline))
+    created = client.post("/api/documents", json={"filename": "c.txt", "text": sample_clean_text})
+    document_id = created.json()["document_id"]
+    analysis_id = client.post(f"/api/documents/{document_id}/analyze", json={}).json()[
+        "analysis_id"
+    ]
+    added = client.post(
+        f"/api/analyses/{analysis_id}/facts",
+        json={"type": "defendant_age", "value": 34, "quote": "Смирнова А.В., возраст 34 года"},
+    )
+    assert added.status_code == 200, added.text
+
+    plain = _text_of(client.get(f"/api/analyses/{analysis_id}/document").content)
+    masked = _text_of(client.get(f"/api/analyses/{analysis_id}/document?mask=true").content)
+
+    assert "Смирнова А.В." in plain
+    assert "Смирнова А.В." not in masked
+    assert "Персональные данные в этом файле скрыты" in masked
+    assert "Обнаружено возможных персональных данных" in plain
+
+    # Хранимый документ не изменился: обезличивается то, что уходит.
+    stored = client.get(f"/api/documents/{document_id}").json()["text"]
+    assert "Смирнова А.В." in stored

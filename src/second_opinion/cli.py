@@ -135,6 +135,38 @@ def _analyze(file_path: Path, applicable_at: str | None) -> int:
     return 0
 
 
+def _anonymize(file_path: Path, output: Path | None) -> int:
+    """Подготовить обезличенную копию документа.
+
+    Нужна там, где реальное дело показывают посторонним: жюри,
+    коллегам, в статье. Система при этом продолжает хранить оригинал —
+    обезличивается то, что уходит наружу.
+    """
+    from .ingestion.parser import ParseError, parse_document
+    from .privacy import detect_personal_data, mask_text
+
+    try:
+        document = parse_document(file_path.name, file_path.read_bytes(), 50_000_000)
+    except (ParseError, OSError) as exc:
+        print(f"ОШИБКА: {exc}", file=sys.stderr)
+        return 2
+
+    report = detect_personal_data(document.text)
+    masked = mask_text(document.text, report)
+    target = output or file_path.with_name(f"{file_path.stem}-обезличено.txt")
+    target.write_text(masked, encoding="utf-8")
+
+    print(f"Обнаружено фрагментов с персональными данными: {report.total}")
+    for kind, count in sorted(report.by_kind().items()):
+        print(f"  {kind}: {count}")
+    print(f"Обезличенная копия: {target}")
+    print(
+        "Полнота обезличивания не гарантирована: пропущенное отчество или "
+        "редкая фамилия останутся в тексте. Проверьте файл глазами."
+    )
+    return 0
+
+
 def _norms_coverage(strict: bool) -> int:
     """Отчёт о редакционном покрытии норм."""
     from .api.deps import build_norm_store
@@ -524,6 +556,15 @@ def main(argv: list[str] | None = None) -> int:
     serve_p.add_argument("--host", default="127.0.0.1")
     serve_p.add_argument("--port", type=int, default=8000)
 
+    anon_p = sub.add_parser(
+        "anonymize",
+        help="подготовить обезличенную копию документа (Д-06)",
+    )
+    anon_p.add_argument("file", type=Path, help="файл судебного акта")
+    anon_p.add_argument(
+        "--output", type=Path, help="куда записать (по умолчанию рядом с исходным)"
+    )
+
     analyze_p = sub.add_parser("analyze", help="анализ файла в консоли")
     analyze_p.add_argument("file", type=Path)
     analyze_p.add_argument("--applicable-at", default=None, help="ISO-дата (ГГГГ-ММ-ДД)")
@@ -637,6 +678,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "serve":
         return _serve(args.host, args.port)
+    if args.command == "anonymize":
+        return _anonymize(args.file, args.output)
     if args.command == "analyze":
         return _analyze(args.file, args.applicable_at)
     if args.command == "eval":

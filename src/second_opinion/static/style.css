@@ -247,7 +247,8 @@ table.stats td, table.stats th {
 }
 table.stats th { background: #f2f5f8; font-weight: 600; }
 
-.report-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.report-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; align-items: center; }
+.mask-label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
 .report-actions a.secondary {
   display: inline-block; text-decoration: none;
   padding: 6px 14px;

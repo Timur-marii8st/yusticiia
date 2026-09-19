@@ -7,7 +7,7 @@
   <!-- ?v= — метка версии статики: после обновления интерфейса браузер
        иначе продолжает показывать закэшированные стили и скрипт.
        Меняется вручную вместе с правкой style.css / app.js. -->
-  <link rel="stylesheet" href="/static/style.css?v=0.46">
+  <link rel="stylesheet" href="/static/style.css?v=0.48">
 </head>
 <body>
   <a class="skip-link" href="#upload-panel">Перейти к форме анализа</a>
@@ -125,6 +125,10 @@
         <div class="report-actions no-print">
           <button id="print-btn" class="secondary">Печать отчёта</button>
           <button id="download-docx" class="secondary">Скачать заключение (DOCX)</button>
+          <label class="mask-label">
+            <input type="checkbox" id="mask-personal">
+            скрыть персональные данные в файле
+          </label>
           <a id="download-json" class="secondary" download="second-opinion-report.json"
             href="#">Скачать JSON</a>
         </div>
@@ -226,6 +230,6 @@
     </div>
   </main>
 
-  <script src="/static/app.js?v=0.46"></script>
+  <script src="/static/app.js?v=0.48"></script>
 </body>
 </html>
