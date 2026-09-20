@@ -206,3 +206,32 @@ def test_license_file_matches_the_declared_one() -> None:
     assert metadata["project"]["license-files"] == ["LICENSE"], (
         "файл лицензии не попадёт в сборку пакета"
     )
+
+
+def test_markdown_tables_are_well_formed() -> None:
+    """Разделитель таблицы совпадает по числу столбцов с заголовком.
+
+    Регрессия: правка, добавлявшая столбец «Источник» в требования,
+    прошлась по всем разделителям подряд — включая таблицы плана работ,
+    где столбцов три. Заголовок остался трёхстолбцовым, разделитель стал
+    четырёхстолбцовым, и таблица перестала быть таблицей. Прогон при этом
+    был зелёным: разметку документов до сих пор никто не проверял.
+    """
+    broken: list[str] = []
+    for path in _markdown_files():
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for number, line in enumerate(lines, 1):
+            if not line.startswith("|---"):
+                continue
+            header = lines[number - 2] if number >= 2 else ""
+            if not header.startswith("|"):
+                broken.append(f"{path.relative_to(PROJECT_ROOT)}:{number} разделитель без заголовка")
+                continue
+            if header.count("|") != line.count("|"):
+                broken.append(
+                    f"{path.relative_to(PROJECT_ROOT)}:{number} "
+                    f"столбцов в заголовке {header.count('|') - 1}, "
+                    f"в разделителе {line.count('|') - 1}"
+                )
+
+    assert not broken, "таблицы разъехались:\n  " + "\n  ".join(broken)
