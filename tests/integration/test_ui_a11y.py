@@ -108,14 +108,21 @@ def test_search_score_is_explained(pipeline) -> None:
 def test_document_has_one_heading_of_the_first_level(pipeline) -> None:
     """Двенадцать h1 читаются скринридером как двенадцать документов.
 
-    Заголовок первого уровня — название системы; разделы идут вторым
-    уровнем, иначе навигация по структуре страницы бессмысленна.
+    Заголовок первого уровня — название системы; разделы страницы идут
+    вторым уровнем, панели внутри рабочей области — третьим. Прежде все
+    двенадцать панелей стояли вторым уровнем плоским списком: навигация по
+    структуре была, но не показывала, что одиннадцать из них — части
+    одного разбора.
     """
     client = TestClient(create_app(pipeline))
     html = client.get("/").text
 
     assert html.count("<h1") == 1, "заголовков первого уровня должно быть ровно один"
-    assert html.count("<h2") >= 10
+    # Разделы страницы: доступ, личный кабинет, рабочая область, корпус.
+    assert html.count("<h2") == 4, "разделов страницы должно быть четыре"
+    # Панели разбора подчинены рабочей области, а не стоят с ней наравне.
+    assert html.count("<h3") >= 8
+    assert html.index("<h2 id=\"workspace-title\"") < html.index("<h3")
 
 
 def test_every_section_is_a_named_landmark(pipeline) -> None:
@@ -245,3 +252,25 @@ def test_internal_names_do_not_reach_the_reader(pipeline) -> None:
     assert "${verificationLabel(hit.verification_status)}" in js
     assert "${methodLabel(fact.extraction_method)}" in js
     assert "${statusLabel(fact.status)}" in js
+
+
+def test_interface_is_split_into_the_two_named_areas(pipeline) -> None:
+    """Интерфейс разделён на «Личный кабинет» и «Рабочую область».
+
+    Это единственное, что Положение конкурса говорит о раскладке
+    интерфейса. Кабинет был назван с самого начала, рабочая область — нет:
+    одиннадцать панелей шли подряд плоским списком, и требование
+    выполнялось по существу, но не по форме.
+    """
+    client = TestClient(create_app(pipeline))
+    html = client.get("/").text
+
+    assert ">Личный кабинет<" in html
+    assert ">Рабочая область<" in html
+    assert 'id="workspace"' in html
+
+    # Разбор дела лежит внутри рабочей области, а не рядом с ней.
+    workspace = html[html.index('<section id="workspace"') :]
+    workspace = workspace[: workspace.index('id="corpus-panel"')]
+    for panel in ("upload-panel", "summary-panel", "concerns-panel", "sources-panel"):
+        assert panel in workspace, f"{panel} оказалась вне рабочей области"

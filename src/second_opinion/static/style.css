@@ -82,6 +82,27 @@ main {
 }
 
 h2 { font-size: 16px; margin: 0 0 10px; }
+h3 { font-size: 16px; margin: 0 0 10px; }
+
+/* Рабочая область — не карточка, а группа карточек: своей рамки у неё
+   нет, иначе на экране появилась бы рамка внутри рамки. Заголовок и
+   пояснение стоят над группой, панели внутри сохраняют прежний вид. */
+#workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+#workspace > h2 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.workspace-hint { margin: -10px 0 0; }
 .hint { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
 
 textarea {
