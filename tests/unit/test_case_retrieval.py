@@ -102,3 +102,27 @@ def test_group_criterion_counts_as_substance() -> None:
     criteria.offense.complicity_role = "organized_group"
     matches = _retriever().search(criteria, limit=50)
     assert all(m.case.group for m in matches)
+
+
+def test_case_model_carries_no_judge_identity() -> None:
+    """Сведений о судье в базе практики нет — и не должно появиться.
+
+    Концепция ВС РФ по ИИ (приказ от 03.09.2026 № 59-П) запрещает
+    персонализированный анализ судей. Запрет выполняется не оговоркой в
+    документации, а устройством модели: в `ComparableCase` есть суд, но
+    нет судьи, поэтому срез «как судит такой-то» построить не на чем.
+
+    Проверка стоит здесь, чтобы поле не добавили по недосмотру: оно
+    выглядело бы безобидным реквизитом дела, а открыло бы ровно то, что
+    запрещено.
+    """
+    from second_opinion.domain.cases import ComparableCase
+
+    forbidden = {"judge", "judge_name", "judge_id", "presiding", "судья"}
+    present = set(ComparableCase.model_fields) & forbidden
+
+    assert not present, (
+        f"в модели дела появились сведения о судье: {sorted(present)}. "
+        "Персонализированный анализ судей запрещён — поле убрать или "
+        "обосновать отдельным решением"
+    )
