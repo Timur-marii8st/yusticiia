@@ -94,6 +94,11 @@ PostgreSQL — `SO_TEST_DATABASE_URL=... pytest -k postgres` (и `-k pgvector`).
 | `SO_RAG_MODE` | `lexical` \| `hybrid` \| `hybrid_pgvector` | `lexical` |
 | `SO_EMBEDDINGS_PROVIDER` | `hashing` \| `openai_compatible` | `hashing` |
 | `SO_EMBEDDING_MODEL` | модель эмбеддингов (openai_compatible) | пусто |
+| `SO_LLM_PROVIDER` | `mock` · `gigachat` · `openai_compatible` | `mock` |
+| `SO_GIGACHAT_AUTH_KEY` | ключ авторизации GigaChat (Base64), меняется на временный токен | пусто |
+| `SO_GIGACHAT_SCOPE` | область токена: PERS, CORP или B2B | `GIGACHAT_API_PERS` |
+| `SO_GIGACHAT_CA_BUNDLE` | сертификаты НУЦ Минцифры, если контур их требует | пусто |
+| `SO_LLM_AUTH_SCHEME` | схема в заголовке Authorization; Yandex AI Studio ждёт `Api-Key` | `Bearer` |
 | `SO_AUTH_TOKEN` | Bearer-токен для `/api/*` (loopback-MVP) | пусто |
 | `SO_JWT_SECRET` | ключ подписи JWT личных учёток, ≥32 байт | пусто (эфемерный) |
 | `SO_REQUIRE_AUTH` | `1` — не стартовать на внешнем адресе без `SO_AUTH_TOKEN` | `0` |

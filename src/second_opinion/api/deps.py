@@ -146,11 +146,24 @@ def build_pipeline(config: AppConfig | None = None) -> AnalysisPipeline:
     retriever = CaseRetriever(load_cases(config.fixtures_dir))
 
     provider: LLMProvider
-    if config.llm_provider == "openai_compatible":
+    if config.llm_provider == "gigachat":
+        from ..llm.gigachat import DEFAULT_BASE_URL, GigaChatProvider
+
+        provider = GigaChatProvider(
+            config.gigachat_auth_key,
+            config.llm_model or "GigaChat",
+            base_url=config.openai_base_url or DEFAULT_BASE_URL,
+            scope=config.gigachat_scope,
+            verify=config.gigachat_ca_bundle or True,
+        )
+    elif config.llm_provider == "openai_compatible":
         from ..llm.openai_compatible import OpenAICompatibleProvider
 
         provider = OpenAICompatibleProvider(
-            config.openai_base_url, config.openai_api_key, config.llm_model
+            config.openai_base_url,
+            config.openai_api_key,
+            config.llm_model,
+            auth_scheme=config.llm_auth_scheme,
         )
     else:
         provider = MockLLMProvider()

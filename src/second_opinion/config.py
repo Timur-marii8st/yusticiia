@@ -14,7 +14,7 @@ DEFAULT_MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 class AppConfig:
     data_dir: Path
     fixtures_dir: Path
-    llm_provider: str  # "mock" | "openai_compatible"
+    llm_provider: str  # "mock" | "openai_compatible" | "gigachat"
     openai_base_url: str
     openai_api_key: str
     llm_model: str
@@ -74,6 +74,17 @@ class AppConfig:
     garant_token: str = ""
     #: Каталог файлов заглушки.
     garant_stub_dir: str = ""
+    #: Схема в заголовке Authorization у openai_compatible. OpenAI-совместимые
+    #: контуры ждут "Bearer", Yandex AI Studio — "Api-Key".
+    llm_auth_scheme: str = "Bearer"
+    #: Ключ авторизации GigaChat (строка Base64 из личного кабинета). Меняется
+    #: на временный токен, сам в запросы не попадает.
+    gigachat_auth_key: str = ""
+    #: Область действия токена GigaChat: PERS для физических лиц, CORP или B2B
+    #: для юридических — зависит от договора, угадать нельзя.
+    gigachat_scope: str = "GIGACHAT_API_PERS"
+    #: Путь к сертификатам НУЦ Минцифры, если контур их требует.
+    gigachat_ca_bundle: str = ""
     #: Попыток входа с одного клиента за окно (0 — без ограничения).
     #: Блокировка учётки считает неудачи по пользователю и потому не
     #: сдерживает перебор по списку адресов — этот лимит считает по клиенту.
@@ -141,6 +152,11 @@ def load_config() -> AppConfig:
         garant_base_url=_env("SO_GARANT_BASE_URL"),
         garant_token=_env("SO_GARANT_TOKEN"),
         garant_stub_dir=_env("SO_GARANT_STUB_DIR"),
+        llm_auth_scheme=_env("SO_LLM_AUTH_SCHEME", "Bearer") or "Bearer",
+        gigachat_auth_key=_env("SO_GIGACHAT_AUTH_KEY"),
+        gigachat_scope=_env("SO_GIGACHAT_SCOPE", "GIGACHAT_API_PERS")
+        or "GIGACHAT_API_PERS",
+        gigachat_ca_bundle=_env("SO_GIGACHAT_CA_BUNDLE"),
         login_rate_limit=int(_env("SO_LOGIN_RATE_LIMIT") or 20),
         login_rate_window_seconds=int(_env("SO_LOGIN_RATE_WINDOW_SECONDS") or 60),
     )

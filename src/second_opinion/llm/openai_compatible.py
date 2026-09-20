@@ -27,7 +27,14 @@ class OpenAICompatibleProvider:
 
     name = "openai_compatible"
 
-    def __init__(self, base_url: str, api_key: str, model: str, timeout: float = 60.0) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        api_key: str,
+        model: str,
+        timeout: float = 60.0,
+        auth_scheme: str = "Bearer",
+    ) -> None:
         missing = [
             name
             for name, value in (
@@ -46,6 +53,11 @@ class OpenAICompatibleProvider:
             )
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
+        # Схема авторизации отличается у поставщиков: OpenAI-совместимые
+        # контуры ждут `Bearer`, Yandex AI Studio — `Api-Key`. Значение
+        # подставляется в заголовок как есть, поэтому новый поставщик со
+        # своей схемой не требует правки кода.
+        self._auth_scheme = auth_scheme.strip() or "Bearer"
         self._model = model
         self._timeout = timeout
 
@@ -79,7 +91,7 @@ class OpenAICompatibleProvider:
                 {"role": "user", "content": user_content},
             ],
         }
-        headers = {"Authorization": f"Bearer {self._api_key}"}
+        headers = {"Authorization": f"{self._auth_scheme} {self._api_key}"}
         for attempt in range(1, max_attempts + 1):
             result.attempts = attempt
             try:
