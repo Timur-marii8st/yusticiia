@@ -201,7 +201,9 @@ def test_project_corpus_is_sealed() -> None:
 
     report = check(PROJECT_ROOT / "data" / "fixtures" / "norms")
     assert report.ok, report.describe()
-    assert report.checked == 34
+    # 34 исходных + 4 черновика главы 11 УК РФ (uk_rf_chapter11_draft.json,
+    # 20.09.2026, ФТ-45) — растёт вместе с корпусом, число не магическое.
+    assert report.checked == 38
 
 
 def test_duplicate_version_ids_are_rejected(tmp_path) -> None:

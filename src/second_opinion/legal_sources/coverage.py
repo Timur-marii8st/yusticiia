@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 from ..domain.norms import LegalNorm, NormVersion
-from ..rule_engine.rules import REFERENCED_NORM_IDS
+from ..rule_engine.rules import DRAFT_ONLY_NORM_IDS, REFERENCED_NORM_IDS
 from .store import NormStore
 
 #: Статья уголовного закона, за столько лет ни разу не изменившаяся, —
@@ -56,6 +56,12 @@ class NormCoverage:
     ref: str
     has_sanctions: bool
     used_by_rules: bool
+    #: Норма упомянута только в написанном, но не зарегистрированном
+    #: правиле (``DRAFT_ONLY_NORM_IDS``) — код существует, но до отчёта
+    #: судьи физически не доезжает. Отличать от ``used_by_rules`` обязательно:
+    #: иначе отчёт о покрытии сказал бы, что норма «используется движком
+    #: правил», хотя ни один прогон анализа её не читает.
+    draft_rule_only: bool
     history_verified: bool
     version_count: int
     covered_from: date
@@ -102,6 +108,7 @@ def analyze_norm(norm: LegalNorm, versions: list[NormVersion]) -> NormCoverage:
         ref=norm.ref,
         has_sanctions=any(v.sanctions for v in ordered),
         used_by_rules=norm.norm_id in REFERENCED_NORM_IDS,
+        draft_rule_only=norm.norm_id in DRAFT_ONLY_NORM_IDS,
         history_verified=norm.history_verified,
         version_count=len(ordered),
         covered_from=ordered[0].effective_from,
@@ -140,7 +147,10 @@ def format_report(coverages: list[NormCoverage], as_of: date | None = None) -> s
     lines += [header, "-" * 78]
     for c in coverages:
         span = f"{c.covered_from.isoformat()} → {c.covered_to.isoformat() if c.covered_to else 'н/в'}"
-        mark = "да" if c.rule_relevant else "—"
+        # «чрк» — норма упомянута только в написанном, но не активированном
+        # правиле: не путать с «да», иначе отчёт скажет, что она уже
+        # работает в анализе, хотя ни один прогон её не читает.
+        mark = "чрк" if c.draft_rule_only else "да" if c.rule_relevant else "—"
         lines.append(f"{c.ref:<34} {c.version_count:>4} {mark:>8}  {span}")
         for start, end in c.gaps:
             lines.append(f"{'':<34} {'':>4} {'':>8}  РАЗРЫВ {start} … {end}")
@@ -157,7 +167,13 @@ def format_report(coverages: list[NormCoverage], as_of: date | None = None) -> s
             if c.gaps
             else f"одна редакция на {_years_ru(c.span_years)} — история изменений не зафиксирована"
         )
-        role = "используется движком правил" if c.rule_relevant else "справочная"
+        role = (
+            "упомянута в черновике правила, не активна"
+            if c.draft_rule_only
+            else "используется движком правил"
+            if c.rule_relevant
+            else "справочная"
+        )
         lines.append(f"  {c.ref} — {reason} ({role})")
     lines += [
         "",

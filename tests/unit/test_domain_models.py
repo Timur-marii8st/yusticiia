@@ -168,6 +168,52 @@ def test_plenum_ref_is_a_point_of_a_ruling_not_an_article() -> None:
     assert whole.ref == "ППВС № 58"
 
 
+def test_article_suffix_is_a_separate_article_not_a_part() -> None:
+    """Ст. 76² печатается как «ст. 76.2», а не как «ст. 76 ч. 2».
+
+    Статья, введённая позднее между двумя существующими (76¹, 76², 159¹…),
+    — самостоятельный состав, а не часть ст. 76: у неё своя санкция и свои
+    условия применения. `part` для неё был бы враньём — «часть 2 статьи 76»
+    читается как ч. 2 обычной статьи, которой в ст. 76 нет вовсе.
+    """
+    from second_opinion.domain.norms import LegalNorm
+
+    point = LegalNorm(
+        norm_id="uk-rf:art-76-2",
+        code="УК РФ",
+        article=76,
+        article_suffix="2",
+        title="Освобождение от уголовной ответственности с назначением судебного штрафа",
+    )
+    assert point.ref == "УК РФ ст. 76.2"
+
+    plain = LegalNorm(
+        norm_id="uk-rf:art-76",
+        code="УК РФ",
+        article=76,
+        title="Освобождение от уголовной ответственности в связи с примирением с потерпевшим",
+    )
+    assert plain.ref == "УК РФ ст. 76"
+
+
+def test_article_suffix_survives_loading_from_fixtures(norm_store) -> None:
+    """Регрессия: `store.load_file` конструирует `LegalNorm` по явному
+    списку полей, а не распаковкой словаря. Новое поле в JSON-фикстуре,
+    не добавленное в этот список, тихо теряется при загрузке — ref
+    печатается без суффикса, и ошибку не увидит никто, кроме того, кто
+    сверяет цитату вручную. Тот же класс ошибки, что уже ловился на
+    `article_suffix`: значение есть в файле, но не доезжает до модели.
+    """
+    from datetime import date
+
+    meta = norm_store.get_norm_meta("uk-rf:art-76-2")
+    assert meta.article_suffix == "2"
+    assert meta.ref == "УК РФ ст. 76.2"
+
+    version = norm_store.get_norm("uk-rf:art-76-2", date(2026, 9, 20))
+    assert version.verification_status == "draft"
+
+
 def test_code_articles_keep_their_reference_format() -> None:
     from second_opinion.domain.norms import LegalNorm
 

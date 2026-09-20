@@ -1,5 +1,5 @@
 {
-  "sealed_at": "2026-09-19",
+  "sealed_at": "2026-09-20",
   "versions": {
     "ppvs-rf:n58-p1@v-2015": "b3266d5694b2e672354f35ee1a7e84f9a417a3006d22a558da482d9e6ca69580",
     "ppvs-rf:n58-p34@v-2015": "68a8f6dffe10223ee4fcc712c3f244d2021018f5494e1a0de2eacf11103c44b0",
@@ -31,6 +31,10 @@
     "uk-rf:art-64@v-current": "b10edc27c31c7e8c61cf5a3856cce66c07184fdef055b827eda17a75dc977d3f",
     "uk-rf:art-66@v-current": "71ea4bea5d6ae10021cdc64083ea3853dbb9501b7f1d5f7a7eeaa9a8d6e710bb",
     "uk-rf:art-73@v-current": "9c1d9c5476d0fbe9f3d90068c99e5099cb6878b662f05db51ffffba90b93fe4e",
+    "uk-rf:art-75@v-current": "f5383e9938a2a9a1fb75b7910a28772505ada39c780ea60d3243b66f69ca28a8",
+    "uk-rf:art-76-2@v-current": "de4543ea91a5e410a547f0afadacec9bdeba132af2d1d0c5cfc5696e73679fc9",
+    "uk-rf:art-76@v-current": "e6bf23e68afedbb60384810cf44c6f970a782ab43a42e1ec0c7b5e5f7616d96d",
+    "uk-rf:art-78@v-current": "a4dbb955cfbd4dcd9f2161f16ed5072f83a0066999a63d11bc1d54a152e75699",
     "uk-rf:art-999-synthetic@v2020": "460c516e087c77c955e59d73627ce723f0719f27ace0f6173bcd2370b69b2e20",
     "uk-rf:art-999-synthetic@v2024": "3230e8a0d6a963ebf90829cffc4abe80e9e453f2a5b8c4babb9c03710551ec69",
     "upk-rf:art-316@v-current": "bf041c07a220034c3dfa8b8eeb8c792a5a173594e5d28a35305111a06501dfaa",
@@ -61,9 +65,13 @@
     "uk-rf:art-64": "52b601cc226063ae471c5655c2ec9faaf235e55fdb10262fd21f98e98b0db6b5",
     "uk-rf:art-66": "14da4dfffceea60c7f6e50d4a812d0bf6f772e8ef6775704d6cdcca85140fbbf",
     "uk-rf:art-73": "095ed9e42f54936d389cbebd5f7eaab55e8b72e8c616f75b52b45ef9d43af670",
+    "uk-rf:art-75": "b56546d579bfe6bf7a81d644302d1c68c5da2bb7e5b0b8b20a96908083a8cc54",
+    "uk-rf:art-76": "879a53a6cc1ac74d1c65dd6888707263e41d0c29443bb7aed428d82cefe84a28",
+    "uk-rf:art-76-2": "99f6b1a3ed0a31677740044e94e78cc35bfa8a56a996532badf3355a3a1eb62b",
+    "uk-rf:art-78": "08bc3241eb9c9461220304b3d91203e1fa7647d8acd4268386abd0132ccdebce",
     "uk-rf:art-999-synthetic": "81eb4ee83e9cc233791d6a89f61b3e176a69c2588eac528e132c41d151940d59",
     "upk-rf:art-316": "dcabd1e6cde44621dcbdb98adca2c5dae2a907fe77daeceba91f918d69e5c75d",
     "upk-rf:art-420": "c5708cc438b2434aa1c53b6d66abd1c2915761543667ed7c2da1f6e48b461470"
   },
-  "corpus_digest": "e180c4589dc79bd3bb93bf3ac913fd53b7fd3250c4421a90276f2e673dbb2bbd"
+  "corpus_digest": "5515ae6f5eba7c32595fb0478478948a688cc8f406ba86f9372481e09d477820"
 }

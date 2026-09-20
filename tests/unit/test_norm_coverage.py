@@ -171,6 +171,39 @@ def test_norms_used_by_rules_are_marked_relevant() -> None:
         assert by_id[norm_id].rule_relevant is True, norm_id
 
 
+def test_draft_only_norms_are_not_reported_as_active() -> None:
+    """Норма, упомянутая только в незарегистрированном правиле, не
+    называется в отчёте «используется движком правил».
+
+    Регрессия на опережение: у главы 11 УК РФ (``uk-rf:art-75`` и
+    остальные) есть код в ``rule_engine/rules/release.py``, но самого
+    правила нет в ``DEFAULT_RULES`` — оно ждёт юридической сверки норм.
+    Отчёт о покрытии обязан различать «код существует» и «анализ это
+    читает»: смешать их значило бы сказать юристу, что черновик уже
+    работает в выводе для судьи.
+    """
+    from second_opinion.rule_engine.rules import DRAFT_ONLY_NORM_IDS
+
+    assert DRAFT_ONLY_NORM_IDS, "нечего проверять — черновичных норм не осталось"
+
+    store = NormStore.from_directory(FIXTURES / "norms")
+    by_id = {c.norm_id: c for c in analyze_store(store)}
+    report = format_report(analyze_store(store))
+
+    for norm_id in DRAFT_ONLY_NORM_IDS:
+        coverage = by_id[norm_id]
+        assert coverage.draft_rule_only is True, norm_id
+        # Ищем именно строку из раздела «Требуют сверки» (начинается с
+        # двух пробелов и тире после ссылки) — короткая таблица выше
+        # печатает только "чрк"/"да"/"—", без этой фразы вовсе, и поиск
+        # по первому вхождению ref её бы не поймал.
+        flagged_line = next(
+            line for line in report.splitlines() if line.startswith(f"  {coverage.ref} —")
+        )
+        assert "упомянута в черновике правила, не активна" in flagged_line
+        assert "используется движком правил" not in flagged_line
+
+
 # -- отчёт
 
 

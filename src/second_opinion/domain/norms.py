@@ -26,6 +26,12 @@ class LegalNorm(BaseModel):
     code: str  # «УК РФ», «УПК РФ»
     article: int = Field(ge=1)
     part: int | None = Field(default=None, ge=1)
+    #: Номер статьи, введённой позднее между двумя существующими
+    #: («76²», «159¹», «228.1») — не часть (``part``), а самостоятельная
+    #: статья со своим составом. УК РФ печатает такой номер надстрочным
+    #: индексом; здесь — просто «.N», без попытки воспроизвести типографику
+    #: источника. ``None`` — обычная статья без такого номера.
+    article_suffix: str | None = None
     title: str
     #: Дата, по которую юрист сверил историю изменений статьи. Отличает
     #: проверенный факт «норма не менялась» от допущения «мы внесли один
@@ -53,8 +59,9 @@ class LegalNorm(BaseModel):
         if self.code.startswith(PLENUM_CODE):
             point = f"п. {self.part} " if self.part else ""
             return f"{point}{PLENUM_CODE} № {self.article}"
+        suffix = f".{self.article_suffix}" if self.article_suffix else ""
         part = f" ч. {self.part}" if self.part else ""
-        return f"{self.code} ст. {self.article}{part}"
+        return f"{self.code} ст. {self.article}{suffix}{part}"
 
 
 class NormVersion(BaseModel):
