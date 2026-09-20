@@ -12,10 +12,14 @@
 | Проверяете юридическую часть | [LEGAL_SAFETY_PRINCIPLES.md](LEGAL_SAFETY_PRINCIPLES.md) → [RULE_ENGINE.md](RULE_ENGINE.md) → [NORM_COVERAGE.md](NORM_COVERAGE.md) |
 | Подключаетесь к API | [API.md](API.md) |
 | Разворачиваете систему | [DEPLOYMENT.md](DEPLOYMENT.md) → [SECURITY.md](SECURITY.md) |
-| Оцениваете, что сделано | [TZ.md](TZ.md) → [../CHANGELOG.md](../CHANGELOG.md) |
+| Оцениваете, что сделано | [CONCEPT.md](CONCEPT.md) → [TZ.md](TZ.md) → [../CHANGELOG.md](../CHANGELOG.md) |
 
 ## Требования и замысел
 
+- [CONCEPT.md](CONCEPT.md) — **конкурсная концепция**: архитектура,
+  данные, алгоритмы и правовая методология одним документом. Отвечает на
+  п. 2.2 Положения о конкурсе; отсюда стоит начинать знакомство с
+  проектом.
 - [TZ.md](TZ.md) — техническое задание: пронумерованные требования, статус
   каждого, инварианты системы, очереди работ с указанием, что именно
   мешает закрыть каждую.
