@@ -28,10 +28,21 @@ class OpenAICompatibleProvider:
     name = "openai_compatible"
 
     def __init__(self, base_url: str, api_key: str, model: str, timeout: float = 60.0) -> None:
-        if not api_key:
+        missing = [
+            name
+            for name, value in (
+                ("SO_OPENAI_BASE_URL", base_url),
+                ("SO_OPENAI_API_KEY", api_key),
+                ("SO_LLM_MODEL", model),
+            )
+            if not value
+        ]
+        if missing:
             raise ValueError(
-                "SO_OPENAI_API_KEY не задан: внешний LLM-контур включается только "
-                "при явной настройке (см. .env.example)"
+                f"не задано: {', '.join(missing)}. Внешний контур включается только "
+                "полной явной настройкой: умолчаний нет намеренно, иначе забытый "
+                "адрес увёл бы документы к провайдеру, которого никто не выбирал "
+                "(НТ-02 — приоритет отечественных решений). См. .env.example"
             )
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key

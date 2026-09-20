@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import httpx
 import pytest
@@ -60,10 +61,30 @@ def _call(provider: OpenAICompatibleProvider, **kwargs):
     )
 
 
-def test_key_is_required(monkeypatch) -> None:
-    """Внешний контур не включается молча: без ключа адаптер не создаётся."""
-    with pytest.raises(ValueError, match="SO_OPENAI_API_KEY"):
-        OpenAICompatibleProvider("http://llm.invalid/v1", "", "model-1")
+def test_external_loop_needs_full_explicit_setup() -> None:
+    """Внешний контур не включается молча и не имеет умолчаний.
+
+    Регрессия: `config.py` подставлял `https://api.openai.com/v1` и
+    `gpt-4o-mini`. Оператор, включивший внешний контур и забывший задать
+    адрес, молча уходил бы к провайдеру, которого никто не выбирал, —
+    против НТ-02 и против запрета публичных ИИ-сервисов.
+    """
+    for base_url, api_key, model, missing in (
+        ("", "k", "m", "SO_OPENAI_BASE_URL"),
+        ("http://llm.invalid/v1", "", "m", "SO_OPENAI_API_KEY"),
+        ("http://llm.invalid/v1", "k", "", "SO_LLM_MODEL"),
+    ):
+        with pytest.raises(ValueError, match=missing):
+            OpenAICompatibleProvider(base_url, api_key, model)
+
+
+def test_no_foreign_provider_is_hardcoded() -> None:
+    """В коде не зашит адрес или имя модели конкретного поставщика."""
+    from second_opinion import config
+
+    source = Path(config.__file__).read_text(encoding="utf-8")
+    for marker in ("api.openai.com", "gpt-4o", "gpt-3", "claude-", "api.anthropic.com"):
+        assert marker not in source, f"в config.py зашит {marker}"
 
 
 def test_invalid_answer_is_retried(monkeypatch) -> None:
