@@ -176,3 +176,33 @@ def test_documented_module_entry_point_runs() -> None:
     )
     assert result.returncode == 0, result.stderr
     assert "serve" in result.stdout
+
+
+def test_license_file_matches_the_declared_one() -> None:
+    """Файл лицензии есть, и он тот же, что объявлен в пакете.
+
+    Регрессия: `pyproject.toml` объявлял MIT, а файла лицензии в
+    репозитории не было вовсе. Формально это значит «все права
+    защищены» — то есть ни жюри, ни кто-либо другой не вправе даже
+    запустить код, тогда как метаданные пакета обещали обратное.
+    """
+    import tomllib
+
+    license_file = PROJECT_ROOT / "LICENSE"
+    assert license_file.exists(), "нет файла LICENSE"
+
+    metadata = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    declared = metadata["project"]["license"]
+    assert isinstance(declared, str), (
+        "лицензия объявлена устаревшей табличной формой; нужна строка SPDX"
+    )
+
+    text = license_file.read_text(encoding="utf-8")
+    assert declared.lower() in text.lower().split("\n", 1)[0], (
+        f"в pyproject.toml объявлено {declared!r}, а LICENSE начинается иначе: "
+        f"{text.splitlines()[0]!r}"
+    )
+    assert "Copyright (c)" in text, "в LICENSE нет строки об авторском праве"
+    assert metadata["project"]["license-files"] == ["LICENSE"], (
+        "файл лицензии не попадёт в сборку пакета"
+    )
