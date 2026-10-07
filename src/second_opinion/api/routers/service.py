@@ -13,12 +13,8 @@ def build_router(auth_mode: str) -> APIRouter:
 
     @router.get("/health")
     def health() -> HealthResponse:
-        # Режим авторизации — факт развёртывания, а не секрет: интерфейсу он
-        # нужен, чтобы не предлагать судье вход по общему секрету там, где
-        # секрет не принимается.
         return {"status": "ok", "version": __version__, "auth_mode": auth_mode}
 
-    # exclude_none сохраняет документированную форму `{"enabled": false}`.
     @router.get("/metrics", response_model_exclude_none=True)
     def metrics() -> MetricsResponse:
         """Снимок внутренних метрик конвейера.

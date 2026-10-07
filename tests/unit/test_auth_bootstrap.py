@@ -61,8 +61,6 @@ def test_bootstrap_has_no_default_password() -> None:
     assert "admin123" not in text
 
 
-# -- CLI
-
 
 def test_cli_create_admin_succeeds(empty_users, capsys) -> None:
     code = main(
@@ -107,8 +105,6 @@ def test_cli_create_admin_without_password_fails_non_interactive(
     assert main(["create-admin", "--email", "admin@court.example.ru"]) == 2
     assert "пароль не задан" in capsys.readouterr().err.lower()
 
-
-# -- безопасность привязки
 
 
 @pytest.mark.parametrize(

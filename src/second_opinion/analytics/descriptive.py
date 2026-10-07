@@ -6,7 +6,6 @@ from ..domain.analysis import AnalyticsSummary, SentencePosition
 from ..domain.cases import ComparableCase
 from ..domain.enums import PunishmentType
 
-#: Признаки, по которым показывается распределение в выборке.
 SPREAD_FEATURES = (
     "special_procedure",
     "guilty_plea",
@@ -25,8 +24,8 @@ def _position(
     Намеренно не называется «отклонением от нормы»: нормы здесь нет.
     Есть ряд чисел из неслучайной выборки и место назначенного срока в
     нём. Формулировки подобраны так, чтобы из них нельзя было вычитать
-    рекомендацию — этого прямо требует ``docs/LEGAL_SAFETY_PRINCIPLES.md``
-    («не использовать статистику как рекомендацию по наказанию»).
+    рекомендацию по наказанию — переименование в термины вида
+    «завышен/занижен» ловится тестом.
     """
     at_or_below = sum(1 for value in sorted_terms if value <= term)
     share = round(at_or_below / len(sorted_terms), 3)

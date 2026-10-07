@@ -13,7 +13,6 @@
 
 * { box-sizing: border-box; }
 
-/* Доступность: skip-link и скрытые подписи. */
 .skip-link {
   position: absolute;
   left: -9999px;
@@ -34,7 +33,6 @@
   white-space: nowrap;
 }
 
-/* Видимый фокус для клавиатурной навигации. */
 a:focus-visible, button:focus-visible, input:focus-visible,
 select:focus-visible, textarea:focus-visible, summary:focus-visible,
 .fact-title:focus-visible, .eval-title:focus-visible, .case-title:focus-visible {
@@ -59,8 +57,6 @@ body {
   border-bottom: 1px solid var(--line);
 }
 
-/* Название системы — единственный h1 документа; визуально это по-прежнему
-   строка шапки, поэтому отступы браузера снимаются. */
 .brand-name { font-size: 18px; font-weight: 600; margin: 0; display: inline; }
 .brand-sub { color: var(--muted); margin-left: 10px; font-size: 13px; }
 .topbar-note { color: var(--muted); font-size: 13px; }
@@ -84,9 +80,6 @@ main {
 h2 { font-size: 16px; margin: 0 0 10px; }
 h3 { font-size: 16px; margin: 0 0 10px; }
 
-/* Рабочая область — не карточка, а группа карточек: своей рамки у неё
-   нет, иначе на экране появилась бы рамка внутри рамки. Заголовок и
-   пояснение стоят над группой, панели внутри сохраняют прежний вид. */
 #workspace {
   display: flex;
   flex-direction: column;
@@ -123,11 +116,7 @@ textarea {
 }
 
 .date-label { color: var(--muted); font-size: 13px; display: flex; gap: 8px; align-items: center; }
-/* Выбор файла выглядит и ведёт себя как кнопка: прежняя строка 13px
-   цветом акцента терялась среди подписей и читалась как пояснение, а не
-   как действие. Само поле остаётся скрытым (свой вид у него в каждом
-   браузере разный), но не через display:none — иначе оно выпадает из
-   обхода клавиатурой; отсюда clip-техника и :focus-within на обёртке. */
+
 .file-label {
   display: inline-flex;
   align-items: center;
@@ -143,7 +132,6 @@ textarea {
 .file-label:hover { background: var(--accent); color: #fff; border-style: solid; }
 .file-label:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
 .file-label::before { content: "📎"; font-size: 15px; line-height: 1; }
-/* Файл выбран — пунктир сменяется сплошной рамкой: видно, что действие сработало. */
 .file-label.has-file { border-style: solid; color: var(--ink); }
 .file-label input {
   position: absolute;
@@ -163,11 +151,12 @@ button {
 }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 button.secondary { background: var(--panel); }
+button.secondary.danger { color: var(--fail); border-color: var(--fail); }
+button.secondary.danger:hover { background: var(--fail); color: #fff; }
 button:disabled { opacity: 0.5; cursor: wait; }
 
 .error { color: var(--fail); margin-top: 10px; font-size: 14px; }
 
-/* Заголовок изложения: квалификация и процедура одной строкой. */
 .summary-headline {
   font-size: 15px;
   font-weight: 600;
@@ -176,8 +165,6 @@ button:disabled { opacity: 0.5; cursor: wait; }
 }
 .summary-line { font-size: 14px; }
 
-/* Положение назначенного срока в выборке: выделено как наблюдение,
-   а не как вывод — отсюда нейтральный фон без цвета статуса. */
 .sentence-position {
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -186,17 +173,15 @@ button:disabled { opacity: 0.5; cursor: wait; }
   margin-bottom: 12px;
 }
 
-/* Пометка происхождения обстоятельства в списке: внесено судьёй,
-   извлечено моделью, исключено из проверок. */
 .fact-origin {
   display: inline-block;
   margin-left: 8px;
-  padding: 1px 8px;
+  padding: 1px 7px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 2px;
   font-size: 12px;
   color: var(--muted);
-  background: var(--bg);
+  background: transparent;
   vertical-align: middle;
 }
 
@@ -208,24 +193,42 @@ button:disabled { opacity: 0.5; cursor: wait; }
 .items > li { border-top: 1px solid var(--line); padding: 8px 0; }
 .items > li:first-child { border-top: none; }
 
-.status-badge {
-  display: inline-block;
-  min-width: 22px;
-  text-align: center;
-  font-weight: 600;
-  border-radius: 4px;
-  padding: 0 6px;
-  margin-right: 8px;
+#history-list > li { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+#history-list .history-row-main { flex: 1; min-width: 0; }
+#history-list .history-delete {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: var(--muted);
   font-size: 13px;
+  padding: 2px 6px;
+  cursor: pointer;
 }
-.status-PASS { background: #e6f3ea; color: var(--ok); }
-.status-WARNING { background: #fdf3e0; color: var(--warn); }
-.status-FAIL { background: #fbe9e9; color: var(--fail); }
-.status-UNKNOWN { background: #eef0f2; color: var(--unknown); }
-.status-VERIFIED { background: #e6f3ea; color: var(--ok); }
-.status-LIKELY { background: #e9f0fb; color: var(--accent); }
-.status-UNCERTAIN, .status-CONFLICT { background: #fdf3e0; color: var(--warn); }
-.status-NOT_FOUND { background: #eef0f2; color: var(--unknown); }
+#history-list .history-delete:hover { color: var(--fail); }
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1;
+  border-radius: 2px;
+  border: 1.5px solid currentColor;
+  padding: 0 4px;
+  margin-right: 8px;
+  background: transparent;
+  vertical-align: middle;
+}
+.status-PASS, .status-VERIFIED { color: var(--ok); }
+.status-WARNING, .status-UNCERTAIN, .status-CONFLICT { color: var(--warn); }
+.status-FAIL { color: var(--fail); }
+.status-UNKNOWN, .status-NOT_FOUND { color: var(--unknown); }
+.status-LIKELY { color: var(--accent); }
+.status-NOT_APPLICABLE { color: var(--unknown); border-style: dashed; }
 
 .fact-title, .eval-title, .case-title { cursor: pointer; }
 .fact-title:hover, .eval-title:hover, .case-title:hover { text-decoration: underline; }
@@ -233,17 +236,18 @@ button:disabled { opacity: 0.5; cursor: wait; }
 .detail {
   margin: 8px 0 4px 30px;
   padding: 10px 14px;
-  border-left: 3px solid var(--line);
+  border-left: 2px solid var(--accent);
   background: #fafbfc;
   font-size: 13px;
 }
 .detail.hidden { display: none; }
+
 .detail blockquote {
   margin: 6px 0;
-  padding: 8px 12px;
-  background: #fffbe8;
-  border: 1px solid #efe3b0;
-  border-radius: 4px;
+  padding: 6px 12px;
+  background: var(--bg);
+  border-left: 2px solid var(--accent);
+  border-radius: 0;
   font-style: normal;
 }
 .detail .chain { margin: 4px 0; }
@@ -275,7 +279,6 @@ table.stats th { background: #f2f5f8; font-weight: 600; }
   padding: 6px 14px;
 }
 
-/* Адаптивность: узкие экраны (планшет/телефон). */
 @media (max-width: 720px) {
   .topbar {
     flex-direction: column;
@@ -296,7 +299,6 @@ table.stats th { background: #f2f5f8; font-weight: 600; }
   textarea { font-size: 14px; }
 }
 
-/* Печатная версия отчёта: только содержательный анализ. */
 @media print {
   .topbar, #upload-panel, #sources-panel, .report-actions,
   .controls, button, .add-fact-box, .hint {
@@ -310,3 +312,6 @@ table.stats th { background: #f2f5f8; font-weight: 600; }
   }
   .detail.hidden { display: none; }
 }
+
+.fact-input-article { width: 7em; }
+.fact-input-part { width: 12em; }

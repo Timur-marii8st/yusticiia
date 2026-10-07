@@ -37,7 +37,6 @@ from second_opinion.legal_rag import (  # noqa: E402
 from second_opinion.legal_sources.sealing import check as check_seal  # noqa: E402
 from second_opinion.legal_sources.store import NormStore  # noqa: E402
 
-#: Пороги приёмки; нарушение любого из них даёт ненулевой код возврата.
 EXTRACTION_F1_THRESHOLD = 0.8
 
 
@@ -54,7 +53,6 @@ def _run_extraction(dataset_path: Path) -> dict:
     total_evidence_correct = 0
     total_evidence = 0
     unsupported_rates: list[float] = []
-    # Агрегаты по типам фактов для per-type P/R/F1.
     type_tp: dict[str, int] = {}
     type_fp: dict[str, int] = {}
     type_fn: dict[str, int] = {}
@@ -169,16 +167,6 @@ def _run_retrieval(dataset_path: Path, mode: str) -> dict:
         )
         results.append(entry)
 
-        # Целостность цитирования: выданный фрагмент обязан совпадать с
-        # текстом реально хранящейся редакции, на которую ссылается ответ.
-        #
-        # Контрольная сумма здесь намеренно НЕ проверяется. Валидатор
-        # ``NormVersion`` требует ``sha256 == sha256(text)``, поэтому
-        # редакция с несходящейся суммой не создаётся вовсе, и сравнение
-        # над загруженной моделью было тавтологией — метрика не могла
-        # упасть ни при какой правке фикстуры. Целостность файлов корпуса
-        # проверяется до загрузки, отдельным блокирующим шагом CI:
-        # ``second-opinion norms-seal --check``.
         for hit in hits:
             citation_checked += 1
             version = next(
@@ -236,8 +224,6 @@ def _run_temporal(dataset_path: Path) -> dict:
 
 
 def main() -> int:
-    # Консоли Windows могут иметь не-UTF-8 кодировку; отчёт не должен
-    # теряться из-за этого.
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             with contextlib.suppress(ValueError, OSError):
@@ -276,8 +262,6 @@ def main() -> int:
         print("ВНИМАНИЕ: обнаружены подтверждённые факты без доказательств",
               file=sys.stderr)
         exit_code = 1
-    # Пороги применяются к обоим режимам поиска: гибридный реранкинг не
-    # должен деградировать качество ниже приёмки.
     for mode, result in retrieval.items():
         if (result["recall_at_5_mean"] or 0) < 0.8:
             print(f"ВНИМАНИЕ: средний Recall@5 ({mode}) ниже порога 0.8",
@@ -291,8 +275,6 @@ def main() -> int:
         print("ВНИМАНИЕ: ошибки выбора редакции нормы на дату", file=sys.stderr)
         exit_code = 1
 
-    # Целостность корпуса проверяется по файлам на диске, а не по уже
-    # загруженным моделям: правка фикстуры не должна подтверждать сама себя.
     seal = check_seal(load_config().fixtures_dir / "norms")
     if not seal.ok:
         print("ВНИМАНИЕ: корпус норм разошёлся с манифестом", file=sys.stderr)

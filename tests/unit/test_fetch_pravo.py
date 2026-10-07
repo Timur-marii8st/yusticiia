@@ -65,7 +65,6 @@ def test_build_fixture_is_draft_with_real_sha(tmp_path: Path) -> None:
     assert version["synthetic"] is False
     assert version["sha256"] == hashlib.sha256(text.encode("utf-8")).hexdigest()
 
-    # Фикстура обязана грузиться в NormStore без ошибок.
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
     from second_opinion.legal_sources.store import NormStore
 
@@ -95,8 +94,6 @@ def test_build_fixture_rejects_empty_text() -> None:
             retrieved_at="2026-09-04",
         )
 
-
-# -- извлечение текста из PDF
 
 
 def test_extract_pdf_text_reads_text_layer() -> None:
@@ -149,8 +146,6 @@ def test_pdf_and_text_file_are_mutually_exclusive(tmp_path) -> None:
             ]
         )
 
-
-# -- карточка документа
 
 
 def test_missing_card_file_is_not_an_error(tmp_path) -> None:

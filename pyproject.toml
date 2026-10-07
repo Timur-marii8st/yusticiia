@@ -1,6 +1,6 @@
 [project]
 name = "second-opinion"
-version = "0.1.0"
+version = "0.99.0"
 description = "Верифицируемая система юридического аудита и поддержки принятия судебных решений (конкурс ВС РФ «Алгоритм правосудия. Второе мнение»)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -33,6 +33,9 @@ dev = [
     # только случайным прогоном ветки: например, .group() у результата
     # поиска, который может быть None.
     "mypy>=1.11",
+    # Клиент для starlette.testclient: с httpx он объявлен устаревшим
+    # (StarletteDeprecationWarning). В коде системы остаётся httpx.
+    "httpx2>=2.13",
 ]
 pg = [
     "psycopg[binary]>=3.3.5",

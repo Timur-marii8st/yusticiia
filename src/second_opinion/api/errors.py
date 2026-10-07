@@ -7,13 +7,17 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from ..metrics import get_metrics, http_status_metric
 from .request_context import REQUEST_ID_HEADER
 
-#: Машиночитаемый код по коду ответа HTTP.
+logger = logging.getLogger(__name__)
+
 ERROR_CODES = {
     400: "bad_request",
     401: "unauthorized",
@@ -23,6 +27,8 @@ ERROR_CODES = {
     413: "payload_too_large",
     422: "validation_error",
     429: "too_many_requests",
+    500: "internal_error",
+    503: "service_unavailable",
 }
 
 
@@ -62,9 +68,6 @@ def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(HTTPException)
     async def _http_error(request: Request, exc: HTTPException) -> JSONResponse:
         message = exc.detail if isinstance(exc.detail, str) else human_message(exc)
-        # Заголовки исключения обязаны дожить до ответа: в них едет Retry-After
-        # у 429 и WWW-Authenticate у 401. Единый формат тела не повод терять
-        # часть протокола.
         headers = dict(exc.headers or {})
         headers[REQUEST_ID_HEADER] = getattr(request.state, "request_id", "")
         return JSONResponse(
@@ -94,4 +97,18 @@ def install_error_handlers(app: FastAPI) -> None:
             status_code=422,
             content=error_body(422, message, request, fields),
             headers={REQUEST_ID_HEADER: getattr(request.state, "request_id", "")},
+        )
+
+    @app.exception_handler(Exception)
+    async def _unexpected_error(request: Request, exc: Exception) -> JSONResponse:
+        rid = getattr(request.state, "request_id", "")
+        logger.error("необработанная ошибка, запрос %s", rid, exc_info=exc)
+        metrics = get_metrics()
+        if metrics.enabled:
+            metrics.counter(http_status_metric(500) or "").inc()
+        message = f"Внутренняя ошибка сервера. Назовите администратору идентификатор запроса: {rid}"
+        return JSONResponse(
+            status_code=500,
+            content=error_body(500, message, request),
+            headers={REQUEST_ID_HEADER: rid},
         )

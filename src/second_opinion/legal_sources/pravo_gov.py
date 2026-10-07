@@ -32,6 +32,7 @@ from __future__ import annotations
 import html as html_module
 import logging
 import re
+import time
 from datetime import date
 from typing import Any
 
@@ -47,30 +48,28 @@ from .redaction_source import (
 
 logger = logging.getLogger(__name__)
 
-#: ИПС отдаёт страницы в windows-1251, заголовок Content-Type не всегда верен.
 ENCODING = "windows-1251"
 
-#: Пункт списка редакций. ``value`` — либо «номер,документ», либо 'n'
-#: у неподготовленных.
+_RETRYABLE_STATUSES = frozenset({204, 429, 502, 503, 504})
+
 _OPTION = re.compile(r"<option value='(?P<value>[^']*)'[^>]*>(?P<text>[^<]*)</option>")
 
-#: «от 04.08.2026 № 300-ФЗ» внутри подписи редакции.
 _ACT = re.compile(r"от\s+(?P<day>\d{2})\.(?P<month>\d{2})\.(?P<year>\d{4})\s+№\s+(?P<name>[^\s(]+)")
 
-#: Начало статьи в тексте кодекса.
 _ARTICLE = re.compile(r"\nСтатья (\d+(?:\.\d+)?)\.")
 
-#: Признак того, что документ дочитан до конца.
 _COMPLETED = re.compile(r"textCompleted\s*=\s*'(?P<value>\w+)'")
 
+
+
+class EditionListMissing(RedactionSourceError):
+    """На странице документа нет списка редакций: чаще сбой источника, реже неверный ``nd``."""
 
 
 class Edition(BaseModel):
     """Одна запись из списка редакций документа."""
 
-    #: Номер для запроса текста (``rdk``). ``None`` — редакция не подготовлена.
     number: int | None = None
-    #: Дата изменяющего акта. ``None`` — исходная редакция.
     act_date: date | None = None
     act_name: str = ""
     label: str = ""
@@ -84,7 +83,6 @@ class ArticleVerdict(BaseModel):
     """Вывод по одной статье: менялся ли её текст между редакциями."""
 
     article: str
-    #: ``None`` — сравнить не удалось, статья найдена не в обеих редакциях.
     changed: bool | None = None
     note: str = ""
 
@@ -159,7 +157,7 @@ def parse_editions(payload: str) -> list[Edition]:
         )
 
     if not editions:
-        raise RedactionSourceError(
+        raise EditionListMissing(
             "ИПС: на странице документа не найден список редакций — "
             "возможно, изменилась разметка либо неверный идентификатор документа"
         )
@@ -203,6 +201,8 @@ class PravoGovSource:
         self,
         base_url: str = "http://pravo.gov.ru/proxy/ips/",
         timeout: float = 180.0,
+        retries: int = 3,
+        backoff: float = 10.0,
     ) -> None:
         if not base_url.startswith(("http://", "https://")):
             raise ValueError(
@@ -210,12 +210,11 @@ class PravoGovSource:
                 f"(получено: {base_url!r})"
             )
         self._base_url = base_url
-        # ИПС отвечает медленно: замеры дают 16 с на страницу списка
-        # редакций, а полный текст УК РФ весит 2,6 МБ. Таймаут в 20 секунд,
-        # как у ГАРАНТ, здесь срабатывал бы постоянно.
         self._timeout = timeout
+        self._retries = retries
+        self._backoff = backoff
 
-    def _get(self, params: dict[str, Any]) -> str:
+    def _get(self, params: dict[str, Any], attempt: int = 0) -> str:
         import httpx
 
         try:
@@ -226,18 +225,26 @@ class PravoGovSource:
                 follow_redirects=True,
             )
         except httpx.TimeoutException as exc:
-            # Отличаем «сервер медленный» от «сервера нет»: лечится это
-            # по-разному, а сообщение об этом умалчивало.
             raise RedactionSourceError(
                 f"ИПС не ответил за {self._timeout:.0f} с ({self._base_url}). "
                 "Сервер отвечает медленно, особенно на полный текст кодекса. "
                 "Увеличьте таймаут: SO_PRAVO_TIMEOUT=600"
+            ) from exc
+        except httpx.TransportError as exc:
+            if attempt < self._retries:
+                time.sleep(self._backoff * (attempt + 1))
+                return self._get(params, attempt + 1)
+            raise RedactionSourceError(
+                f"ИПС недоступен ({self._base_url}): {exc}"
             ) from exc
         except httpx.HTTPError as exc:
             raise RedactionSourceError(
                 f"ИПС недоступен ({self._base_url}): {exc}"
             ) from exc
 
+        if response.status_code in _RETRYABLE_STATUSES and attempt < self._retries:
+            time.sleep(self._backoff * (attempt + 1))
+            return self._get(params, attempt + 1)
         if response.status_code != 200:
             raise RedactionSourceError(
                 f"ИПС: HTTP {response.status_code} при запросе {params}"
@@ -251,7 +258,14 @@ class PravoGovSource:
                 f"идентификатор документа ИПС — число вида 102041891 "
                 f"(получено: {topic!r})"
             )
-        return parse_editions(self._get({"docbody": "", "nd": topic}))
+        for attempt in range(self._retries + 1):
+            try:
+                return parse_editions(self._get({"docbody": "", "nd": topic}))
+            except EditionListMissing:
+                if attempt >= self._retries:
+                    raise
+                time.sleep(self._backoff * (attempt + 1))
+        raise AssertionError("недостижимо")
 
     def article_texts(self, topic: str, rdk: int) -> dict[str, str]:
         """Тексты статей документа в редакции ``rdk``."""
@@ -273,8 +287,6 @@ class PravoGovSource:
 
         for edition in editions:
             if edition.act_date is None:
-                # Исходная редакция: дата вступления в силу на странице не
-                # приводится, выдумывать её нельзя.
                 uncertain.append(
                     UncertainPeriod(
                         description=(

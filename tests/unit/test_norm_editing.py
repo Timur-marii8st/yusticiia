@@ -48,8 +48,6 @@ def _corpus(tmp_path):
     return tmp_path
 
 
-# -- сверка истории
-
 
 def test_confirmed_history_leaves_review_list(tmp_path) -> None:
     """Подтверждённая сверка превращает допущение в факт."""
@@ -81,8 +79,6 @@ def test_confirm_reports_unknown_norm(tmp_path) -> None:
     with pytest.raises(NormEditError, match="не найдена"):
         confirm_history(_corpus(tmp_path), "нет-такой", checked_through=TODAY, source="КП")
 
-
-# -- добавление редакции
 
 
 def test_added_version_closes_previous_interval(tmp_path) -> None:
@@ -172,6 +168,80 @@ def test_cli_explains_missing_text_file(tmp_path, monkeypatch, capsys) -> None:
     )
     assert code == 2
     assert "готовите вы" in capsys.readouterr().err
+
+
+def test_cli_confirm_history_writes_an_audit_entry(tmp_path, monkeypatch) -> None:
+    """confirm-history/add-version раньше не писали в аудит-журнал вообще —
+
+    правка боевого корпуса норм не оставляла следа, кто и когда её
+    выполнил. Пишем в изолированный SO_DATA_DIR, чтобы не задеть
+    настоящий data/store/audit.jsonl репозитория.
+    """
+    from second_opinion.audit.trail import CLI_ACTOR
+    from second_opinion.cli import main
+    from second_opinion.config import load_config, reset_config_cache
+
+    norms_dir = tmp_path / "fixtures" / "norms"
+    norms_dir.mkdir(parents=True)
+    _corpus(norms_dir)
+    monkeypatch.setenv("SO_FIXTURES_DIR", str(tmp_path / "fixtures"))
+    monkeypatch.setenv("SO_DATA_DIR", str(tmp_path / "store"))
+    reset_config_cache()
+
+    code = main(
+        [
+            "norms-confirm-history",
+            "--norm-id", "uk-rf:art-158-part-1",
+            "--checked-through", "2026-09-11",
+            "--source", "КонсультантПлюс",
+        ]
+    )
+    assert code == 0
+
+    events = [
+        json.loads(line)
+        for line in load_config().audit_path.read_text(encoding="utf-8").splitlines()
+    ]
+    entry = next(e for e in events if e["operation"] == "norm_confirm_history")
+    assert entry["actor"] == CLI_ACTOR
+    assert entry["input_hash"] == "uk-rf:art-158-part-1"
+    assert entry["details"]["source"] == "КонсультантПлюс"
+
+
+def test_cli_add_version_writes_an_audit_entry(tmp_path, monkeypatch) -> None:
+    from second_opinion.audit.trail import CLI_ACTOR
+    from second_opinion.cli import main
+    from second_opinion.config import load_config, reset_config_cache
+
+    norms_dir = tmp_path / "fixtures" / "norms"
+    norms_dir.mkdir(parents=True)
+    _corpus(norms_dir)
+    monkeypatch.setenv("SO_FIXTURES_DIR", str(tmp_path / "fixtures"))
+    monkeypatch.setenv("SO_DATA_DIR", str(tmp_path / "store"))
+    reset_config_cache()
+
+    text_file = tmp_path / "ред-2004.txt"
+    text_file.write_text("текст 2004 года", encoding="utf-8")
+
+    code = main(
+        [
+            "norms-add-version",
+            "--norm-id", "uk-rf:art-158-part-1",
+            "--text-file", str(text_file),
+            "--effective-from", "2004-01-01",
+        ]
+    )
+    assert code == 0
+
+    events = [
+        json.loads(line)
+        for line in load_config().audit_path.read_text(encoding="utf-8").splitlines()
+    ]
+    entry = next(e for e in events if e["operation"] == "norm_add_version")
+    assert entry["actor"] == CLI_ACTOR
+    assert entry["input_hash"] == "uk-rf:art-158-part-1"
+    assert entry["output_hash"] == "v-2004"
+    assert entry["details"]["effective_from"] == "2004-01-01"
 
 
 def test_confirm_history_records_source_edition_on_open_version(tmp_path) -> None:

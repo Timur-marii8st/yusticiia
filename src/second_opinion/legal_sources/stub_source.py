@@ -46,5 +46,4 @@ class StubRedactionSource:
                 "иначе предположение по документации однажды примут за данные сервера"
             )
         history = parse_redactions(topic, payload.get("response"))
-        # Источник — заглушка, и это должно быть видно во всём, что дальше.
         return history.model_copy(update={"source": self.name, "live": False})

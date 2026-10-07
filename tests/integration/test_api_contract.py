@@ -32,7 +32,6 @@ def test_not_found_has_the_unified_shape(pipeline) -> None:
     assert body["error"]["code"] == "not_found"
     assert "'" not in body["error"]["message"], "сообщение снова в кавычках repr"
     assert body["error"]["request_id"]
-    # `detail` сохранён: его читает текущий интерфейс.
     assert body["detail"] == body["error"]["message"]
 
 
@@ -43,8 +42,6 @@ def test_validation_error_has_the_same_shape(pipeline) -> None:
     assert response.status_code == 422
     body = response.json()
     assert body["error"]["code"] == "validation_error"
-    # Раньше здесь лежал список объектов, а не строка: клиент не мог
-    # показать сообщение, не разобрав структуру.
     assert isinstance(body["detail"], str)
     assert body["error"]["fields"][0]["location"] == "body.text"
 
@@ -80,7 +77,6 @@ def test_cases_list_is_paginated(pipeline) -> None:
 
     assert len(first["cases"]) == 3
     assert first["page"]["has_more"] is True
-    # Окна не пересекаются: смещение действительно смещает.
     assert {c["case_id"] for c in first["cases"]} & {
         c["case_id"] for c in second["cases"]
     } == set()
@@ -146,15 +142,10 @@ def test_paths_without_version_keep_working(pipeline) -> None:
     assert versioned.status_code == legacy.status_code == 200
     assert versioned.json() == legacy.json()
 
-    # Псевдоним строится копированием набора методов, поэтому проверяется
-    # не только GET: при потере methods запись прошла бы как 405.
     body = {"filename": "legacy.txt", "text": "Приговор."}
     by_alias = client.post("/api/documents", json=body)
     canonical = client.post("/api/v1/documents", json=body)
 
-    # Сравнение идёт с каноническим ответом, а не с записанным числом:
-    # изменится код ответа эндпойнта — тест продолжит проверять равенство,
-    # а не начнёт падать на устаревшем ожидании.
     assert by_alias.status_code == canonical.status_code == 200, by_alias.text
 
 
@@ -163,8 +154,6 @@ def test_interface_calls_the_versioned_path(pipeline) -> None:
     js = client.get("/static/app.js").text
 
     assert "/api/v1/" in js
-    # Путей без версии в интерфейсе остаться не должно: псевдоним — для
-    # чужих клиентов, а не для нашего собственного.
     assert '"/api/analyses' not in js and "`/api/analyses" not in js
 
 
@@ -180,20 +169,13 @@ def test_process_entry_point_builds_an_app() -> None:
 
     from second_opinion.api.app import make_app
 
-    # Имя должно совпадать со строкой, которую CLI передаёт uvicorn:
-    # опечатка там обнаружилась бы только при запуске.
     serve_source = importlib.import_module("second_opinion.cli.serve")
     target = "second_opinion.api.app:make_app"
     assert target in serve_source.serve.__code__.co_consts, (
         f"CLI зовёт не {target}: сверьте строку в cli/serve.py"
     )
 
-    # Проверка запросом, а не осмотром `app.routes`: подключённые роутеры
-    # лежат там вложенными, и «маршрута нет» по этому списку не отличить от
-    # «маршрут есть, но завёрнут».
     client = TestClient(make_app())
     assert client.get("/health").status_code == 200
 
-    # Развёртывание может требовать авторизации, поэтому проверяется не 200,
-    # а «маршрут существует»: 404 означал бы, что роутер не подключён.
     assert client.get("/api/v1/norms?limit=1").status_code != 404

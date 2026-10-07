@@ -14,7 +14,6 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 PACKAGE = PROJECT_ROOT / "src" / "second_opinion"
 
-#: Каталоги, которые не относятся к репозиторию как таковому.
 IGNORED = {".venv", ".git", "__pycache__", ".pytest_cache", ".ruff_cache", ".mypy_cache", ".claude"}
 
 LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
@@ -42,7 +41,7 @@ def test_markdown_links_resolve() -> None:
             if not target or target.startswith(("http://", "https://", "mailto:")):
                 continue
             if not (path.parent / target).resolve().exists():
-                broken.append(f"{path.relative_to(PROJECT_ROOT)} → {target}")
+                broken.append(f"{path.relative_to(PROJECT_ROOT)} -> {target}")
 
     assert not broken, "ссылки ведут в никуда:\n  " + "\n  ".join(broken)
 
@@ -235,3 +234,49 @@ def test_markdown_tables_are_well_formed() -> None:
                 )
 
     assert not broken, "таблицы разъехались:\n  " + "\n  ".join(broken)
+
+
+def test_domain_model_lists_every_fact_type() -> None:
+    from second_opinion.domain.enums import FactType
+
+    text = (PROJECT_ROOT / "docs" / "DOMAIN_MODEL.md").read_text(encoding="utf-8")
+    missing = [t.value for t in FactType if f"`{t.value}`" not in text]
+    assert not missing, f"в docs/DOMAIN_MODEL.md не названы типы обстоятельств: {missing}"
+
+
+def test_package_version_matches_the_latest_changelog_entry() -> None:
+    import tomllib
+
+    import second_opinion
+
+    changelog = (PROJECT_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    heading = re.search(r"^## (\d+)\.(\d+) — ", changelog, flags=re.MULTILINE)
+    assert heading is not None, "в CHANGELOG.md нет записи вида «## 0.N — ...»"
+    expected = f"{heading.group(1)}.{heading.group(2)}.0"
+    declared = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    assert declared["project"]["version"] == expected
+    assert second_opinion.__version__ == expected
+
+
+def test_lock_pins_every_runtime_dependency() -> None:
+    import tomllib
+
+    declared = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    names = {
+        re.split(r"[\[<>=!~ ;]", requirement, maxsplit=1)[0].lower().replace("_", "-")
+        for requirement in [
+            *declared["dependencies"],
+            *declared["optional-dependencies"]["pg"],
+            *declared["optional-dependencies"]["ocr"],
+        ]
+    }
+    lock = (PROJECT_ROOT / "requirements.lock").read_text(encoding="utf-8")
+    pinned = {
+        match.group(1).lower().replace("_", "-"): match.group(0)
+        for match in re.finditer(r"^([A-Za-z0-9_.-]+)==[^\s\\]+", lock, flags=re.MULTILINE)
+    }
+    missing = sorted(name for name in names if name not in pinned)
+    assert not missing, f"в requirements.lock нет закреплённых версий: {missing}"
+    assert lock.count("--hash=sha256:") >= len(pinned), "у части пакетов нет хэшей"
+    dockerfile = (PROJECT_ROOT / "Dockerfile").read_text(encoding="utf-8")
+    assert "--require-hashes -r requirements.lock" in dockerfile

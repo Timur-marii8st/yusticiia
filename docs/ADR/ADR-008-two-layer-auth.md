@@ -9,7 +9,7 @@
 
 1. **Loopback-MVP** (`SO_AUTH_TOKEN`, общий Bearer-секрет): HTTP-middleware
    в `create_app` требовал `Authorization: Bearer <токен>` на всех `/api/*`.
-2. **JWT** (0.17, персональные учёные записи): `/auth/login` → access/refresh,
+2. **JWT** (0.17, персональные учёные записи): `/auth/login` -> access/refresh,
    `get_current_user` проверяет access-токен, `require_role(admin)` — CRUD.
 
 Дефект до ADR-008: при заданном `SO_AUTH_TOKEN` middleware сравнивал

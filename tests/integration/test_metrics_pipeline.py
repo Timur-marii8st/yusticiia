@@ -40,7 +40,6 @@ def test_analyze_increments_counters_and_histograms(pipeline) -> None:
     R-006, R-007, R-009, R-010)."""
     reg, restore = _install_metrics()
     try:
-        # Счётчики, которые заведомо зарегистрированы после успешного analyze.
         before_total = reg.counter(ANALYSES_TOTAL).get()
         before_evals = reg.counter(RULE_EVALUATIONS).get()
 
@@ -51,7 +50,6 @@ def test_analyze_increments_counters_and_histograms(pipeline) -> None:
         assert reg.counter(ANALYSES_TOTAL).get() == before_total + 1
         assert reg.counter(ANALYSES_FAILED_TOTAL).get() == 0
         assert reg.counter(RULE_EVALUATIONS).get() >= before_evals + 8
-        # Гистограммы фаз зафиксировали по одному наблюдению.
         assert after["histograms"][ANALYZE_DURATION_SECONDS]["count"] == 1
         assert after["histograms"][EXTRACT_DURATION_SECONDS]["count"] == 1
         assert after["histograms"][RULE_ENGINE_DURATION_SECONDS]["count"] == 1
@@ -63,7 +61,7 @@ def test_analyze_increments_counters_and_histograms(pipeline) -> None:
 
 
 def test_analyze_failure_increments_failed_counter(pipeline) -> None:
-    """DocumentNotFound → ANALYSES_FAILED_TOTAL++, исключение пробрасывается."""
+    """DocumentNotFound -> ANALYSES_FAILED_TOTAL++, исключение пробрасывается."""
     from second_opinion.pipeline import DocumentNotFound
 
     reg, restore = _install_metrics()

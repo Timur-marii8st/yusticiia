@@ -20,18 +20,18 @@ def _fact(report, fact_type: FactType):
 
 def test_excluding_fact_changes_evaluations(pipeline) -> None:
     _, report = _report(pipeline)
-    assert report.case_facts.mitigating  # возмещение ущерба извлечено
+    assert report.case_facts.mitigating
 
     restitution = next(
         f for f in report.facts if f.type is FactType.RESTITUTION
     )
     updated = pipeline.update_fact(
-        report.analysis_id, restitution.id, status="NOT_FOUND"
+        report.analysis_id, restitution.id, status="NOT_FOUND", reason="ошибка извлечения"
     )
 
     updated_fact = next(f for f in updated.facts if f.id == restitution.id)
     assert updated_fact.status is FactStatus.NOT_FOUND
-    # без пп. «и»/«к» предел ч. 1 ст. 62 УК РФ не применяется
+    assert updated_fact.rejection_reason == "ошибка извлечения"
     r004 = next(e for e in updated.evaluations if e.rule_id == "R-004")
     assert "не применимо" in r004.headline
     remaining_codes = {m.code for m in updated.case_facts.mitigating}
@@ -42,9 +42,42 @@ def test_excluded_fact_remains_visible_in_report(pipeline) -> None:
     _, report = _report(pipeline)
     restitution = next(f for f in report.facts if f.type is FactType.RESTITUTION)
     updated = pipeline.update_fact(
-        report.analysis_id, restitution.id, status="NOT_FOUND"
+        report.analysis_id, restitution.id, status="NOT_FOUND", reason="ошибка извлечения"
     )
     assert any(f.id == restitution.id for f in updated.facts)
+
+
+def test_excluding_fact_without_reason_is_rejected(pipeline) -> None:
+    """Мотивировка отклонения обязательна (Концепция ВС РФ, Приложение № 3, риск № 5)."""
+    _, report = _report(pipeline)
+    restitution = next(f for f in report.facts if f.type is FactType.RESTITUTION)
+    with pytest.raises(ValueError, match="причины"):
+        pipeline.update_fact(report.analysis_id, restitution.id, status="NOT_FOUND")
+    with pytest.raises(ValueError, match="причины"):
+        pipeline.update_fact(
+            report.analysis_id, restitution.id, status="NOT_FOUND", reason="   "
+        )
+
+
+def test_exclusion_reason_reaches_audit_log(pipeline) -> None:
+    _, report = _report(pipeline)
+    restitution = next(f for f in report.facts if f.type is FactType.RESTITUTION)
+    pipeline.update_fact(
+        report.analysis_id, restitution.id, status="NOT_FOUND", reason="дубликат факта"
+    )
+    events = [e for e in pipeline._audit.recent if e.operation == "fact_update"]
+    assert events[-1].details["reason"] == "дубликат факта"
+
+
+def test_reverifying_excluded_fact_clears_reason(pipeline) -> None:
+    _, report = _report(pipeline)
+    restitution = next(f for f in report.facts if f.type is FactType.RESTITUTION)
+    pipeline.update_fact(
+        report.analysis_id, restitution.id, status="NOT_FOUND", reason="ошибка извлечения"
+    )
+    updated = pipeline.update_fact(report.analysis_id, restitution.id, status="VERIFIED")
+    updated_fact = next(f for f in updated.facts if f.id == restitution.id)
+    assert updated_fact.rejection_reason is None
 
 
 def test_confirming_likely_llm_fact_promotes_it(pipeline) -> None:
@@ -79,7 +112,6 @@ def test_value_correction_recomputes_rules(pipeline) -> None:
     term = _fact(report, FactType.PUNISHMENT_TERM)
     assert term.value == 18.0
 
-    # Судья исправил срок на 45 мес.: особый порядок → предел 2/3 (40 мес.)
     updated = pipeline.update_fact(report.analysis_id, term.id, value=45.0)
     corrected = next(f for f in updated.facts if f.id == term.id)
     assert corrected.status is FactStatus.VERIFIED

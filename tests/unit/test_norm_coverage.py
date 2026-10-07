@@ -17,6 +17,7 @@ from second_opinion.legal_sources.coverage import (
     analyze_norm,
     analyze_store,
     format_report,
+    history_caveats,
     needs_legal_review,
 )
 from second_opinion.legal_sources.store import NormStore
@@ -59,8 +60,6 @@ def _version(
     )
 
 
-# -- разрывы в покрытии
-
 
 def test_contiguous_versions_have_no_gaps() -> None:
     norm = _norm()
@@ -90,8 +89,6 @@ def test_gap_between_versions_is_detected() -> None:
     assert coverage.gaps == ((date(2003, 12, 16), date(2009, 12, 31)),)
     assert needs_legal_review([coverage], TODAY) == [coverage]
 
-
-# -- незафиксированная история
 
 
 def test_single_open_version_over_threshold_is_flagged() -> None:
@@ -142,14 +139,10 @@ def test_reference_norm_without_sanctions_is_not_flagged() -> None:
     assert needs_legal_review([coverage], TODAY) == []
 
 
-# -- связь с движком правил
-
 
 def test_referenced_norm_ids_match_rule_engine_source() -> None:
     """Список не должен разъезжаться со ссылками в коде движка."""
     found: set[str] = set()
-    # rglob, а не glob: правила разложены по подмодулям rule_engine/rules/,
-    # и обход только верхнего уровня перестал бы что-либо проверять.
     for path in (PROJECT_ROOT / "src/second_opinion/rule_engine").rglob("*.py"):
         found |= set(
             re.findall(r'"((?:uk|upk|ppvs)-rf:[a-z0-9:-]+)"', path.read_text(encoding="utf-8"))
@@ -193,18 +186,12 @@ def test_draft_only_norms_are_not_reported_as_active() -> None:
     for norm_id in DRAFT_ONLY_NORM_IDS:
         coverage = by_id[norm_id]
         assert coverage.draft_rule_only is True, norm_id
-        # Ищем именно строку из раздела «Требуют сверки» (начинается с
-        # двух пробелов и тире после ссылки) — короткая таблица выше
-        # печатает только "чрк"/"да"/"—", без этой фразы вовсе, и поиск
-        # по первому вхождению ref её бы не поймал.
         flagged_line = next(
             line for line in report.splitlines() if line.startswith(f"  {coverage.ref} —")
         )
         assert "упомянута в черновике правила, не активна" in flagged_line
         assert "используется движком правил" not in flagged_line
 
-
-# -- отчёт
 
 
 def test_report_declines_years_correctly() -> None:
@@ -252,3 +239,36 @@ def test_plenum_points_name_their_number_in_the_record() -> None:
     assert not mismatched, "пункт назван в идентификаторе, но не в записи: " + "; ".join(
         mismatched
     )
+
+
+def test_single_old_edition_gives_unrecorded_caveat_on_case_date() -> None:
+    norm = _norm()
+    versions = [_version(norm.norm_id, "v1", date(1996, 7, 1))]
+    caveats = history_caveats(norm, versions, "v1", date(2025, 3, 15))
+    assert [(c.kind, c.since) for c in caveats] == [("unrecorded", date(1996, 7, 1))]
+
+
+def test_confirmed_history_removes_unrecorded_caveat() -> None:
+    norm = _norm().model_copy(update={"amendments_checked_through": date(2026, 9, 3)})
+    versions = [_version(norm.norm_id, "v1", date(1996, 7, 1))]
+    assert history_caveats(norm, versions, "v1", date(2025, 3, 15)) == []
+
+
+def test_case_date_close_after_edition_start_gives_boundary_caveat() -> None:
+    norm = _norm()
+    versions = [
+        _version(norm.norm_id, "v1", date(1996, 7, 1), date(2024, 12, 31)),
+        _version(norm.norm_id, "v2", date(2025, 1, 1)),
+    ]
+    caveats = history_caveats(norm, versions, "v2", date(2025, 2, 1))
+    assert [(c.kind, c.days_since) for c in caveats] == [("near_boundary", 31)]
+
+
+def test_case_date_far_from_boundary_and_first_edition_give_no_boundary_caveat() -> None:
+    norm = _norm()
+    versions = [
+        _version(norm.norm_id, "v1", date(1996, 7, 1), date(2024, 12, 31)),
+        _version(norm.norm_id, "v2", date(2025, 1, 1)),
+    ]
+    assert history_caveats(norm, versions, "v2", date(2025, 9, 1)) == []
+    assert history_caveats(norm, versions, "v1", date(1996, 7, 20)) == []

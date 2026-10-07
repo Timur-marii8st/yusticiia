@@ -18,8 +18,10 @@ const FACT_LABELS = {
   jury_trial: "Суд присяжных",
   punishment_type: "Вид наказания",
   punishment_term: "Размер наказания (мес.)",
+  final_punishment_term: "Окончательный срок по совокупности (мес.)",
   suspended_sentence: "Условное осуждение",
   date_of_offense: "Дата совершения",
+  exceptional_circumstances: "Ст. 64 УК РФ упомянута в тексте",
 };
 
 const STAGE_LABELS = {
@@ -28,11 +30,11 @@ const STAGE_LABELS = {
   preparation: "приготовление",
 };
 
-// Управление вводом значения для ручного добавления факта.
 const FACT_VALUE_KINDS = {
   qualification: "qualification",
   defendant_age: "number",
   punishment_term: "number",
+  final_punishment_term: "number",
   punishment_type: {
     imprisonment: "лишение свободы",
     fine: "штраф",
@@ -64,9 +66,9 @@ function buildValueInput(type) {
   if (type === "qualification") {
     container.innerHTML =
       '<label class="visually-hidden" for="nf-article">Номер статьи</label>' +
-      '<input type="number" id="nf-article" min="1" placeholder="статья" style="width:7em"> ' +
+      '<input type="number" id="nf-article" min="1" placeholder="статья" class="fact-input-article"> ' +
       '<label class="visually-hidden" for="nf-part">Номер части (необязательно)</label>' +
-      '<input type="number" id="nf-part" min="1" placeholder="часть (необязательно)" style="width:12em">';
+      '<input type="number" id="nf-part" min="1" placeholder="часть (необязательно)" class="fact-input-part">';
     newValueAccessor = () => {
       const article = Number($("nf-article").value);
       if (!article) return null;
@@ -127,10 +129,6 @@ function showError(message) {
   box.hidden = false;
 }
 
-/* Ошибки формы добавления обстоятельства показываются у самой формы:
-   она находится далеко внизу страницы, и сообщение в панели «Документ»
-   вверху оставалось незамеченным — со стороны выглядело, будто кнопка
-   не работает. */
 function showFactError(message) {
   const box = $("add-fact-error");
   box.textContent = message;
@@ -141,23 +139,22 @@ function clearFactError() {
   $("add-fact-error").hidden = true;
 }
 
-/* Бейджи двух разных словарей: результат проверки правила (PASS…UNKNOWN)
-   и достоверность обстоятельства (VERIFIED…CONFLICT). Прежде символ знали
-   только первые три статуса правил, а все остальные — в том числе все пять
-   статусов обстоятельств — падали в «?». Подтверждённое обстоятельство и
-   обстоятельство с противоречием выглядели одинаково: вопросительный знак
-   в цветной рамке. Цвет их различал, но цвет — не текст, и читается он
-   не всеми.
+function showHistoryError(message) {
+  const box = $("history-error");
+  box.textContent = message;
+  box.hidden = false;
+}
 
-   Подпись даётся по-русски: скринридер зачитывает `aria-label`, и «VERIFIED»
-   в русском интерфейсе он произносит по буквам. */
+function clearHistoryError() {
+  $("history-error").hidden = true;
+}
+
 const STATUS_BADGES = {
-  // Результат детерминированной проверки.
   PASS: ["✓", "проверка пройдена"],
   WARNING: ["⚠", "требует внимания"],
   FAIL: ["✗", "нарушение"],
   UNKNOWN: ["?", "данных недостаточно"],
-  // Достоверность обстоятельства.
+  NOT_APPLICABLE: ["н/п", "не применимо к этому делу"],
   VERIFIED: ["✓", "подтверждено"],
   LIKELY: ["≈", "вероятно, не подтверждено"],
   UNCERTAIN: ["⚠", "требует проверки"],
@@ -168,24 +165,18 @@ const STATUS_BADGES = {
 function badge(status) {
   const span = document.createElement("span");
   span.className = `status-badge status-${status}`;
-  // Неизвестный статус не притворяется известным: «?» и само имя статуса.
   const [glyph, label] = STATUS_BADGES[status] || ["?", status];
   span.textContent = glyph;
   span.title = label;
-  // Скринридер должен слышать статус, а не символ.
   span.setAttribute("role", "img");
   span.setAttribute("aria-label", label);
   return span;
 }
 
-/** Название статуса по-русски для подписей вне бейджа. */
 function statusLabel(status) {
   return (STATUS_BADGES[status] || [null, status])[1];
 }
 
-/* Статус сверки текста нормы. Различие «сверено юристом / черновик» —
-   то самое, на котором держится запрет применять непроверенный текст,
-   поэтому оно должно читаться, а не требовать знания слова `draft`. */
 const VERIFICATION_LABELS = {
   verified: "сверено юристом",
   draft: "черновик, юристом не сверен",
@@ -195,9 +186,6 @@ function verificationLabel(status) {
   return VERIFICATION_LABELS[status] || status;
 }
 
-/* Чем получено обстоятельство. Короткая пометка в списке (`fact-origin`)
-   отвечает на вопрос «откуда это взялось» и потому написана глаголом;
-   здесь — название способа, оно стоит после двоеточия. */
 const METHOD_LABELS = {
   pattern: "разбор по шаблонам",
   llm: "языковая модель",
@@ -213,7 +201,6 @@ function toggleDetail(detail, trigger) {
   if (trigger) trigger.setAttribute("aria-expanded", String(!hidden));
 }
 
-// Раскрытие списка: клик мышью + Enter/Space с клавиатуры (a11y).
 function wireDisclosure(title, detail) {
   title.setAttribute("role", "button");
   title.setAttribute("tabindex", "0");
@@ -235,36 +222,85 @@ function div(className, text) {
   return el;
 }
 
-/* Единая точка обращения к API: подставляет токен и показывает форму
-   входа при 401.
-
-   Токенов два, и это не дублирование: `so-access` — личная учётная
-   запись (JWT), `so-token` — общий секрет развёртывания. Оба принимаются
-   сервером (ADR-008). Личный приоритетнее: под ним действия попадают в
-   журнал с именем исполнителя, а не обезличенно. */
 let authMode = "open";
 
-function apiFetch(url, options = {}) {
+const SESSION_HINT = "so-session";
+
+function setSessionHint(on) {
+  try {
+    if (on) localStorage.setItem(SESSION_HINT, "1");
+    else localStorage.removeItem(SESSION_HINT);
+  } catch {
+  }
+}
+
+function hasSessionHint() {
+  try {
+    return localStorage.getItem(SESSION_HINT) === "1";
+  } catch {
+    return false;
+  }
+}
+
+let refreshing = null;
+
+async function attemptRefresh() {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const response = await fetch("/auth/refresh", {
+      method: "POST",
+      headers: { "X-SO-CSRF": "1" },
+    }).catch(() => null);
+    if (response && response.ok) {
+      sessionStorage.setItem("so-access", (await response.json()).access_token);
+      return true;
+    }
+    if (!response || response.status !== 401) return false;
+  }
+  return false;
+}
+
+function refreshSession() {
+  if (!refreshing) {
+    refreshing = attemptRefresh().finally(() => {
+      refreshing = null;
+    });
+  }
+  return refreshing;
+}
+
+function sendWithToken(url, options) {
   const token = sessionStorage.getItem("so-access") || sessionStorage.getItem("so-token");
   const headers = { ...(options.headers || {}) };
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  return fetch(url, { ...options, headers }).then((response) => {
-    if (response.status === 401) {
-      // В режиме accounts общий секрет не принимается вовсе — предлагать
-      // его означало бы звать судью вводить то, что заведомо не сработает.
-      if (authMode === "accounts") {
-        $("account-panel").scrollIntoView({ behavior: "smooth" });
-        $("login-email").focus();
-      } else {
-        $("auth-box").hidden = false;
-      }
-    }
-    return response;
-  });
+  return fetch(url, { ...options, headers });
 }
 
-/* Режим авторизации — факт развёртывания, а не секрет: интерфейс
-   спрашивает его, чтобы не предлагать неработающий способ входа. */
+async function apiFetch(url, options = {}) {
+  let response = await sendWithToken(url, options);
+  const canRefresh =
+    response.status === 401 &&
+    hasSessionHint() &&
+    url !== "/auth/login" &&
+    url !== "/auth/refresh";
+  if (canRefresh) {
+    if (await refreshSession()) {
+      response = await sendWithToken(url, options);
+    } else {
+      sessionStorage.removeItem("so-access");
+      setSessionHint(false);
+    }
+  }
+  if (response.status === 401 && !url.startsWith("/auth/")) {
+    if (authMode === "accounts") {
+      $("account-panel").scrollIntoView({ behavior: "smooth" });
+      $("login-email").focus();
+    } else {
+      $("auth-box").hidden = false;
+    }
+  }
+  return response;
+}
+
 async function loadAuthMode() {
   try {
     const response = await fetch("/health");
@@ -277,17 +313,21 @@ async function loadAuthMode() {
         "общий секрет не подойдёт.";
     }
   } catch {
-    // Недоступный /health не должен ломать страницу: остаёмся на «open».
   }
 }
 
 function factValueLabel(fact) {
   const value = fact.value;
   if (fact.type === "qualification" && typeof value === "object" && value !== null) {
+    const article = value.article_suffix ? `${value.article}.${value.article_suffix}` : value.article;
     const part = value.part ? ` ч. ${value.part}` : "";
-    return `ст. ${value.article}${part} ${value.code || "УК РФ"}`;
+    return `ст. ${article}${part} ${value.code || "УК РФ"}`;
   }
   if (fact.type === "offense_stage") return STAGE_LABELS[value] || value;
+  const kind = FACT_VALUE_KINDS[fact.type];
+  if (typeof kind === "object" && Object.prototype.hasOwnProperty.call(kind, value)) {
+    return kind[value];
+  }
   if (typeof value === "boolean") return value ? "да" : "нет";
   return String(value);
 }
@@ -312,10 +352,6 @@ function renderFact(fact, analysisId, usedIn) {
   title.appendChild(badge(fact.status));
   title.append(` ${FACT_LABELS[fact.type] || fact.type}: ${factValueLabel(fact)}`);
 
-  /* Происхождение видно сразу в списке. Иначе внесённое судьёй
-     обстоятельство неотличимо от извлечённого машиной — а когда рядом
-     стоят два «Возраст подсудимого» с разными значениями, непонятно,
-     какое из них пойдёт в проверки. */
   const originText =
     fact.status === "NOT_FOUND"
       ? "исключено из проверок"
@@ -336,6 +372,9 @@ function renderFact(fact, analysisId, usedIn) {
   meta.appendChild(div("", `Метод извлечения: ${methodLabel(fact.extraction_method)}`));
   meta.appendChild(div("", `Уверенность: ${fact.confidence}`));
   if (fact.prompt_version) meta.appendChild(div("", `Промпт: ${fact.prompt_version}`));
+  if (fact.rejection_reason) {
+    meta.appendChild(div("", `Причина исключения: ${fact.rejection_reason}`));
+  }
 
   fact.evidence.forEach((ev) => {
     const quote = document.createElement("blockquote");
@@ -347,7 +386,6 @@ function renderFact(fact, analysisId, usedIn) {
     );
   });
 
-  // Обратная связь: в каких проверках правила-движка участвует факт.
   const used = usedIn && usedIn[fact.id];
   if (used && used.length) {
     const usedBlock = div("chain");
@@ -382,7 +420,11 @@ function renderFact(fact, analysisId, usedIn) {
     rejectBtn.textContent = "Исключить из проверок";
     rejectBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      updateFact(analysisId, fact.id, { status: "NOT_FOUND" });
+      const reason = window.prompt(
+        "Причина исключения факта из проверок (обязательна):"
+      );
+      if (!reason || !reason.trim()) return;
+      updateFact(analysisId, fact.id, { status: "NOT_FOUND", reason: reason.trim() });
     });
     actions.appendChild(rejectBtn);
   }
@@ -425,7 +467,7 @@ function renderEvaluation(ev, factsById) {
     normsBlock.appendChild(div("step", "Применённые нормы:"));
     ev.norms_used.forEach((norm) => {
       const versionLabel = norm.version_id ? ` (редакция: ${norm.version_id})` : "";
-      normsBlock.appendChild(div("step", `→ ${norm.ref}${versionLabel}`));
+      normsBlock.appendChild(div("step", `- ${norm.ref}${versionLabel}`));
     });
     detail.appendChild(normsBlock);
   }
@@ -519,10 +561,15 @@ function renderAnalytics(analytics) {
   });
   const dist = document.createElement("div");
   dist.className = "meta";
-  dist.textContent = `Виды наказания: ${JSON.stringify(analytics.punishment_type_distribution)}`;
+  const distEntries = Object.entries(analytics.punishment_type_distribution || {});
+  const punishmentLabels = FACT_VALUE_KINDS.punishment_type;
+  const distText = distEntries.length
+    ? distEntries
+        .map(([type, count]) => `${punishmentLabels[type] || type}: ${count}`)
+        .join(", ")
+    : "нет данных";
+  dist.textContent = `Виды наказания: ${distText}`;
 
-  // Положение назначенного срока в выборке (ФТ-27). Формулировка
-  // описательная: «где стоит», а не «каким должен быть».
   const position = analytics.sentence_position;
   const positionBlock = div("sentence-position");
   if (position) {
@@ -566,7 +613,6 @@ function renderAnalytics(analytics) {
   const note = div("meta", "Статистика описательная и не является рекомендацией о наказании.");
   const wrap = $("analytics");
   wrap.innerHTML = "";
-  // Положение срока — первым: это то, ради чего судья открывает раздел.
   if (position) wrap.appendChild(positionBlock);
   wrap.appendChild(table);
   wrap.appendChild(dist);
@@ -588,8 +634,6 @@ const CONCERN_BADGE = {
   violation: "FAIL",
   attention: "WARNING",
   data: "UNKNOWN",
-  // Не «⚠»: статистика ничего не нарушает, и бейдж не должен намекать
-  // на нарушение.
   statistics: "UNKNOWN",
 };
 
@@ -607,8 +651,6 @@ function renderSummary(summary) {
     const li = document.createElement("li");
     li.appendChild(div("summary-line", line.text));
     if (line.fact_ids && line.fact_ids.length) {
-      // Изложение не висит в воздухе: видно, на скольких обстоятельствах
-      // держится строка, и их можно раскрыть ниже до цитаты.
       li.appendChild(div("meta", `обстоятельств в основе: ${line.fact_ids.length}`));
     }
     list.appendChild(li);
@@ -632,7 +674,20 @@ function renderConcerns(concerns) {
     title.appendChild(badge(CONCERN_BADGE[concern.severity] || "UNKNOWN"));
     title.append(` ${CONCERN_LABELS[concern.severity] || concern.severity}: ${concern.title}`);
     li.appendChild(title);
-    if (concern.detail) li.appendChild(div("meta", concern.detail));
+    if (concern.detail) {
+      if (concern.severity === "data" && concern.detail.includes("; ")) {
+        const ul = document.createElement("ul");
+        ul.className = "reasons";
+        concern.detail.split("; ").forEach((item) => {
+          const itemLi = document.createElement("li");
+          itemLi.textContent = item;
+          ul.appendChild(itemLi);
+        });
+        li.appendChild(ul);
+      } else {
+        li.appendChild(div("meta", concern.detail));
+      }
+    }
     if (concern.rule_id) li.appendChild(div("meta", `правило ${concern.rule_id}`));
     list.appendChild(li);
   });
@@ -640,10 +695,6 @@ function renderConcerns(concerns) {
 
 function renderReport(report) {
   $("results").hidden = false;
-  /* Ссылка на эндпойнт здесь не годится: браузер идёт по ней обычной
-     навигацией, без заголовка Authorization, и в развёртывании с
-     авторизацией судья получает 401 вместо отчёта. Отчёт забирается тем же
-     apiFetch, что и все запросы, и отдаётся как файл. */
   $("download-json").dataset.analysisId = report.analysis_id;
 
   const card = $("doc-card");
@@ -671,7 +722,6 @@ function renderReport(report) {
 
   const factsList = $("facts-list");
   factsList.innerHTML = "";
-  // Индекс «факт → проверки», где он использован (обратная связь для судьи).
   const usedIn = {};
   report.evaluations.forEach((ev) => {
     ev.facts_used.forEach((factId) => {
@@ -825,7 +875,6 @@ function renderSearchHit(hit) {
   badgeEl.className = "status-badge status-LIKELY";
   badgeEl.textContent = hit.score.toFixed(2);
   badgeEl.title = "лексическая релевантность (справочная)";
-  // Иначе экранный диктор читает голое число без объяснения, что это.
   badgeEl.setAttribute(
     "aria-label",
     `лексическая релевантность ${hit.score.toFixed(2)} (справочная)`
@@ -885,7 +934,131 @@ async function runSearch() {
 
 $("analyze-btn").addEventListener("click", submit);
 
-// --- состояние нормативного корпуса -----------------------------------------
+function normEditMessage(box, text, isError) {
+  box.textContent = text;
+  box.hidden = false;
+  box.className = isError ? "error" : "hint";
+  box.setAttribute("role", isError ? "alert" : "status");
+}
+
+async function submitNormEdit(url, body, button, messageBox) {
+  messageBox.hidden = true;
+  button.disabled = true;
+  try {
+    const response = await apiFetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.detail || `HTTP ${response.status}`);
+    }
+    normEditMessage(messageBox, "Готово: " + payload.message, false);
+    setTimeout(loadCorpusState, 1200);
+  } catch (error) {
+    normEditMessage(messageBox, error.message, true);
+    button.disabled = false;
+  }
+}
+
+function normEditBox(norm) {
+  const details = document.createElement("details");
+  details.className = "norm-edit";
+
+  const summary = document.createElement("summary");
+  summary.textContent = "Свериться с источником";
+  details.appendChild(summary);
+
+  const messageBox = document.createElement("div");
+  messageBox.hidden = true;
+  details.appendChild(messageBox);
+
+  const confirmRow = div("controls");
+  const checkedInput = document.createElement("input");
+  checkedInput.type = "date";
+  checkedInput.value = new Date().toISOString().slice(0, 10);
+  checkedInput.setAttribute("aria-label", "Дата, по которую сверена история");
+  const sourceInput = document.createElement("input");
+  sourceInput.type = "text";
+  sourceInput.placeholder = "Источник сверки (например, КонсультантПлюс)";
+  sourceInput.size = 28;
+  sourceInput.setAttribute("aria-label", "Источник сверки");
+  const confirmBtn = document.createElement("button");
+  confirmBtn.type = "button";
+  confirmBtn.className = "secondary";
+  confirmBtn.textContent = "Статья не менялась — подтвердить";
+  confirmRow.append(checkedInput, sourceInput, confirmBtn);
+  details.appendChild(div("hint", "Сверка истории изменений: подтверждает, что единственная редакция — факт, а не допущение."));
+  details.appendChild(confirmRow);
+
+  confirmBtn.addEventListener("click", () => {
+    if (!sourceInput.value.trim()) {
+      normEditMessage(messageBox, "Укажите источник сверки.", true);
+      return;
+    }
+    submitNormEdit(
+      `/api/v1/norms/${encodeURIComponent(norm.norm_id)}/confirm-history`,
+      { checked_through: checkedInput.value, source: sourceInput.value.trim() },
+      confirmBtn,
+      messageBox
+    );
+  });
+
+  const versionText = document.createElement("textarea");
+  versionText.rows = 3;
+  versionText.placeholder = "Текст новой редакции из официального источника";
+  versionText.setAttribute("aria-label", "Текст новой редакции");
+  const fromRow = div("controls");
+  const fromLabel = document.createElement("label");
+  fromLabel.textContent = "Действует с:";
+  fromLabel.className = "visually-hidden";
+  fromLabel.setAttribute("for", `nv-from-${norm.norm_id}`);
+  const fromInput = document.createElement("input");
+  fromInput.type = "date";
+  fromInput.id = `nv-from-${norm.norm_id}`;
+  fromInput.setAttribute("aria-label", "Действует с");
+  const sourceUrlInput = document.createElement("input");
+  sourceUrlInput.type = "text";
+  sourceUrlInput.placeholder = "Ссылка на источник (необязательно)";
+  sourceUrlInput.size = 28;
+  sourceUrlInput.setAttribute("aria-label", "Ссылка на источник");
+  const addBtn = document.createElement("button");
+  addBtn.type = "button";
+  addBtn.className = "secondary";
+  addBtn.textContent = "Добавить редакцию";
+  fromRow.append(fromLabel, fromInput, sourceUrlInput, addBtn);
+  details.appendChild(
+    div("hint", "Новая редакция: закрывает действующий интервал и приходит статусом «черновик» — пределы наказания вносятся отдельно.")
+  );
+  const versionRow = div("controls");
+  versionRow.appendChild(versionText);
+  details.appendChild(versionRow);
+  details.appendChild(fromRow);
+
+  addBtn.addEventListener("click", () => {
+    if (!versionText.value.trim()) {
+      normEditMessage(messageBox, "Вставьте текст редакции.", true);
+      return;
+    }
+    if (!fromInput.value) {
+      normEditMessage(messageBox, "Укажите дату, с которой действует редакция.", true);
+      return;
+    }
+    submitNormEdit(
+      `/api/v1/norms/${encodeURIComponent(norm.norm_id)}/add-version`,
+      {
+        text: versionText.value.trim(),
+        effective_from: fromInput.value,
+        source_url: sourceUrlInput.value.trim(),
+      },
+      addBtn,
+      messageBox
+    );
+  });
+
+  return details;
+}
 
 function corpusRow(norm) {
   const li = document.createElement("li");
@@ -897,7 +1070,7 @@ function corpusRow(norm) {
   const to = norm.covered_to || "н/в";
   const parts = [
     `редакций: ${norm.version_count}`,
-    `покрытие: ${norm.covered_from} → ${to}`,
+    `покрытие: ${norm.covered_from} -> ${to}`,
     norm.rule_relevant ? "читается движком правил" : "справочная",
   ];
   if (norm.history_verified) parts.push("история сверена юристом");
@@ -918,6 +1091,7 @@ function corpusRow(norm) {
       ? `Редакция источника: ${norm.source_editions.join(", ")}`
       : "Редакция источника не записана — устаревание не отследить.")
   );
+  li.appendChild(normEditBox(norm));
   return li;
 }
 
@@ -937,7 +1111,6 @@ function renderCorpusState(data) {
 
   const list = $("corpus-list");
   list.textContent = "";
-  // Требующие сверки — первыми: ради них раздел и открывают.
   const ordered = [...data.norms].sort(
     (a, b) => Number(b.needs_review) - Number(a.needs_review) || a.ref.localeCompare(b.ref, "ru")
   );
@@ -961,9 +1134,6 @@ async function loadCorpusState() {
 
 $("print-btn").addEventListener("click", () => window.print());
 
-/* Выгрузка .docx идёт тем же apiFetch, что и остальное: обычная ссылка
-   ушла бы навигацией без заголовка Authorization и в защищённом
-   развёртывании вернула бы 401 вместо файла. */
 $("download-docx").addEventListener("click", async (event) => {
   const analysisId = $("download-json").dataset.analysisId;
   if (!analysisId) return;
@@ -982,7 +1152,7 @@ $("download-docx").addEventListener("click", async (event) => {
     const link = document.createElement("a");
     link.href = url;
     link.download =
-      `second-opinion-${analysisId.slice(0, 8)}${mask ? "-обезличено" : ""}.docx`;
+      `Заключение_${analysisId.slice(0, 8)}${mask ? "_обезличено" : ""}.docx`;
     link.click();
     URL.revokeObjectURL(url);
   } finally {
@@ -1036,8 +1206,6 @@ $("search-query").addEventListener("keydown", (e) => {
 });
 $("corpus-btn").addEventListener("click", loadCorpusState);
 
-// --- личный кабинет ---------------------------------------------------------
-
 const ROLE_LABELS = {
   judge: "Судья",
   clerk: "Помощник судьи",
@@ -1070,51 +1238,134 @@ function setAccountView(user) {
   });
 }
 
+function showMfaError(message) {
+  const box = $("mfa-error");
+  box.textContent = message;
+  box.hidden = !message;
+}
+
+function renderMfa(enabled) {
+  showMfaError("");
+  $("mfa-setup").hidden = true;
+  $("mfa-status").textContent = enabled
+    ? "Второй фактор включён: при входе нужен код из приложения-аутентификатора."
+    : "Второй фактор выключен. Рекомендуется для администраторов.";
+  $("mfa-setup-btn").hidden = enabled;
+  $("mfa-disable").hidden = !enabled;
+}
+
+async function mfaPost(path, body) {
+  const response = await apiFetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (response.ok) return null;
+  const detail = (await response.json().catch(() => ({}))).detail;
+  return detail || `HTTP ${response.status}`;
+}
+
+async function startMfaSetup() {
+  showMfaError("");
+  const response = await apiFetch("/auth/mfa/setup", { method: "POST" });
+  if (!response.ok) {
+    showMfaError((await response.json().catch(() => ({}))).detail || `HTTP ${response.status}`);
+    return;
+  }
+  const body = await response.json();
+  $("mfa-secret").textContent = body.secret;
+  $("mfa-uri").textContent = body.otpauth_uri;
+  $("mfa-code").value = "";
+  $("mfa-setup").hidden = false;
+  $("mfa-code").focus();
+}
+
+async function enableMfa() {
+  const problem = await mfaPost("/auth/mfa/enable", { code: $("mfa-code").value.trim() });
+  if (problem) {
+    showMfaError(problem);
+    return;
+  }
+  $("mfa-secret").textContent = "";
+  $("mfa-uri").textContent = "";
+  renderMfa(true);
+}
+
+async function disableMfa() {
+  const problem = await mfaPost("/auth/mfa/disable", {
+    password: $("mfa-disable-password").value,
+    code: $("mfa-disable-code").value.trim(),
+  });
+  if (problem) {
+    showMfaError(problem);
+    return;
+  }
+  $("mfa-disable-password").value = "";
+  $("mfa-disable-code").value = "";
+  renderMfa(false);
+}
+
 async function loadProfile() {
+  sessionStorage.removeItem("so-refresh");
+  if (!sessionStorage.getItem("so-access") && hasSessionHint()) {
+    if (!(await refreshSession())) setSessionHint(false);
+  }
   if (!sessionStorage.getItem("so-access")) {
     setAccountView(null);
     return;
   }
   const response = await apiFetch("/auth/me");
   if (!response.ok) {
-    // Токен протух или отозван: молча возвращаем форму входа, а не
-    // оставляем интерфейс в состоянии «вошёл», где ничего не работает.
     sessionStorage.removeItem("so-access");
-    sessionStorage.removeItem("so-refresh");
     setAccountView(null);
     return;
   }
-  setAccountView(await response.json());
+  const profile = await response.json();
+  setAccountView(profile);
+  renderMfa(Boolean(profile.mfa_enabled));
   await loadHistory();
+}
+
+async function deleteAnalysis(analysisId) {
+  const response = await apiFetch(`/api/v1/analyses/${analysisId}`, { method: "DELETE" });
+  if (!response.ok && response.status !== 404) {
+    const detail = await response.json().catch(() => ({}));
+    throw new Error(detail.detail || `HTTP ${response.status}`);
+  }
 }
 
 function historyRow(item) {
   const li = document.createElement("li");
+  const main = div("history-row-main");
   const title = div("fact-title");
 
-  // Бейдж показывает худший исход среди проверок: в списке важно сразу
-  // видеть дело, где что-то не сошлось.
   const checks = item.checks || {};
-  const worst = checks.FAIL ? "FAIL" : checks.WARNING ? "WARNING" : checks.UNKNOWN ? "UNKNOWN" : "PASS";
+  const worst = checks.FAIL
+    ? "FAIL"
+    : checks.WARNING
+      ? "WARNING"
+      : checks.UNKNOWN
+        ? "UNKNOWN"
+        : checks.PASS || !checks.NOT_APPLICABLE
+          ? "PASS"
+          : "NOT_APPLICABLE";
   title.appendChild(badge(worst));
 
   const when = (item.created_at || "").replace("T", " ").replace("Z", "");
   const parts = [item.qualification || "квалификация не извлечена", item.filename, when];
-  title.append(` ${parts.filter(Boolean).join(" · ")}`);
-  li.appendChild(title);
+  const caseLabel = parts.filter(Boolean).join(" · ");
+  title.append(` ${caseLabel}`);
+  main.appendChild(title);
 
   const meta = div("meta");
-  // Не «PASS: 8»: в списке дел судья читает по-русски, а имена статусов —
-  // внутренние. Здесь нужна считаемая форма («нарушений 1»), а не название
-  // статуса («нарушение»), поэтому подписи свои, а не из бейджей.
-  // Порядок от худшего к лучшему: важное стоит первым.
   const COUNT_LABELS = {
     FAIL: "нарушений",
     WARNING: "требуют внимания",
     UNKNOWN: "без данных",
     PASS: "пройдено",
+    NOT_APPLICABLE: "не применимо",
   };
-  const counts = ["FAIL", "WARNING", "UNKNOWN", "PASS"]
+  const counts = ["FAIL", "WARNING", "UNKNOWN", "PASS", "NOT_APPLICABLE"]
     .filter((key) => checks[key])
     .map((key) => `${COUNT_LABELS[key]} ${checks[key]}`)
     .join(", ");
@@ -1122,7 +1373,8 @@ function historyRow(item) {
     `обстоятельств: ${item.facts_total}` +
     (counts ? `; проверки — ${counts}` : "") +
     (item.applicable_at ? `; нормы на ${item.applicable_at}` : "");
-  li.appendChild(meta);
+  main.appendChild(meta);
+  li.appendChild(main);
 
   title.setAttribute("role", "button");
   title.setAttribute("tabindex", "0");
@@ -1142,7 +1394,48 @@ function historyRow(item) {
       open();
     }
   });
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.type = "button";
+  deleteBtn.className = "history-delete";
+  deleteBtn.textContent = "Удалить";
+  deleteBtn.setAttribute("aria-label", `Удалить из истории: ${caseLabel}`);
+  deleteBtn.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    if (!confirm(`Удалить дело «${caseLabel}» из истории? Действие необратимо.`)) return;
+    clearHistoryError();
+    deleteBtn.disabled = true;
+    try {
+      await deleteAnalysis(item.analysis_id);
+      await loadHistory();
+    } catch (error) {
+      showHistoryError(`Не удалось удалить дело: ${error.message}`);
+      deleteBtn.disabled = false;
+    }
+  });
+  li.appendChild(deleteBtn);
+
   return li;
+}
+
+async function clearHistory() {
+  clearHistoryError();
+  if (!confirm("Удалить всю историю дел этой учётной записи безвозвратно?")) return;
+  const btn = $("history-clear-btn");
+  btn.disabled = true;
+  try {
+    const response = await apiFetch("/api/v1/analyses?limit=1000");
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const body = await response.json();
+    for (const item of body.items) {
+      await deleteAnalysis(item.analysis_id);
+    }
+    await loadHistory();
+  } catch (error) {
+    showHistoryError(`Не удалось очистить историю: ${error.message}`);
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 async function loadHistory() {
@@ -1172,40 +1465,43 @@ async function login() {
   const response = await fetch("/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, cookie: true, otp: $("login-otp").value.trim() || null }),
   });
   if (!response.ok) {
     const detail = (await response.json().catch(() => ({}))).detail;
+    if (response.headers.get("X-MFA-Required")) {
+      $("otp-row").hidden = false;
+      $("login-otp").focus();
+    }
     showLoginError(detail || `Вход не выполнен: HTTP ${response.status}`);
     return;
   }
   const body = await response.json();
   sessionStorage.setItem("so-access", body.tokens.access_token);
-  sessionStorage.setItem("so-refresh", body.tokens.refresh_token);
+  setSessionHint(true);
   $("login-password").value = "";
-  // Форма общего секрета больше не нужна: личный токен принимается везде.
+  $("login-otp").value = "";
+  $("otp-row").hidden = true;
   $("auth-box").hidden = true;
-  setAccountView(body.user);
-  await loadHistory();
+  await loadProfile();
 }
 
 async function logout() {
-  const refresh = sessionStorage.getItem("so-refresh");
-  if (refresh) {
-    // Отзываем refresh на сервере, а не только забываем локально: иначе
-    // украденный токен продолжал бы выдавать новые пары.
-    await apiFetch("/auth/logout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh_token: refresh }),
-    }).catch(() => {});
+  if (sessionStorage.getItem("so-access") || hasSessionHint()) {
+    await apiFetch("/auth/logout", { method: "POST" }).catch(() => {});
   }
   sessionStorage.removeItem("so-access");
-  sessionStorage.removeItem("so-refresh");
+  setSessionHint(false);
   $("history-list").innerHTML = "";
   setAccountView(null);
 }
 
+$("mfa-setup-btn").addEventListener("click", startMfaSetup);
+$("mfa-enable-btn").addEventListener("click", enableMfa);
+$("mfa-disable-btn").addEventListener("click", disableMfa);
+$("login-otp").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") login();
+});
 $("login-btn").addEventListener("click", login);
 $("login-password").addEventListener("keydown", (e) => {
   if (e.key === "Enter") login();
@@ -1214,6 +1510,7 @@ $("login-email").addEventListener("keydown", (e) => {
   if (e.key === "Enter") $("login-password").focus();
 });
 $("history-btn").addEventListener("click", loadHistory);
+$("history-clear-btn").addEventListener("click", clearHistory);
 $("logout-btn").addEventListener("click", logout);
 
 loadAuthMode().then(loadProfile);

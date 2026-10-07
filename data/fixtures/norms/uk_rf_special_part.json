@@ -20,7 +20,7 @@
               "max_months": 36
             }
           ],
-          "effective_from": "1996-07-01",
+          "effective_from": "1997-01-01",
           "effective_to": "2003-12-15",
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/57b5c7b83fcd2cf40cabe2042f2d8f04ed6875ad/",
           "retrieved_at": "2026-09-03",
@@ -56,19 +56,19 @@
         {
           "version_id": "v-1996",
           "norm_id": "uk-rf:art-158-part-2",
-          "text": "Ч. 2 ст. 158 УК РФ в редакции 1996–2003 (сверено 03.09.2026): лишение свободы на срок до шести лет (72 мес.).",
+          "text": "Ч. 2 ст. 158 УК РФ в редакции 1996–2003 (сверено 03.09.2026; нижний предел уточнён по исходной редакции в ИПС 06.10.2026): лишение свободы на срок от двух до шести лет (24-72 мес.).",
           "sanctions": [
             {
               "punishment_type": "imprisonment",
-              "min_months": null,
+              "min_months": 24,
               "max_months": 72
             }
           ],
-          "effective_from": "1996-07-01",
+          "effective_from": "1997-01-01",
           "effective_to": "2003-12-15",
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/57b5c7b83fcd2cf40cabe2042f2d8f04ed6875ad/",
           "retrieved_at": "2026-09-03",
-          "sha256": "71e6f41e6e0e574fa04f326a36561e88536635d3ed191b6fe35a84f066123d7e",
+          "sha256": "a91a7134c9afdf41493cb6bad8d3d3907e3fc4fc6dc348b1a7f2064f37e36488",
           "verification_status": "verified"
         },
         {
@@ -108,7 +108,7 @@
               "max_months": 36
             }
           ],
-          "effective_from": "1996-07-01",
+          "effective_from": "1997-01-01",
           "effective_to": "2003-12-15",
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/8012ecdf64b7c9cfd62e90d7f55f9b5b7b72b755/",
           "retrieved_at": "2026-09-03",
@@ -144,19 +144,19 @@
         {
           "version_id": "v-1996",
           "norm_id": "uk-rf:art-159-part-2",
-          "text": "Ч. 2 ст. 159 УК РФ в редакции 1996–2003 (сверено 03.09.2026): лишение свободы на срок до шести лет (72 мес.).",
+          "text": "Ч. 2 ст. 159 УК РФ в редакции 1996–2003 (сверено 03.09.2026; нижний предел уточнён по исходной редакции в ИПС 06.10.2026): лишение свободы на срок от двух до шести лет (24-72 мес.).",
           "sanctions": [
             {
               "punishment_type": "imprisonment",
-              "min_months": null,
+              "min_months": 24,
               "max_months": 72
             }
           ],
-          "effective_from": "1996-07-01",
+          "effective_from": "1997-01-01",
           "effective_to": "2003-12-15",
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/8012ecdf64b7c9cfd62e90d7f55f9b5b7b72b755/",
           "retrieved_at": "2026-09-03",
-          "sha256": "17159c5269a8300548ec71a61df98323866fd4ee044db850192a946647500b64",
+          "sha256": "6a95896d8fe2b834a299006bcd09db8cd65101f1c7690565b995fb09dd8c2401",
           "verification_status": "verified"
         },
         {
@@ -196,7 +196,7 @@
               "max_months": 36
             }
           ],
-          "effective_from": "1996-07-01",
+          "effective_from": "1997-01-01",
           "effective_to": null,
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/a109722731a0509e104278d1b2d2f589beee330f/",
           "retrieved_at": "2026-09-03",
@@ -222,7 +222,7 @@
               "max_months": 120
             }
           ],
-          "effective_from": "1996-07-01",
+          "effective_from": "1997-01-01",
           "effective_to": null,
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/a109722731a0509e104278d1b2d2f589beee330f/",
           "retrieved_at": "2026-09-03",
@@ -248,7 +248,7 @@
               "max_months": 48
             }
           ],
-          "effective_from": "1996-07-01",
+          "effective_from": "1997-01-01",
           "effective_to": null,
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/8727611b42df79f2b3ef8d2f3b68fea711ed0c7a/",
           "retrieved_at": "2026-09-03",
@@ -274,7 +274,7 @@
               "max_months": 84
             }
           ],
-          "effective_from": "1996-07-01",
+          "effective_from": "1997-01-01",
           "effective_to": null,
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/8727611b42df79f2b3ef8d2f3b68fea711ed0c7a/",
           "retrieved_at": "2026-09-03",
@@ -300,7 +300,7 @@
               "max_months": 96
             }
           ],
-          "effective_from": "1996-07-01",
+          "effective_from": "1997-01-01",
           "effective_to": "2011-03-10",
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/e7204e825c8e87b5c7be210b06a0cde61cd60a3c/",
           "retrieved_at": "2026-09-03",
@@ -344,7 +344,7 @@
               "max_months": 36
             }
           ],
-          "effective_from": "1996-07-01",
+          "effective_from": "1997-01-01",
           "effective_to": null,
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/de03992e5fb9ce601f30ccc9ac4cea6a01e8fbf4/",
           "retrieved_at": "2026-09-03",
@@ -370,7 +370,7 @@
               "max_months": 48
             }
           ],
-          "effective_from": "1996-07-01",
+          "effective_from": "1997-01-01",
           "effective_to": null,
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/3cf93ca64f2a009e75430fc6394b66a3642ba176/",
           "retrieved_at": "2026-09-03",

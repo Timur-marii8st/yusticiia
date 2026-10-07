@@ -15,7 +15,6 @@ import pytest
 
 from second_opinion.api.app import create_app
 
-#: Поля модели User, которым нельзя оказаться в ответе ни одного эндпоинта.
 SECRET_FIELDS = ("password_hash", "password_history")
 
 
@@ -71,3 +70,16 @@ def test_user_responses_expose_only_safe_fields(schema: dict) -> None:
         properties = set(components[model]["properties"])
         assert "user_id" in properties and "email" in properties
         assert not properties & set(SECRET_FIELDS)
+
+
+def test_docstrings_do_not_reach_the_public_schema(schema: dict) -> None:
+    """``/docs``/``/openapi.json`` не публикуют текст докстрингов.
+
+    FastAPI по умолчанию копирует docstring обработчика и Pydantic-модели
+    в ``description`` — оно и уходит наружу неаутентифицированным
+    GET-запросом. Форма ответа (пути, параметры, модели, ``summary``)
+    должна остаться пригодной для генерации клиента.
+    """
+    assert '"description"' not in json.dumps(schema, ensure_ascii=False)
+    assert schema["paths"], "эндпойнты не должны исчезнуть вместе с описаниями"
+    assert schema["components"]["schemas"], "модели не должны исчезнуть вместе с описаниями"

@@ -10,6 +10,7 @@ import jwt
 
 from ..config import AppConfig, load_config
 from ..domain.users import LoginAttempt, TokenPair, TokenPayload, User, UserRole
+from . import totp
 from .passwords import (
     MAX_PASSWORD_BYTES,
     hash_password,
@@ -29,9 +30,7 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
-#: Минимум для HMAC-SHA256 (RFC 7518 §3.2: ключ не короче размера хэша).
 MIN_JWT_SECRET_BYTES = 32
-#: Первый администратор — самая привилегированная учётка в системе.
 MIN_ADMIN_PASSWORD_LENGTH = 12
 
 
@@ -91,6 +90,18 @@ class LastAdminError(ValueError):
     """Действие оставило бы систему без активного администратора."""
 
 
+class MfaRequiredError(ValueError):
+    """Пароль верен, но у учётной записи включён второй фактор, а код не передан."""
+
+
+class MfaEnrollmentRequiredError(ValueError):
+    """Администратору обязателен второй фактор, а он ещё не включён."""
+
+
+class InvalidSecondFactorError(ValueError):
+    """Код второго фактора неверен или уже использован."""
+
+
 class AuthService:
     """Сервис аутентификации и управления токенами.
 
@@ -131,9 +142,7 @@ class AuthService:
         if cfg.storage_backend == "postgres" and cfg.database_url:
             try:
                 return PostgresUserStore(cfg.database_url)
-            except Exception as exc:  # noqa: BLE001 — fallback к in-memory
-                # Молчаливый откат прятал отказ БД: оператор узнавал о нём,
-                # когда пользователи «исчезали» после перезапуска.
+            except Exception as exc:  # noqa: BLE001
                 logger.warning(
                     "PostgresUserStore недоступен (%s) — временный переход на "
                     "in-memory: пользователи не переживут перезапуск",
@@ -141,8 +150,6 @@ class AuthService:
                 )
                 return InMemoryUserStore()
         return JsonFileUserStore(cfg.store_dir / "auth")
-
-    # -- Управление пользователями
 
     def create_user(
         self,
@@ -226,23 +233,24 @@ class AuthService:
         user.locked_until = None
         self.save_user(user)
 
-    def authenticate(self, email: str, password: str) -> User | None:
+    def authenticate(self, email: str, password: str, otp: str | None = None) -> User | None:
         """Проверить учётные данные пользователя.
 
         При истёкшем пароле — ``PasswordExpiredError``, при активной
         блокировке — ``AccountLockedError`` (вход запрещён, но существующая
-        сессия может сменить пароль).
+        сессия может сменить пароль). Если включён второй фактор, а код не
+        передан, — ``MfaRequiredError``; неверный код считается неудачной
+        попыткой наравне с неверным паролем.
         """
         user = self.get_user_by_email(email)
         if not user or not user.is_active:
-            # Без этого ответ по неизвестному адресу приходит заметно
-            # быстрее, чем по известному, и перебор различает их по времени.
             waste_time_like_verify()
             self._store.record_login(
                 LoginAttempt(email=email, user_id=None, success=False, reason="not_found")
             )
             return None
         if self.is_locked(user):
+            waste_time_like_verify()
             self._store.record_login(
                 LoginAttempt(
                     email=email, user_id=user.user_id, success=False, reason="locked"
@@ -250,21 +258,14 @@ class AuthService:
             )
             raise AccountLockedError("Вход временно заблокирован — повторите позже")
         if not verify_password(password, user.password_hash):
-            user.failed_login_attempts += 1
-            if (
-                self._login_max_attempts > 0
-                and user.failed_login_attempts >= self._login_max_attempts
-            ):
-                user.locked_until = datetime.now(UTC) + timedelta(
-                    minutes=self._login_lockout_minutes
-                )
-            self.save_user(user)
+            self._register_failure(user)
             self._store.record_login(
                 LoginAttempt(
                     email=email, user_id=user.user_id, success=False, reason="bad_password"
                 )
             )
             return None
+        self._check_second_factor(user, email, otp)
         user.failed_login_attempts = 0
         user.locked_until = None
         self.save_user(user)
@@ -278,6 +279,91 @@ class AuthService:
         self._store.record_login(
             LoginAttempt(email=email, user_id=user.user_id, success=True, reason="ok")
         )
+        return user
+
+    def _register_failure(self, user: User) -> None:
+        user.failed_login_attempts += 1
+        if self._login_max_attempts > 0 and user.failed_login_attempts >= self._login_max_attempts:
+            user.locked_until = datetime.now(UTC) + timedelta(minutes=self._login_lockout_minutes)
+        self.save_user(user)
+
+    def _check_second_factor(self, user: User, email: str, otp: str | None) -> None:
+        """Проверить код после верного пароля; счётчик неудач сбрасывается только после него."""
+        if not user.totp_enabled:
+            if self._config.admin_mfa_required and user.role is UserRole.ADMIN:
+                self._store.record_login(
+                    LoginAttempt(
+                        email=email, user_id=user.user_id, success=False, reason="mfa_enrollment"
+                    )
+                )
+                raise MfaEnrollmentRequiredError(
+                    "Для администратора обязателен второй фактор: попросите оператора "
+                    "выполнить `second-opinion mfa-setup`"
+                )
+            return
+        if not otp:
+            self._store.record_login(
+                LoginAttempt(
+                    email=email, user_id=user.user_id, success=False, reason="mfa_required"
+                )
+            )
+            raise MfaRequiredError("Требуется код из приложения-аутентификатора")
+        step = totp.verify(user.totp_secret, otp, after_step=user.totp_last_step)
+        if step is None:
+            self._register_failure(user)
+            self._store.record_login(
+                LoginAttempt(email=email, user_id=user.user_id, success=False, reason="bad_otp")
+            )
+            raise InvalidSecondFactorError
+        user.totp_last_step = step
+
+    def mfa_begin_setup(self, user: User) -> tuple[str, str]:
+        """Выпустить секрет для привязки приложения: действует после ``mfa_enable``."""
+        if user.totp_enabled:
+            raise ValueError("Второй фактор уже включён")
+        secret = totp.generate_secret()
+        user.totp_pending_secret = secret
+        self.save_user(user)
+        return secret, totp.provisioning_uri(secret, user.email)
+
+    def mfa_enable(self, user: User, code: str) -> None:
+        """Включить второй фактор, подтвердив его кодом из приложения."""
+        if user.totp_enabled:
+            raise ValueError("Второй фактор уже включён")
+        if not user.totp_pending_secret:
+            raise ValueError("Сначала запросите секрет: POST /auth/mfa/setup")
+        step = totp.verify(user.totp_pending_secret, code)
+        if step is None:
+            raise ValueError("Код не подошёл: проверьте время на устройстве и повторите")
+        user.totp_secret = user.totp_pending_secret
+        user.totp_pending_secret = ""
+        user.totp_enabled = True
+        user.totp_last_step = step
+        self.save_user(user)
+
+    def mfa_disable(self, user: User, password: str, code: str) -> None:
+        """Отключить второй фактор: нужны пароль и действующий код."""
+        if not user.totp_enabled:
+            raise ValueError("Второй фактор не включён")
+        if self._config.admin_mfa_required and user.role is UserRole.ADMIN:
+            raise ValueError("Для администратора второй фактор обязателен и не отключается")
+        if not verify_password(password, user.password_hash):
+            raise ValueError("Пароль неверен")
+        step = totp.verify(user.totp_secret, code, after_step=user.totp_last_step)
+        if step is None:
+            raise ValueError("Код не подошёл")
+        self.mfa_reset(user.user_id)
+
+    def mfa_reset(self, user_id: str) -> User | None:
+        """Снять второй фактор без проверки кода: действие администратора или оператора."""
+        user = self.get_user(user_id)
+        if not user:
+            return None
+        user.totp_enabled = False
+        user.totp_secret = ""
+        user.totp_pending_secret = ""
+        user.totp_last_step = 0
+        self.save_user(user)
         return user
 
     def set_password(self, user_id: str, new_password: str) -> User | None:
@@ -342,8 +428,6 @@ class AuthService:
         """Аудит входов (новые первыми)."""
         return self._store.list_login_attempts(limit=limit)
 
-    # -- Работа с токенами
-
     def _create_token(
         self,
         user: User,
@@ -398,7 +482,6 @@ class AuthService:
         if not user or not user.is_active:
             return None
 
-        # Ротация: отзываем предъявленный refresh до выпуска нового.
         if payload.jti:
             self._store.revoke_refresh(payload.jti, user.user_id)
         access_token, new_refresh, expires_in = self.create_tokens(user)

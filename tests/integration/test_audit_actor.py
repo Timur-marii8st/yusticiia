@@ -86,7 +86,7 @@ def test_fact_correction_records_actor(client, pipeline) -> None:
 
     response = client.patch(
         f"/api/v1/analyses/{analysis['analysis_id']}/facts/{fact_id}",
-        json={"status": "NOT_FOUND"},
+        json={"status": "NOT_FOUND", "reason": "ошибка извлечения"},
         headers=headers,
     )
     assert response.status_code == 200

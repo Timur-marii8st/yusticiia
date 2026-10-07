@@ -12,6 +12,8 @@ from typing import Generic, TypeVar
 
 from pydantic import BaseModel
 
+from .sql import safe_sql_identifier
+
 T = TypeVar("T", bound=BaseModel)
 
 
@@ -35,7 +37,7 @@ class PostgresJsonRepository(Generic[T]):
 
         self._psycopg = psycopg
         self._dsn = dsn
-        self._table = table
+        self._table = safe_sql_identifier(table)
         self._model = model
         self._id_field = id_field
         self._lock = threading.Lock()
@@ -71,7 +73,7 @@ class PostgresJsonRepository(Generic[T]):
         if row is None:
             return None
         data = row[0]
-        if isinstance(data, str):  # драйвер может вернуть строку
+        if isinstance(data, str):
             import json
 
             data = json.loads(data)

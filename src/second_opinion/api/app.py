@@ -12,6 +12,8 @@
 
 from __future__ import annotations
 
+import hmac
+import threading
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -22,10 +24,12 @@ from .. import __version__
 from ..audit.trail import ANONYMOUS_ACTOR, SHARED_TOKEN_ACTOR
 from ..auth.rate_limit import LoginRateLimiter
 from ..config import AppConfig, load_config
+from ..metrics import get_metrics, http_status_metric
 from ..pipeline import AnalysisPipeline
 from .auth_mode import AUTH_MODE_OPEN, AUTH_MODE_SHARED, resolve_auth_mode
 from .auth_routes import router as auth_router
 from .errors import install_error_handlers
+from .limits import BodyLimitMiddleware
 from .request_context import REQUEST_ID_HEADER, request_id
 from .routers import (
     build_analyses_router,
@@ -38,12 +42,17 @@ from .routers import (
 
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
 
-#: Канонический префикс API.
 API_PREFIX = "/api/v1"
 
-#: Прежний префикс без версии. Остаётся рабочим псевдонимом: у несовместимых
-#: изменений должно быть куда переезжать, иначе их либо не делают, либо ломают
-#: работающих клиентов.
+BODY_LIMIT_FACTOR = 4
+
+DOCS_PATHS = ("/docs", "/redoc", "/openapi.json")
+
+CONTENT_SECURITY_POLICY = (
+    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
+    "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+)
+
 LEGACY_PREFIX = "/api"
 
 
@@ -54,13 +63,23 @@ def make_app(config: AppConfig | None = None) -> FastAPI:
 
     config = config or load_config()
     pipeline = build_pipeline(config)
-    # Поднимаем auth-сервис заранее: неверный SO_JWT_SECRET должен ронять
-    # запуск, а не первый пришедший логин.
     get_auth_service()
     return create_app(pipeline, auth_token=config.auth_token)
 
 
+def _docs_enabled(setting: str, auth_mode: str) -> bool:
+    """Документация API без авторизации только в открытом режиме или по явной просьбе."""
+    if setting in ("1", "true", "yes"):
+        return True
+    if setting in ("0", "false", "no"):
+        return False
+    return auth_mode == AUTH_MODE_OPEN
+
+
 def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
+    config = load_config()
+    auth_mode = resolve_auth_mode(config.auth_mode, auth_token)
+    docs = _docs_enabled(config.api_docs, auth_mode)
     app = FastAPI(
         title="Второе мнение",
         version=__version__,
@@ -68,20 +87,29 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
             "Верифицируемая система юридического аудита проекта судебного акта. "
             "Не заменяет судью и не назначает наказание."
         ),
+        docs_url="/docs" if docs else None,
+        redoc_url="/redoc" if docs else None,
+        openapi_url="/openapi.json" if docs else None,
     )
-    config = load_config()
-    auth_mode = resolve_auth_mode(config.auth_mode, auth_token)
 
     app.state.pipeline = pipeline
     app.state.auth_mode = auth_mode
-    # Лимитер привязан к приложению, а не к модулю: иначе экземпляры делили бы
-    # счётчики между собой.
     app.state.login_rate_limiter = LoginRateLimiter(
         config.login_rate_limit, config.login_rate_window_seconds
     )
+    app.state.analyze_rate_limiter = LoginRateLimiter(
+        config.analyze_rate_limit, config.analyze_rate_window_seconds
+    )
+    app.state.analyze_slots = (
+        threading.BoundedSemaphore(config.analyze_max_concurrency)
+        if config.analyze_max_concurrency > 0
+        else None
+    )
+    app.state.analyze_queue_seconds = config.analyze_queue_seconds
 
     _install_identification(app, auth_mode=auth_mode, auth_token=auth_token)
     install_error_handlers(app)
+    app.add_middleware(BodyLimitMiddleware, max_bytes=config.max_upload_bytes * BODY_LIMIT_FACTOR)
 
     from .deps import build_legal_rag
 
@@ -99,12 +127,68 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
     ]
     for router in api_routers:
         app.include_router(router, prefix=API_PREFIX)
-        # Тот же набор под прежним путём — и скрыт из схемы: спецификация
-        # описывает один канонический путь, а не два одинаковых.
         app.include_router(router, prefix=LEGACY_PREFIX, include_in_schema=False)
 
     _mount_interface(app)
+    _strip_docstrings_from_openapi(app)
     return app
+
+
+def _strip_docstrings_from_openapi(app: FastAPI) -> None:
+    """``/docs``/``/openapi.json`` не должны отдавать текст докстрингов.
+
+    FastAPI по умолчанию копирует docstring обработчика и Pydantic-модели
+    в поле ``description`` схемы — оно и есть содержимое ``/docs``,
+    доступное неаутентифицированным GET-запросом (``_install_identification``
+    накладывает проверку только на пути, начинающиеся с ``/api``). Схема
+    остаётся: ``/openapi.json`` по-прежнему годится для генерации клиента
+    (пути, параметры, модели, ``summary``) — убирается только свободный
+    текст, а не сам эндпойнт.
+    """
+    from fastapi.openapi.utils import get_openapi
+
+    def custom_openapi() -> dict:
+        if app.openapi_schema:
+            return app.openapi_schema
+        schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            routes=app.routes,
+        )
+        _strip_descriptions(schema)
+        app.openapi_schema = schema
+        return app.openapi_schema
+
+    app.openapi = custom_openapi  # type: ignore[method-assign]
+
+
+def _strip_descriptions(node: object) -> None:
+    if isinstance(node, dict):
+        node.pop("description", None)
+        for value in node.values():
+            _strip_descriptions(value)
+    elif isinstance(node, list):
+        for item in node:
+            _strip_descriptions(item)
+
+
+def _count_status(status_code: int) -> None:
+    name = http_status_metric(status_code)
+    metrics = get_metrics()
+    if name is not None and metrics.enabled:
+        metrics.counter(name).inc()
+
+
+def _add_security_headers(request: Request, response) -> None:  # noqa: ANN001
+    """Заголовки безопасности; HSTS и TLS остаются на обратном прокси."""
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    path = request.url.path
+    if path.startswith(("/api", "/auth")):
+        response.headers["Cache-Control"] = "no-store"
+    if not path.startswith(DOCS_PATHS):
+        response.headers["Content-Security-Policy"] = CONTENT_SECURITY_POLICY
 
 
 def _install_identification(app: FastAPI, *, auth_mode: str, auth_token: str) -> None:
@@ -127,13 +211,10 @@ def _install_identification(app: FastAPI, *, auth_mode: str, auth_token: str) ->
         header = request.headers.get("authorization", "")
         authorized = auth_mode == AUTH_MODE_OPEN
 
-        # В режиме accounts общий секрет не принимается вовсе: в судебной
-        # системе действие должно быть привязано к человеку, а под общим
-        # секретом все записи в журнале обезличены.
         if (
             auth_mode == AUTH_MODE_SHARED
             and auth_token
-            and header == f"Bearer {auth_token}"
+            and hmac.compare_digest(header.encode(), f"Bearer {auth_token}".encode())
         ):
             request.state.actor = SHARED_TOKEN_ACTOR
             authorized = True
@@ -149,13 +230,15 @@ def _install_identification(app: FastAPI, *, auth_mode: str, auth_token: str) ->
                     authorized = True
 
         if not authorized and request.url.path.startswith("/api"):
-            return JSONResponse(
+            response = JSONResponse(
                 status_code=401,
                 content={"detail": "требуется авторизация"},
-                headers={REQUEST_ID_HEADER: request.state.request_id},
             )
-        response = await call_next(request)
+        else:
+            response = await call_next(request)
         response.headers[REQUEST_ID_HEADER] = request.state.request_id
+        _add_security_headers(request, response)
+        _count_status(response.status_code)
         return response
 
 

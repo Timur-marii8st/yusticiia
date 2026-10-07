@@ -7,18 +7,11 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-#: Порог ротации журнала в байтах. Журнал пишется вечно и в судебной
-#: системе удалять его нельзя, поэтому ротация — переименование, а не
-#: усечение: файл закрывается с отметкой времени и рядом начинается
-#: новый. Без этого один файл растёт до размеров, при которых его нечем
-#: открыть, а запись в него — единственная операция, которая держит
-#: блокировку на каждом действии пользователя.
 DEFAULT_MAX_BYTES = 64 * 1024 * 1024
 
-#: Действие выполнено без опознанной учётной записи.
 ANONYMOUS_ACTOR = "anonymous"
-#: Вход по общему секрету SO_AUTH_TOKEN: конкретный человек неизвестен.
 SHARED_TOKEN_ACTOR = "shared-token"
+CLI_ACTOR = "cli"
 
 
 class AuditEvent(BaseModel):
@@ -28,10 +21,6 @@ class AuditEvent(BaseModel):
     request_id: str
     operation: str
     component: str
-    #: Кто выполнил действие: user_id учётной записи, "shared-token" при
-    #: входе по общему секрету, "anonymous" в открытом loopback-режиме.
-    #: Для судебной системы «кто подтвердил обстоятельство» — часть
-    #: провенанса наравне с «что было подтверждено».
     actor: str = "anonymous"
     input_hash: str = ""
     output_hash: str = ""
@@ -47,7 +36,7 @@ class AuditTrail:
     """JSONL-журнал операций для воспроизводимости отчётов.
 
     Принцип: логируются идентификаторы, хэши и версии — не содержимое
-    документов (см. docs/LEGAL_SAFETY_PRINCIPLES.md §8).
+    документов.
     """
 
     def __init__(self, path: Path | None = None, max_bytes: int = DEFAULT_MAX_BYTES) -> None:
@@ -75,18 +64,12 @@ class AuditTrail:
             return
         stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         rotated = self._path.with_name(f"{self._path.stem}-{stamp}{self._path.suffix}")
-        # Отметка времени с точностью до секунды: две ротации в одну
-        # секунду дали бы одно имя, и os.replace затёр бы предыдущий файл.
-        # Для отладочного лога это мелочь, для аудита — потеря записей,
-        # ради которых журнал и ведётся.
         serial = 2
         while rotated.exists():
             rotated = self._path.with_name(
                 f"{self._path.stem}-{stamp}-{serial}{self._path.suffix}"
             )
             serial += 1
-        # Переименование в пределах каталога атомарно; при гонке двух
-        # процессов проигравший просто продолжит писать в новый файл.
         os.replace(self._path, rotated)
 
     def log(

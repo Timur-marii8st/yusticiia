@@ -147,6 +147,22 @@ PARSERS = {
 }
 
 
+SIGNATURES: dict[str, tuple[bytes, int]] = {
+    ".pdf": (b"%PDF-", 1024),
+    ".docx": (b"PK\x03\x04", 4),
+}
+
+
+def _check_signature(suffix: str, content: bytes) -> None:
+    """Содержимое обязано соответствовать расширению: имя файла задаёт клиент."""
+    expected = SIGNATURES.get(suffix)
+    if expected is None:
+        return
+    marker, window = expected
+    if marker not in content[:window]:
+        raise ParseError(f"содержимое файла не соответствует расширению '{suffix}'")
+
+
 def parse_document(filename: str, content: bytes, max_bytes: int) -> Document:
     """Единая точка входа парсинга: выбор парсера по расширению."""
     if len(content) == 0:
@@ -162,4 +178,5 @@ def parse_document(filename: str, content: bytes, max_bytes: int) -> Document:
             f"неподдерживаемый формат '{suffix or 'без расширения'}'; "
             f"поддерживаются: {', '.join(sorted(SUPPORTED_EXTENSIONS))}"
         )
+    _check_signature(suffix, content)
     return parser(filename, content)

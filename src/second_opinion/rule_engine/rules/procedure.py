@@ -29,6 +29,8 @@ class SpecialProcedureLimitRule(_BaseSanctionRule):
 
     def evaluate(self, context) -> RuleEvaluation:
         case: CaseFacts = context.case_facts
+        if case.procedural.special_procedure is None and not case.has_criminal_content:
+            return self._not_criminal_document()
         if case.procedural.special_procedure is None:
             return self._unknown(
                 ["признак рассмотрения дела в особом порядке"],
@@ -37,7 +39,7 @@ class SpecialProcedureLimitRule(_BaseSanctionRule):
             )
         if not case.procedural.special_procedure:
             return self._evaluation(
-                status=RuleStatus.PASS,
+                status=RuleStatus.NOT_APPLICABLE,
                 headline=f"{self.title}: не применимо",
                 explanation="Дело рассмотрено не в особом порядке; ограничение ч. 5 ст. 62 УК РФ (ч. 7 ст. 316 УПК РФ) не применяется.",
             )
@@ -102,6 +104,8 @@ class MinorSpecialProcedureRule(LegalRule):
     def evaluate(self, context) -> RuleEvaluation:
         case: CaseFacts = context.case_facts
         special = case.procedural.special_procedure
+        if special is None and not case.has_criminal_content:
+            return self._not_criminal_document()
         if special is None:
             return self._unknown(
                 ["признак особого порядка"],
@@ -114,7 +118,7 @@ class MinorSpecialProcedureRule(LegalRule):
         ]
         if not special:
             return self._evaluation(
-                status=RuleStatus.PASS,
+                status=RuleStatus.NOT_APPLICABLE,
                 headline=f"{self.title}: не применимо",
                 explanation="Дело рассматривалось без особого порядка.",
                 facts_used=facts_used,

@@ -60,8 +60,6 @@ def _corpus(tmp_path, *versions):
     return tmp_path
 
 
-# -- что покрывает хэш
-
 
 def test_record_digest_covers_sanctions_not_only_text() -> None:
     """Главный пробел старой схемы: предел наказания вне контрольной суммы."""
@@ -85,8 +83,6 @@ def test_record_digest_ignores_own_checksum() -> None:
         _version(sha256=text_digest(TEXT))
     )
 
-
-# -- сверка
 
 
 def test_unsealed_corpus_is_reported(tmp_path) -> None:
@@ -170,8 +166,6 @@ def test_removed_version_is_detected(tmp_path) -> None:
     assert report.missing_from_corpus == ["uk-rf:art-158-part-1@v-2003"]
 
 
-# -- загрузка
-
 
 def test_store_refuses_unsealed_corpus(tmp_path) -> None:
     """Раньше сумма подставлялась при загрузке — правка подтверждала сама себя."""
@@ -192,8 +186,6 @@ def test_manifest_is_not_read_as_norms(tmp_path) -> None:
     assert len(NormStore.from_directory(directory).list_norms()) == 1
 
 
-# -- реальный корпус
-
 
 def test_project_corpus_is_sealed() -> None:
     """Фикстуры репозитория должны быть опечатаны — это же проверяет CI."""
@@ -201,8 +193,6 @@ def test_project_corpus_is_sealed() -> None:
 
     report = check(PROJECT_ROOT / "data" / "fixtures" / "norms")
     assert report.ok, report.describe()
-    # 34 исходных + 4 черновика главы 11 УК РФ (uk_rf_chapter11_draft.json,
-    # 20.09.2026, ФТ-45) — растёт вместе с корпусом, число не магическое.
     assert report.checked == 38
 
 

@@ -25,10 +25,8 @@ from .redaction_source import (
 
 logger = logging.getLogger(__name__)
 
-#: Документация описывает только этот MIME-тип; иное значение — ошибка формата.
 CONTENT_TYPE = "application/json"
 
-#: Коды, которые документация называет отдельно.
 _ERRORS = {
     400: "синтаксис запроса или превышены лимиты параметров",
     401: "неверный или отсутствующий токен",
@@ -122,8 +120,6 @@ class GarantSource:
     name = "garant"
 
     def __init__(self, base_url: str, token: str, timeout: float = 20.0) -> None:
-        # Базовый URL не угадывается: в документации приведены только пути
-        # вида /v2/..., хост задаёт обслуживающая организация.
         if not base_url:
             raise ValueError("SO_GARANT_BASE_URL не задан")
         if not base_url.startswith(("http://", "https://")):
@@ -133,9 +129,6 @@ class GarantSource:
             )
         if not token:
             raise ValueError("SO_GARANT_TOKEN не задан")
-        # Значение HTTP-заголовка обязано быть ASCII. Без этой проверки
-        # кириллица в токене доходит до httpx и возвращается невнятным
-        # «'ascii' codec can't encode characters».
         if not token.isascii():
             raise ValueError(
                 "SO_GARANT_TOKEN содержит не-ASCII символы: токен передаётся "
@@ -145,7 +138,6 @@ class GarantSource:
             )
         self._base_url = base_url.rstrip("/")
         self._token = token
-        # Документация: не более 20 секунд на обработку запроса.
         self._timeout = timeout
 
     @property
@@ -165,8 +157,6 @@ class GarantSource:
         except httpx.HTTPError as exc:
             raise RedactionSourceError(f"ГАРАНТ недоступен ({url}): {exc}") from exc
         except UnicodeError as exc:
-            # Кириллица в хосте или токене: наружу должно идти внятное
-            # сообщение, а не внутренняя ошибка кодировки.
             raise RedactionSourceError(
                 f"ГАРАНТ: адрес или токен содержит недопустимые символы ({exc}). "
                 "Проверьте SO_GARANT_BASE_URL и SO_GARANT_TOKEN"

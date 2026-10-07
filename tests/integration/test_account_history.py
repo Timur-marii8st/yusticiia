@@ -65,7 +65,6 @@ def test_history_endpoint_returns_summary(pipeline, sample_clean_text) -> None:
     assert item["analysis_id"] == analysis_id
     assert item["filename"] == "case.txt"
     assert item["facts_total"] > 0
-    # Полный отчёт в списке не возвращается: история открывается часто.
     assert "facts" not in item
     assert sum(item["checks"].values()) > 0
 
@@ -106,8 +105,6 @@ def test_only_admin_sees_every_case(pipeline, sample_clean_text) -> None:
     assert full.json()["scope"] == "all"
     assert full.json()["total"] == 1
 
-    # Без учётной записи расширенная область запрещена, а не молча сужена:
-    # молчаливое сужение выглядело бы как «дел нет».
     denied = client.get("/api/v1/analyses?scope=all")
     assert denied.status_code == 403
 
@@ -125,6 +122,4 @@ def test_account_panel_is_wired_in_the_interface(pipeline) -> None:
     assert '"/auth/login"' in js
     assert '"/auth/me"' in js
     assert "/api/v1/analyses?limit=" in js
-    # Личный токен приоритетнее общего: под ним действия попадают в журнал
-    # с именем исполнителя.
     assert 'sessionStorage.getItem("so-access") || sessionStorage.getItem("so-token")' in js

@@ -22,18 +22,12 @@ from ..domain.norms import LegalNorm, NormVersion
 from ..domain.users import UserRole
 from ..legal_rag.search import SearchHit
 
-#: Отчёт анализа отдаётся доменной моделью как есть: отдельная
-#: «транспортная» копия немедленно разъехалась бы с ядром, а провенанс
-#: (факт → цитата → норма → редакция) обязан доходить до клиента целиком.
 AnalysisReportResponse = AnalysisReport
-
-# -- служебные
 
 
 class HealthResponse(BaseModel):
     status: str = Field(examples=["ok"])
     version: str
-    #: "open" | "shared" | "accounts" — см. docs/SECURITY.md.
     auth_mode: str = "open"
 
 
@@ -56,8 +50,6 @@ class MetricsResponse(BaseModel):
     metrics: MetricsSnapshot | None = None
 
 
-# -- документы
-
 
 class DocumentCreated(BaseModel):
     document_id: str
@@ -76,8 +68,6 @@ class DocumentContent(BaseModel):
 class DeletedResponse(BaseModel):
     deleted: str
 
-
-# -- нормы
 
 
 class NormSummary(BaseModel):
@@ -98,7 +88,6 @@ class Page(BaseModel):
     total: int
     limit: int
     offset: int
-    #: Есть ли что-то за текущим окном: избавляет клиента от арифметики.
     has_more: bool
 
 
@@ -115,21 +104,11 @@ class NormCoverageItem(BaseModel):
     version_count: int
     covered_from: date
     covered_to: date | None = None
-    #: Читается движком правил напрямую или через пределы санкции.
     rule_relevant: bool
-    #: Историю изменений подтвердил юрист.
     history_verified: bool
-    #: Одна открытая редакция на длинный интервал — молчаливое утверждение
-    #: «норма не менялась», которое никто не проверял.
     history_unrecorded: bool
-    #: Попала в наряд на юридическую сверку. Условие то же, что у
-    #: ``second-opinion norms-coverage``: разрыв в покрытии либо
-    #: незафиксированная история у нормы, которую читает движок правил.
-    #: Считается одной функцией с CLI, иначе цифры разойдутся.
     needs_review: bool
-    #: Разрывы в покрытии: даты, на которые действующей редакции нет.
     gaps: list[tuple[date, date]] = []
-    #: Какой редакции источника соответствуют тексты, если записано.
     source_editions: list[str] = []
 
 
@@ -138,8 +117,6 @@ class NormCoverageResponse(BaseModel):
 
     total: int
     needs_review: int
-    #: Опечатан ли корпус и совпадает ли с манифестом. ``None`` — носитель
-    #: не файловый, контрольные суммы к нему неприменимы.
     corpus_sealed: bool | None = None
     norms: list[NormCoverageItem]
 
@@ -152,7 +129,31 @@ class NormDetailResponse(BaseModel):
     version: NormVersion | None = None
 
 
-# -- практика и поиск
+class ConfirmHistoryPayload(BaseModel):
+    """История изменений нормы сверена: статья действительно не менялась."""
+
+    checked_through: date
+    source: str = Field(min_length=1)
+
+
+class AddVersionPayload(BaseModel):
+    """Новая редакция нормы с фактическими границами действия."""
+
+    text: str = Field(min_length=1)
+    effective_from: date
+    effective_to: date | None = None
+    version_id: str = ""
+    source_url: str = ""
+    source_edition: str = ""
+
+
+class NormEditResponse(BaseModel):
+    """Итог правки корпуса норм."""
+
+    norm_id: str
+    message: str
+    sealed: bool
+
 
 
 class CaseListResponse(BaseModel):
@@ -180,18 +181,14 @@ class HistoryItem(BaseModel):
     applicable_at: str | None = None
     qualification: str = ""
     facts_total: int = 0
-    #: Счётчики по статусам проверок: FAIL, WARNING, UNKNOWN, PASS.
     checks: dict[str, int] = Field(default_factory=dict)
 
 
 class HistoryResponse(BaseModel):
-    #: ``scope``: ``own`` — дела актора, ``all`` — все (только админ).
     scope: str
     total: int
     items: list[HistoryItem]
 
-
-# -- аутентификация
 
 
 class UserSummary(BaseModel):
@@ -205,7 +202,9 @@ class UserSummary(BaseModel):
 
 class TokenPairResponse(BaseModel):
     access_token: str
-    refresh_token: str
+    refresh_token: str | None = Field(
+        default=None, description="пусто, если refresh выдан в HttpOnly cookie"
+    )
     expires_in: int = Field(description="секунды до истечения access-токена")
 
 
@@ -216,7 +215,9 @@ class LoginResponse(BaseModel):
 
 class RefreshResponse(BaseModel):
     access_token: str
-    refresh_token: str
+    refresh_token: str | None = Field(
+        default=None, description="пусто, если refresh выдан в HttpOnly cookie"
+    )
     expires_in: int
 
 
@@ -226,6 +227,7 @@ class MeResponse(BaseModel):
     full_name: str
     role: UserRole
     is_active: bool
+    mfa_enabled: bool = False
 
 
 class UserResponse(BaseModel):
@@ -238,10 +240,16 @@ class UserResponse(BaseModel):
     is_active: bool
     created_at: datetime
     last_login: datetime | None = None
+    mfa_enabled: bool = False
 
 
 class MessageResponse(BaseModel):
     message: str
+
+
+class MfaSetupResponse(BaseModel):
+    secret: str = Field(description="секрет для ручного ввода в приложение-аутентификатор")
+    otpauth_uri: str = Field(description="адрес otpauth:// для импорта секрета")
 
 
 class LoginAttemptResponse(BaseModel):
@@ -267,6 +275,7 @@ __all__ = [
     "LoginResponse",
     "MeResponse",
     "MessageResponse",
+    "MfaSetupResponse",
     "MetricsResponse",
     "MetricsSnapshot",
     "NormCoverageItem",

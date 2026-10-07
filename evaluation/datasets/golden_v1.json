@@ -119,7 +119,8 @@
         "surrender_or_confession",
         "restitution",
         "group_offense",
-        "minor_dependents"
+        "minor_dependents",
+        "punishment_type"
       ]
     },
     {
@@ -131,7 +132,6 @@
         "date_of_offense",
         "prior_convictions",
         "aggravating_recidivism",
-        "guilty_plea",
         "punishment_type",
         "punishment_term"
       ]
@@ -144,6 +144,7 @@
         "defendant_age",
         "date_of_offense",
         "guilty_plea",
+        "restitution",
         "minor_dependents"
       ]
     },

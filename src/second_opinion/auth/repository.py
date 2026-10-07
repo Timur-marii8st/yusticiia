@@ -18,8 +18,8 @@ from typing import Protocol
 
 from ..domain.users import LoginAttempt, User
 from ..storage.repositories import atomic_write_json
+from ..storage.sql import safe_sql_identifier
 
-#: Идентификаторы попадают в имена файлов — допускаем только безопасный набор.
 _SAFE_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
 
 
@@ -97,7 +97,7 @@ class PostgresUserStore:
 
         self._psycopg = psycopg
         self._dsn = dsn
-        p = table_prefix
+        p = safe_sql_identifier(table_prefix) if table_prefix else ""
         self._users_table = f"{p}users" if p else "users"
         self._blacklist_table = f"{p}auth_refresh_blacklist" if p else "auth_refresh_blacklist"
         self._audit_table = f"{p}auth_login_audit" if p else "auth_login_audit"
@@ -123,8 +123,6 @@ class PostgresUserStore:
                 "id text PRIMARY KEY, data jsonb NOT NULL)"
             )
 
-    # -- пользователи
-
     def save_user(self, user: User) -> None:
         payload = user.model_dump_json()
         with self._lock, self._connect() as conn:
@@ -148,8 +146,6 @@ class PostgresUserStore:
         return self._parse_user(row[0]) if row else None
 
     def get_user_by_email(self, email: str) -> User | None:
-        # Email уникален на уровне сервиса; поиск перебором по JSONB
-        # достаточен для масштаба MVP (индекс — отдельная задача).
         for user in self.list_users():
             if user.email == email:
                 return user
@@ -170,8 +166,6 @@ class PostgresUserStore:
             )
             return (cursor.rowcount or 0) > 0
 
-    # -- refresh blacklist
-
     def is_refresh_revoked(self, jti: str) -> bool:
         with self._connect() as conn:
             row = conn.execute(
@@ -187,8 +181,6 @@ class PostgresUserStore:
                 "VALUES (%s, %s, %s) ON CONFLICT (jti) DO NOTHING",
                 (jti, user_id, datetime.now(UTC)),
             )
-
-    # -- аудит входов
 
     def record_login(self, attempt: LoginAttempt) -> None:
         with self._lock, self._connect() as conn:
@@ -219,7 +211,7 @@ class JsonFileUserStore:
     Раскладка внутри каталога (``<data_dir>/store/auth``)::
 
         users/<user_id>.json   — по файлу на пользователя (атомарная запись)
-        refresh_blacklist.json — отозванные refresh-токены: jti → user_id
+        refresh_blacklist.json — отозванные refresh-токены: jti -> user_id
         login_audit.jsonl      — журнал входов, дозапись строками
 
     In-memory теряет пользователей при перезапуске, из-за чего личный
@@ -235,11 +227,7 @@ class JsonFileUserStore:
         self._lock = threading.RLock()
         self._users_dir.mkdir(parents=True, exist_ok=True)
 
-    # -- пользователи
-
     def _user_path(self, user_id: str) -> Path:
-        # Идентификатор попадает в имя файла: пускаем только безопасный набор,
-        # иначе ".." или "/" увели бы запись за пределы каталога.
         if not _SAFE_ID.fullmatch(user_id):
             raise ValueError(f"недопустимый user_id: {user_id!r}")
         return self._users_dir / f"{user_id}.json"
@@ -282,16 +270,12 @@ class JsonFileUserStore:
             path.unlink()
             return True
 
-    # -- refresh blacklist
-
     def _read_blacklist(self) -> dict[str, str]:
         if not self._blacklist_path.exists():
             return {}
         try:
             return json.loads(self._blacklist_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
-            # Повреждённый файл не должен превращаться в «токен не отозван»:
-            # безопаснее считать список нечитаемым и пересоздать его.
             return {}
 
     def is_refresh_revoked(self, jti: str) -> bool:
@@ -303,8 +287,6 @@ class JsonFileUserStore:
             blacklist = self._read_blacklist()
             blacklist[jti] = user_id
             atomic_write_json(self._blacklist_path, json.dumps(blacklist, ensure_ascii=False))
-
-    # -- аудит входов
 
     def record_login(self, attempt: LoginAttempt) -> None:
         with self._lock:

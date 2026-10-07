@@ -4,10 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Второе мнение — юридический аудит проекта судебного акта</title>
-  <!-- ?v= — метка версии статики: после обновления интерфейса браузер
-       иначе продолжает показывать закэшированные стили и скрипт.
-       Меняется вручную вместе с правкой style.css / app.js. -->
-  <link rel="stylesheet" href="/static/style.css?v=0.56">
+  <link rel="stylesheet" href="/static/style.css?v=0.73">
 </head>
 <body>
   <a class="skip-link" href="#upload-panel">Перейти к форме анализа</a>
@@ -44,17 +41,20 @@
 
       <div id="account-login">
         <p class="hint">
-          Вход по личной учётной записи. Нужен, чтобы дела не смешивались
-          между судьями и чтобы в журнале было видно, кто что подтвердил.
-          Демо-сценарий работает и без входа.
+          Вход по личной учётной записи. Демо-сценарий работает и без входа.
         </p>
         <div class="controls">
           <label class="visually-hidden" for="login-email">Электронная почта</label>
           <input type="email" id="login-email" size="28" autocomplete="username"
-            placeholder="Электронная почта">
+            placeholder="Электронная почта"> 
           <label class="visually-hidden" for="login-password">Пароль</label>
           <input type="password" id="login-password" size="20" autocomplete="current-password"
             placeholder="Пароль">
+          <span id="otp-row" hidden>
+            <label class="visually-hidden" for="login-otp">Код из приложения-аутентификатора</label>
+            <input type="text" id="login-otp" size="18" maxlength="16" inputmode="numeric"
+              autocomplete="one-time-code" placeholder="Код из приложения">
+          </span>
           <button id="login-btn" class="primary">Войти</button>
         </div>
         <div id="login-error" class="error" role="alert" aria-live="assertive" hidden></div>
@@ -64,20 +64,51 @@
         <div id="profile-card" class="card"></div>
         <div class="controls">
           <button id="history-btn" class="secondary">Обновить историю дел</button>
+          <button id="history-clear-btn" class="secondary danger">Очистить всё</button>
           <button id="logout-btn" class="secondary">Выйти</button>
+        </div>
+        <div id="mfa-box" class="card">
+          <div id="mfa-status" class="hint"></div>
+          <div class="controls">
+            <button id="mfa-setup-btn" class="secondary">Включить второй фактор</button>
+          </div>
+          <div id="mfa-setup" hidden>
+            <p class="hint">
+              Добавьте секрет в приложение-аутентификатор (ввод вручную или импорт по
+              адресу ниже), затем введите шесть цифр из приложения.
+            </p>
+            <p>Секрет: <code id="mfa-secret"></code></p>
+            <p class="hint">Адрес для импорта: <code id="mfa-uri"></code></p>
+            <div class="controls">
+              <label class="visually-hidden" for="mfa-code">Код из приложения</label>
+              <input type="text" id="mfa-code" size="18" maxlength="16" inputmode="numeric"
+                autocomplete="one-time-code" placeholder="Код из приложения">
+              <button id="mfa-enable-btn" class="primary">Подтвердить</button>
+            </div>
+          </div>
+          <div id="mfa-disable" hidden>
+            <div class="controls">
+              <label class="visually-hidden" for="mfa-disable-password">Пароль</label>
+              <input type="password" id="mfa-disable-password" size="20"
+                autocomplete="current-password" placeholder="Пароль">
+              <label class="visually-hidden" for="mfa-disable-code">Код из приложения</label>
+              <input type="text" id="mfa-disable-code" size="18" maxlength="16" inputmode="numeric"
+                autocomplete="one-time-code" placeholder="Код из приложения">
+              <button id="mfa-disable-btn" class="secondary danger">Отключить</button>
+            </div>
+          </div>
+          <div id="mfa-error" class="error" role="alert" aria-live="assertive" hidden></div>
         </div>
         <p class="hint" id="history-hint">
           История — анализы, выполненные под этой учётной записью. Нажмите
-          на дело, чтобы открыть отчёт целиком.
+          на дело, чтобы открыть отчёт целиком; «Удалить» рядом с делом
+          убирает только его, «Очистить всё» — всю историю целиком.
         </p>
+        <div id="history-error" class="error" role="alert" aria-live="assertive" hidden></div>
         <ul id="history-list" class="items" aria-live="polite"></ul>
       </div>
     </section>
 
-    <!-- Положение конкурса требует ровно одного от раскладки интерфейса:
-         он разделён на «Личный кабинет» и «Рабочую область». Кабинет был
-         назван, рабочая область — нет: одиннадцать панелей шли подряд
-         плоским списком. Здесь она названа и очерчена. -->
     <section id="workspace" aria-labelledby="workspace-title">
       <h2 id="workspace-title">Рабочая область анализа</h2>
       <p class="hint workspace-hint">
@@ -168,9 +199,6 @@
           <div class="controls">
             <button id="add-fact-btn" class="secondary">Добавить обстоятельство</button>
           </div>
-          <!-- Ошибка показывается здесь, рядом с кнопкой: прежде она уходила
-               в панель «Документ» вверху страницы, и нажавший кнопку внизу
-               не видел, что произошло. -->
           <div id="add-fact-error" class="error" role="alert" aria-live="assertive" hidden></div>
           <p class="hint">
             Цитата обязана дословно находиться в документе — иначе факт не
@@ -243,6 +271,6 @@
     </section>
   </main>
 
-  <script src="/static/app.js?v=0.56"></script>
+  <script src="/static/app.js?v=0.73"></script>
 </body>
 </html>

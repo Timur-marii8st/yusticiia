@@ -5,8 +5,6 @@ from datetime import date
 from evaluation.metrics.retrieval import mrr, ndcg_at_k, recall_at_k
 from evaluation.metrics.temporal import TemporalCase, temporal_accuracy
 
-# -- Recall@K
-
 
 def test_recall_all_relevant_in_top_k() -> None:
     assert recall_at_k(["a", "b", "c"], {"a", "c"}, k=3) == 1.0
@@ -25,12 +23,9 @@ def test_recall_empty_relevant_is_vacuously_one() -> None:
 
 
 def test_recall_respects_cutoff() -> None:
-    # Релевантный документ есть, но за пределами k.
     assert recall_at_k(["x", "y", "a"], {"a"}, k=2) == 0.0
     assert recall_at_k(["x", "y", "a"], {"a"}, k=3) == 1.0
 
-
-# -- MRR
 
 
 def test_mrr_first_position() -> None:
@@ -48,8 +43,6 @@ def test_mrr_absent() -> None:
 def test_mrr_uses_best_rank_only() -> None:
     assert mrr(["x", "a", "b"], {"a", "b"}) == 0.5
 
-
-# -- nDCG@K
 
 
 def test_ndcg_perfect_ranking_is_one() -> None:
@@ -74,11 +67,8 @@ def test_ndcg_empty_relevant_is_vacuously_one() -> None:
 
 
 def test_ndcg_cutoff_ignores_tail() -> None:
-    # Релевантный документ на позиции 3 при k=2 не учитывается.
     assert ndcg_at_k(["x", "y", "a"], {"a"}, k=2) == 0.0
 
-
-# -- Временна́я корректность
 
 
 def _temporal_cases() -> list[TemporalCase]:

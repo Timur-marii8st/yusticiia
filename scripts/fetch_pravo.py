@@ -35,7 +35,6 @@ except ImportError:  # pragma: no cover
 
 DEFAULT_BASE_URL = "https://publication.pravo.gov.ru"
 
-#: Потолок размера PDF при извлечении текста.
 MAX_PDF_BYTES = 50 * 1024 * 1024
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_RAW_DIR = REPO_ROOT / "data" / "raw_pravo"
@@ -222,7 +221,6 @@ def load_card(raw_path: Path) -> dict:
         ) from exc
     if not isinstance(loaded, dict):
         return {}
-    # API может вернуть карточку напрямую или обёртку — берём словарь документа.
     return loaded.get("document", loaded) if isinstance(loaded.get("document"), dict) else loaded
 
 
@@ -237,9 +235,6 @@ def cmd_build_fixture(args: argparse.Namespace) -> int:
         + (f"-part-{args.part}" if args.part else "")
         + f"-pravo-{args.eo_number}"
     )
-    # Идентификатор редакции по году начала действия — как в остальных
-    # фикстурах (v-1996, v-2003). Общий "v-pravo-draft" на все редакции
-    # означал бы, что вторая редакция нормы затирает первую по смыслу.
     version_id = args.version_id or f"v-{args.effective_from[:4]}"
     payload = build_fixture_payload(
         norm_id=norm_id,
@@ -258,7 +253,6 @@ def cmd_build_fixture(args: argparse.Namespace) -> int:
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    # Самопроверка: фикстура обязана грузиться в NormStore (SHA, даты, интервалы).
     sys.path.insert(0, str(REPO_ROOT / "src"))
     from second_opinion.legal_sources.store import NormStore
 

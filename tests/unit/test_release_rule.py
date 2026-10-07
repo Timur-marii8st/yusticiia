@@ -58,18 +58,15 @@ def test_rule_is_written_but_not_registered() -> None:
 
 
 def test_serious_crime_is_not_applicable(norm_store: NormStore) -> None:
-    # ст. 228 ч. 2 УК РФ: максимум санкции 120 мес. — тяжкое преступление,
-    # выше границы 60 мес. (небольшой/средней тяжести), на которой
-    # заканчивается действие ст. 75, 76, 76.2.
     evaluation = run(norm_store, _case(article=228, part=2))
-    assert evaluation.status is RuleStatus.PASS
+    assert evaluation.status is RuleStatus.NOT_APPLICABLE
     assert "не применимо" in evaluation.headline
 
 
 def test_prior_conviction_excludes_the_chapter(norm_store: NormStore) -> None:
     case = _case(article=158, part=1, prior_convictions=True)
     evaluation = run(norm_store, case)
-    assert evaluation.status is RuleStatus.PASS
+    assert evaluation.status is RuleStatus.NOT_APPLICABLE
     assert "впервые" in evaluation.explanation
 
 
@@ -100,8 +97,6 @@ def test_restitution_alone_suggests_judicial_fine(norm_store: NormStore) -> None
     evaluation = run(norm_store, case)
     assert evaluation.status is RuleStatus.WARNING
     assert "76.2" in evaluation.explanation
-    # Без явки с повинной ст. 75 (деятельное раскаяние) не предлагается:
-    # для неё нужен более сильный набор признаков.
     assert "ст. 75" not in evaluation.explanation
 
 

@@ -25,18 +25,12 @@ from pydantic import BaseModel
 from ..domain.norms import LegalNorm, NormVersion
 from .pravo_gov import prepared_editions
 
-#: Разделитель координат в ``source_edition``.
 SEPARATOR = ":"
 
-#: Норма соответствует последней редакции источника.
 CURRENT = "актуальна"
-#: Источник знает более новую редакцию — норму изменили после выгрузки.
 OUTDATED = "устарела"
-#: ``source_edition`` пуст: сравнивать не с чем.
 UNRECORDED = "редакция источника не записана"
-#: Текст взят из другого источника, чем опрашиваемый.
 FOREIGN = "другой источник"
-#: Записанной редакции в списке источника нет.
 UNKNOWN = "источник не знает такой редакции"
 
 

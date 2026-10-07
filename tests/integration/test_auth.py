@@ -113,4 +113,4 @@ def test_change_password_short_new_fails(pipeline) -> None:
         json={"current_password": "admin123", "new_password": "123"},
         headers=headers,
     )
-    assert response.status_code == 422  # pydantic validation: min_length=8
+    assert response.status_code == 422

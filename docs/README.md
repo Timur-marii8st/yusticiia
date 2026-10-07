@@ -7,22 +7,23 @@
 
 | Вы | Читайте по порядку |
 |---|---|
-| Разбираетесь, что это за система | [PRODUCT_VISION.md](PRODUCT_VISION.md) → [ARCHITECTURE.md](ARCHITECTURE.md) → [GLOSSARY.md](GLOSSARY.md) |
-| Собираетесь править код | [../CONTRIBUTING.md](../CONTRIBUTING.md) → [ARCHITECTURE.md](ARCHITECTURE.md) → [DOMAIN_MODEL.md](DOMAIN_MODEL.md) |
-| Проверяете юридическую часть | [LEGAL_SAFETY_PRINCIPLES.md](LEGAL_SAFETY_PRINCIPLES.md) → [RULE_ENGINE.md](RULE_ENGINE.md) → [NORM_COVERAGE.md](NORM_COVERAGE.md) |
+| Разбираетесь, что это за система | [PRODUCT_VISION.md](PRODUCT_VISION.md) -> [ARCHITECTURE.md](ARCHITECTURE.md) -> [GLOSSARY.md](GLOSSARY.md) |
+| Собираетесь править код | [../CONTRIBUTING.md](../CONTRIBUTING.md) -> [ARCHITECTURE.md](ARCHITECTURE.md) -> [DOMAIN_MODEL.md](DOMAIN_MODEL.md) |
+| Проверяете юридическую часть | [LEGAL_SAFETY_PRINCIPLES.md](LEGAL_SAFETY_PRINCIPLES.md) -> [RULE_ENGINE.md](RULE_ENGINE.md) -> [NORM_COVERAGE.md](NORM_COVERAGE.md) -> [LAWYER_REVIEW.md](LAWYER_REVIEW.md) |
 | Подключаетесь к API | [API.md](API.md) |
-| Разворачиваете систему | [DEPLOYMENT.md](DEPLOYMENT.md) → [SECURITY.md](SECURITY.md) |
-| Оцениваете, что сделано | [CONCEPT.md](CONCEPT.md) → [TZ.md](TZ.md) → [../CHANGELOG.md](../CHANGELOG.md) |
+| Разворачиваете систему | [../README.md](../README.md) -> [SECURITY.md](SECURITY.md) |
+| Поднимаете модель на сервере Ubuntu | [DEPLOYMENT_VLLM.md](DEPLOYMENT_VLLM.md) |
+| Оцениваете, что сделано | [TZ.md](TZ.md) -> [../CHANGELOG.md](../CHANGELOG.md) |
+| Готовите документ для жюри конкурса | [CONCEPT.md](CONCEPT.md) |
 
 ## Требования и замысел
 
-- [CONCEPT.md](CONCEPT.md) — **конкурсная концепция**: архитектура,
-  данные, алгоритмы и правовая методология одним документом. Отвечает на
-  п. 2.2 Положения о конкурсе; отсюда стоит начинать знакомство с
-  проектом.
 - [TZ.md](TZ.md) — техническое задание: пронумерованные требования, статус
   каждого, инварианты системы, очереди работ с указанием, что именно
   мешает закрыть каждую.
+- [CONCEPT.md](CONCEPT.md) — концепция решения для отборочного этапа
+  конкурса (п. 2.2 Положения): архитектура, данные, алгоритмы, правовая
+  методология.
 - [PRODUCT_VISION.md](PRODUCT_VISION.md) — для кого система, какую задачу
   решает и чего намеренно не делает.
 - [GLOSSARY.md](GLOSSARY.md) — термины предметной области в том значении,
@@ -48,6 +49,9 @@
   цитированием.
 - [NORM_COVERAGE.md](NORM_COVERAGE.md) — полнота редакционной истории
   норм: что сверено юристом, а что ещё ждёт сверки.
+- [LAWYER_REVIEW.md](LAWYER_REVIEW.md) — лист сверки для юриста: вопросы по
+  датам, пределам санкций, редакциям и расчёту по ст. 69, 70 с готовыми
+  командами фиксации ответа.
 - [DATA_SOURCES.md](DATA_SOURCES.md) — откуда берутся тексты норм и как
   корпус пополняется.
 
@@ -55,8 +59,11 @@
 
 - [API.md](API.md) — справочник HTTP API: пути, параметры, формы ответов
   и ошибок.
-- [DEPLOYMENT.md](DEPLOYMENT.md) — профили развёртывания, переменные
-  окружения, режимы авторизации.
+- [../README.md](../README.md) — профили развёртывания (в т.ч. Docker),
+  переменные окружения, режимы авторизации.
+- [DEPLOYMENT_VLLM.md](DEPLOYMENT_VLLM.md) — запуск языковой модели (vLLM)
+  на сервере Ubuntu с видеокартой: установка, проверка, закрытый контур,
+  разбор ошибок.
 - [SECURITY.md](SECURITY.md) — модель угроз и состояние мер защиты.
 - [PRIVACY.md](PRIVACY.md) — обращение с персональными данными,
   обезличивание, право на забвение.
@@ -69,7 +76,8 @@
 ## Чего здесь нет
 
 Рабочие заметки разработки — открытые вопросы, архив аудитов, помесячный
-статус — в репозитории не хранятся: они нужны тому, кто ведёт разработку,
-и только запутали бы читателя, который разбирается в системе. История
-изменений с датами — в [../CHANGELOG.md](../CHANGELOG.md), порядок работы
-с кодом — в [../CONTRIBUTING.md](../CONTRIBUTING.md).
+статус, кодстайл и правила комментирования — в репозитории не хранятся:
+они нужны тому, кто ведёт разработку, и только запутали бы читателя,
+который разбирается в системе. История изменений с датами — в
+[../CHANGELOG.md](../CHANGELOG.md), порядок работы с кодом — в
+[../CONTRIBUTING.md](../CONTRIBUTING.md).

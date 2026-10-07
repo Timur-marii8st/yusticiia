@@ -14,12 +14,12 @@ def test_clean_sample_end_to_end(pipeline) -> None:
 
     assert len(report.facts) >= 9
     statuses = {e.rule_id: e.status.value for e in report.evaluations}
-    assert statuses["R-001"] == "PASS"  # 18 мес. ≤ 60
-    assert statuses["R-002"] == "PASS"  # оконченное
-    assert statuses["R-003"] == "PASS"  # 18 ≤ 40 (2/3 от 60)
-    assert statuses["R-004"] == "PASS"  # 18 ≤ 40
-    assert statuses["R-010"] == "PASS"  # оконченное: комбинированный предел не применим
-    assert statuses["R-006"] == "PASS"  # условное при 18 мес.
+    assert statuses["R-001"] == "PASS"
+    assert statuses["R-002"] == "NOT_APPLICABLE"
+    assert statuses["R-003"] == "PASS"
+    assert statuses["R-004"] == "PASS"
+    assert statuses["R-010"] == "NOT_APPLICABLE"
+    assert statuses["R-006"] == "PASS"
 
     assert report.applicable_at == "2025-03-15"
     assert report.applicable_at_assumed is False
@@ -91,8 +91,6 @@ def _evaluations_by_id(report):
     return {e.rule_id: e for e in report.evaluations}
 
 
-# -- краевые случаи на новых синтетических образцах
-
 
 def test_minor_with_special_procedure_flags_r007(pipeline) -> None:
     """16 лет + особый порядок: R-007 обязан дать FAIL (ч. 2 ст. 420 УПК)."""
@@ -101,7 +99,6 @@ def test_minor_with_special_procedure_flags_r007(pipeline) -> None:
     statuses = _evaluations_by_id(report)
     assert statuses["R-007"].status.value == "FAIL"
     assert "420" in statuses["R-007"].explanation
-    # используемые факты указаны и существуют в отчёте
     fact_ids = {f.id for f in report.facts}
     assert set(statuses["R-007"].facts_used) <= fact_ids
 
@@ -114,9 +111,9 @@ def test_recidivism_blocks_lenient_two_thirds_rule(pipeline) -> None:
     _, report = _analysis(pipeline, path)
     statuses = _evaluations_by_id(report)
     assert "R-008" not in statuses
-    assert statuses["R-004"].status.value == "PASS"  # не применимо из-за отягчающих
+    assert statuses["R-004"].status.value == "NOT_APPLICABLE"
     assert "отягчающ" in statuses["R-004"].explanation.lower()
-    assert statuses["R-001"].status.value == "PASS"  # 14 мес. ≤ 84 (ч. 2 ст. 161)
+    assert statuses["R-001"].status.value == "PASS"
 
 
 def test_suspended_boundary_exactly_eight_years_passes_r006(pipeline) -> None:
@@ -156,8 +153,6 @@ def test_analysis_is_reproducible_across_pipeline_instances(tmp_path) -> None:
     first, second = reports
 
     def normalized(report):
-        # document_id у каждого ingest свой (uuid) — это связь с документом,
-        # а не содержательный результат; исключаем его из сравнения.
         facts = []
         for fact in report.facts:
             data = fact.model_dump()
@@ -176,3 +171,62 @@ def test_analysis_is_reproducible_across_pipeline_instances(tmp_path) -> None:
     assert [c.model_dump() for c in first.comparable_cases] == [
         c.model_dump() for c in second.comparable_cases
     ]
+
+
+CIVIL_DECISION = """Р Е Ш Е Н И Е
+Именем Российской Федерации
+(заочное)
+
+Районный суд в составе председательствующего судьи, при секретаре,
+рассмотрев в открытом судебном заседании гражданское дело по иску
+прокурора в интересах Иванова И.И. к ООО «Ромашка» о взыскании
+задолженности по заработной плате,
+
+У С Т А Н О В И Л:
+
+Прокурор обратился в суд с иском, указав, что Иванов И.И. состоял с
+ответчиком в трудовых отношениях, заработная плата за три месяца ему не
+выплачена. Согласно статье 136 Трудового кодекса Российской Федерации
+заработная плата выплачивается не реже чем каждые полмесяца. Ответчик в
+судебное заседание не явился, возражений не представил.
+Руководствуясь статьями 194-199, 233 Гражданского процессуального кодекса
+Российской Федерации, суд
+
+Р Е Ш И Л:
+
+Иск удовлетворить. Взыскать с ООО «Ромашка» в пользу Иванова И.И.
+задолженность по заработной плате в размере 120 000 рублей.
+"""
+
+
+def test_civil_decision_is_reported_as_not_a_criminal_sentence(pipeline) -> None:
+    document = pipeline.ingest("civil.txt", CIVIL_DECISION.encode("utf-8"))
+    report = pipeline.analyze(document.document_id)
+
+    assert not report.case_facts.has_criminal_content
+    assert {e.status.value for e in report.evaluations} == {"NOT_APPLICABLE"}
+    titles = [c.title for c in report.concerns]
+    assert "Документ не распознан как приговор по уголовному делу" in titles
+    assert not any(t.startswith("Проверок не выполнено") for t in titles)
+    assert report.summary.lines[0].text == (
+        "Статья УК РФ и назначенное наказание в документе не найдены."
+    )
+
+
+def test_criminal_sentence_has_no_not_a_sentence_concern(pipeline) -> None:
+    _, report = _analysis(pipeline, SAMPLE_CLEAN)
+
+    assert report.case_facts.has_criminal_content
+    assert all(
+        c.title != "Документ не распознан как приговор по уголовному делу"
+        for c in report.concerns
+    )
+
+
+def test_unrecorded_norm_history_is_reported_for_the_case_date(pipeline) -> None:
+    _, report = _analysis(pipeline, SAMPLE_CLEAN)
+
+    concern = next(c for c in report.concerns if c.title == "Редакционная история норм не сверена")
+    assert "УПК РФ ст. 316" in concern.detail
+    assert report.applicable_at in concern.detail
+    assert "УК РФ ст. 158" not in concern.detail

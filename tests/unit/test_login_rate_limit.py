@@ -13,8 +13,6 @@ def _limiter(max_attempts: int = 3, window: int = 60, **kwargs) -> LoginRateLimi
     return LoginRateLimiter(max_attempts, window, **kwargs)
 
 
-# -- скользящее окно
-
 
 def test_attempts_within_limit_pass() -> None:
     limiter = _limiter(max_attempts=3)
@@ -36,7 +34,6 @@ def test_window_slides_and_frees_up() -> None:
         limiter.retry_after("10.0.0.1", now=t)
     assert limiter.retry_after("10.0.0.1", now=3) is not None
 
-    # Спустя окно прежние попытки больше не учитываются.
     assert limiter.retry_after("10.0.0.1", now=100) is None
 
 
@@ -74,8 +71,6 @@ def test_tracked_clients_are_bounded() -> None:
         limiter.retry_after(f"10.0.0.{i}", now=i)
     assert len(limiter._hits) <= 10
 
-
-# -- эндпоинт
 
 
 def test_login_returns_429_with_retry_after(pipeline, monkeypatch) -> None:

@@ -14,83 +14,46 @@ DEFAULT_MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 class AppConfig:
     data_dir: Path
     fixtures_dir: Path
-    llm_provider: str  # "mock" | "openai_compatible" | "gigachat"
+    llm_provider: str
     openai_base_url: str
     openai_api_key: str
     llm_model: str
     max_upload_bytes: int
-    rag_mode: str = "lexical"  # "lexical" | "hybrid" (ADR-003)
-    embeddings_provider: str = "hashing"  # "hashing" | "openai_compatible"
+    rag_mode: str = "lexical"
+    embeddings_provider: str = "hashing"
     embedding_model: str = ""
-    #: Общий секрет для /api/*; пусто — авторизация выключена (loopback-MVP).
     auth_token: str = ""
-    #: Секрет подписи JWT (SO_JWT_SECRET). Пусто — эфемерный ключ на процесс:
-    #: токены действительны только до перезапуска. Захардкоженного значения
-    #: нет и быть не должно — иначе подделывается токен любой роли.
     jwt_secret: str = ""
-    #: Требовать авторизацию жёстко: при пустом auth_token сервер не стартует.
     require_auth: bool = False
-    #: Режим авторизации /api/*:
-    #:   "open"     — доступ без авторизации (демонстрация на loopback);
-    #:   "shared"   — общий секрет ИЛИ личный токен (ADR-008);
-    #:   "accounts" — только личная учётная запись; общий секрет отвергается.
-    #: Пусто — режим выводится из наличия SO_AUTH_TOKEN, как было до
-    #: появления параметра: пустой секрет означает "open", заданный — "shared".
+    cookie_secure: bool = False
+    admin_mfa_required: bool = False
     auth_mode: str = ""
-    #: Минимальная длина пароля пользователя. Для первого администратора
-    #: действует отдельный, более строгий порог (см. auth/service.py).
     password_min_length: int = 8
-    #: Носитель документов/отчётов: "file" (по умолчанию) | "postgres" (ADR-006).
     storage_backend: str = "file"
-    #: DSN PostgreSQL для storage_backend="postgres".
     database_url: str = ""
-    #: Максимальный возраст пароля в днях (0 — без ограничения).
-    #: При превышении вход отклоняется с требованием смены пароля.
     password_max_age_days: int = 0
-    #: Глубина истории паролей (0 — не проверять повторы).
     password_history_depth: int = 5
-    #: Максимум последовательных неудачных входов до блокировки (0 — без блокировки).
     login_max_attempts: int = 5
-    #: Длительность блокировки входа в минутах.
     login_lockout_minutes: int = 15
-    #: Носитель норм: "file" (каталог фикстур, ревью через git) |
-    #: "postgres" (обновление без выпуска релиза). Требует SO_DATABASE_URL.
     norms_backend: str = "file"
-    #: Источник редакционной истории норм: "none" | "garant" | "stub".
-    #: Заглушка отвечает из подготовленных файлов, пока нет токена ГАРАНТ.
     redaction_source: str = "none"
-    #: Адрес ИПС «Законодательство России». Значение по умолчанию —
-    #: рабочий публичный адрес: источник государственный и не требует
-    #: ни токена, ни подписки.
     pravo_base_url: str = "http://pravo.gov.ru/proxy/ips/"
-    #: Таймаут запроса к ИПС, секунды. Сервер отвечает медленно —
-    #: замеры дают 16 с на страницу списка редакций, а полный текст
-    #: УК РФ весит 2,6 МБ, поэтому значение заведомо щедрое.
     pravo_timeout_seconds: float = 180.0
-    #: Базовый URL API ГАРАНТ. Не угадывается: документация приводит только
-    #: пути вида /v2/..., хост задаёт обслуживающая организация.
     garant_base_url: str = ""
-    #: OAuth-токен ГАРАНТ, выдаётся по заявке.
     garant_token: str = ""
-    #: Каталог файлов заглушки.
     garant_stub_dir: str = ""
-    #: Схема в заголовке Authorization у openai_compatible. OpenAI-совместимые
-    #: контуры ждут "Bearer", Yandex AI Studio — "Api-Key".
     llm_auth_scheme: str = "Bearer"
-    #: Ключ авторизации GigaChat (строка Base64 из личного кабинета). Меняется
-    #: на временный токен, сам в запросы не попадает.
     gigachat_auth_key: str = ""
-    #: Область действия токена GigaChat: PERS для физических лиц, CORP или B2B
-    #: для юридических — зависит от договора, угадать нельзя.
     gigachat_scope: str = "GIGACHAT_API_PERS"
-    #: Путь к сертификатам НУЦ Минцифры, если контур их требует.
     gigachat_ca_bundle: str = ""
-    #: Попыток входа с одного клиента за окно (0 — без ограничения).
-    #: Блокировка учётки считает неудачи по пользователю и потому не
-    #: сдерживает перебор по списку адресов — этот лимит считает по клиенту.
     login_rate_limit: int = 20
-    #: Ширина окна для login_rate_limit, секунды.
     login_rate_window_seconds: int = 60
+    llm_max_tokens: int = 3000
+    analyze_rate_limit: int = 30
+    analyze_rate_window_seconds: int = 60
+    analyze_max_concurrency: int = 4
+    analyze_queue_seconds: float = 30.0
+    api_docs: str = ""
 
     @property
     def store_dir(self) -> Path:
@@ -136,6 +99,8 @@ def load_config() -> AppConfig:
         auth_token=_env("SO_AUTH_TOKEN"),
         jwt_secret=_env("SO_JWT_SECRET"),
         require_auth=_env("SO_REQUIRE_AUTH") in ("1", "true", "yes"),
+        cookie_secure=_env("SO_COOKIE_SECURE") in ("1", "true", "yes"),
+        admin_mfa_required=_env("SO_ADMIN_MFA_REQUIRED") in ("1", "true", "yes"),
         auth_mode=(_env("SO_AUTH_MODE") or "").strip().lower(),
         password_min_length=int(_env("SO_PASSWORD_MIN_LENGTH") or 8),
         storage_backend=_env("SO_STORAGE_BACKEND", "file") or "file",
@@ -159,6 +124,12 @@ def load_config() -> AppConfig:
         gigachat_ca_bundle=_env("SO_GIGACHAT_CA_BUNDLE"),
         login_rate_limit=int(_env("SO_LOGIN_RATE_LIMIT") or 20),
         login_rate_window_seconds=int(_env("SO_LOGIN_RATE_WINDOW_SECONDS") or 60),
+        llm_max_tokens=int(_env("SO_LLM_MAX_TOKENS") or 3000),
+        analyze_rate_limit=int(_env("SO_ANALYZE_RATE_LIMIT") or 30),
+        analyze_rate_window_seconds=int(_env("SO_ANALYZE_RATE_WINDOW_SECONDS") or 60),
+        analyze_max_concurrency=int(_env("SO_ANALYZE_MAX_CONCURRENCY") or 4),
+        analyze_queue_seconds=float(_env("SO_ANALYZE_QUEUE_SECONDS") or 30.0),
+        api_docs=_env("SO_API_DOCS"),
     )
 
 

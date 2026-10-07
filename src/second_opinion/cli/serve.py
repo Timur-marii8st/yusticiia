@@ -1,4 +1,4 @@
-"""Запуск веб-приложения и заведение первого администратора."""
+"""Запуск веб-приложения, заведение администратора и его второй фактор."""
 
 from __future__ import annotations
 
@@ -38,11 +38,51 @@ def create_admin(email: str, full_name: str, password: str | None) -> int:
         print(f"ОШИБКА: {exc}", file=sys.stderr)
         return 2
 
-    # О незаданном SO_JWT_SECRET предупреждает сам auth-сервис при
-    # создании — здесь не повторяем.
     config = load_config()
     print(f"Администратор создан: {user.email} (user_id={user.user_id})")
     print(f"Хранилище: {config.storage_backend} ({config.store_dir / 'auth'})")
+    return 0
+
+
+def mfa_setup(email: str, code: str | None) -> int:
+    """Привязать приложение-аутентификатор к учётной записи (действие оператора).
+
+    Без ``--code`` печатает секрет и адрес ``otpauth://``; с ``--code`` включает
+    второй фактор, если код из приложения подошёл.
+    """
+    from ..auth.service import get_auth_service
+
+    service = get_auth_service()
+    user = service.get_user_by_email(email)
+    if user is None:
+        print(f"ОШИБКА: учётная запись {email} не найдена.", file=sys.stderr)
+        return 1
+    try:
+        if code is None:
+            secret, uri = service.mfa_begin_setup(user)
+            print(f"Секрет для приложения-аутентификатора: {secret}")
+            print(f"Адрес для импорта: {uri}")
+            print("Затем: second-opinion mfa-setup --email ... --code <код из приложения>")
+            return 0
+        service.mfa_enable(user, code)
+    except ValueError as exc:
+        print(f"ОШИБКА: {exc}", file=sys.stderr)
+        return 1
+    print(f"Второй фактор включён для {email}")
+    return 0
+
+
+def mfa_reset(email: str) -> int:
+    """Снять второй фактор (потерян телефон); запускает оператор сервера."""
+    from ..auth.service import get_auth_service
+
+    service = get_auth_service()
+    user = service.get_user_by_email(email)
+    if user is None:
+        print(f"ОШИБКА: учётная запись {email} не найдена.", file=sys.stderr)
+        return 1
+    service.mfa_reset(user.user_id)
+    print(f"Второй фактор снят для {email}")
     return 0
 
 

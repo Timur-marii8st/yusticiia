@@ -87,3 +87,16 @@ jobs:
         run: |
           pip install pip-audit
           pip-audit --skip-editable
+
+  # Поиск секретов в истории репозитория. Блокирующий: ключ, попавший в git,
+  # считается скомпрометированным, даже если коммит потом удалён.
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        run: |
+          docker run --rm -v "$PWD":/repo zricethezav/gitleaks:latest \
+            detect --source /repo --no-banner --redact

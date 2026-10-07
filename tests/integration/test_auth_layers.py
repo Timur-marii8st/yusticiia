@@ -21,7 +21,6 @@ def test_api_jwt_accepted_when_token_set(pipeline) -> None:
     client = TestClient(create_app(pipeline, auth_token="secret-token"))
     token = _jwt(client)
     assert client.get("/api/v1/norms", headers={"Authorization": f"Bearer {token}"}).status_code == 200
-    # общий секрет по-прежнему работает
     assert (
         client.get("/api/v1/norms", headers={"Authorization": "Bearer secret-token"}).status_code
         == 200

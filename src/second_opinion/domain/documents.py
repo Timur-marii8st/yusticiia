@@ -23,8 +23,6 @@ class Document(BaseModel):
         default_factory=lambda: datetime.now(UTC).replace(microsecond=0)
     )
     origin: str = "upload"
-    #: Кто загрузил: идентификатор учётной записи, ``shared-token`` или
-    #: ``anonymous``. Нужен, чтобы судья видел свои дела, а не чужие.
     owner: str = ""
 
     def page_for_offset(self, offset: int) -> int | None:

@@ -16,8 +16,6 @@ from second_opinion.api.app import create_app
 
 API_DOC = Path(__file__).resolve().parents[2] / "docs" / "API.md"
 
-#: `GET /api/documents/{id}` в тексте против `{document_id}` в коде —
-#: имена параметров пути документации знать не обязательно.
 _PARAM = re.compile(r"\{[^}]+\}")
 _ENDPOINT = re.compile(r"`(GET|POST|PATCH|DELETE|PUT) (/[^`\s?]*)")
 
@@ -51,13 +49,8 @@ def test_served_endpoints_are_documented(pipeline) -> None:
     assert not undocumented, f"сервер отдаёт, но docs/API.md молчит: {undocumented}"
 
 
-#: Летопись: в ней записано, что было сделано в такой-то итерации. Пути
-#: там верны на момент записи, и переписывать их — подделывать историю.
 _HISTORICAL = {"CHANGELOG.md"}
 
-#: Любое упоминание пути API в тексте — и в обратных кавычках, и в команде
-#: `curl`, и просто в скобках. Метод рядом стоит не всегда, поэтому
-#: сверяется сам путь, без него.
 _ANY_PATH = re.compile(r"/api/[^\s`\"'()\[\]{},;]*(?:\{[^}]+\}[^\s`\"'()\[\]{},;]*)*")
 
 
@@ -87,8 +80,6 @@ def test_paths_in_other_docs_are_real_routes(pipeline) -> None:
         text = doc.read_text(encoding="utf-8")
         for match in _ANY_PATH.finditer(text):
             path = match.group(0).split("?", 1)[0].rstrip(".,:;")
-            # `/api/*`, `/api/v1` — обозначение класса путей или самого
-            # префикса версии, а не обращение к эндпойнту.
             if path.endswith("*") or path.rstrip("/") in {"/api", "/api/v1"}:
                 continue
             if _normalize(path) not in served:

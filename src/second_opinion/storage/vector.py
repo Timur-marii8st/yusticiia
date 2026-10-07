@@ -23,7 +23,7 @@ class PgVectorNormStore:
     def __init__(
         self,
         dsn: str,
-        embedder,  # EmbeddingProvider
+        embedder,
         *,
         table: str = "norm_vectors",
         dimension: int = 1024,
@@ -59,7 +59,6 @@ class PgVectorNormStore:
                     PRIMARY KEY (norm_id, version_id)
                 )"""
             )
-            # HNSW: приближённый поиск по косинусной близости.
             conn.execute(
                 f"""CREATE INDEX IF NOT EXISTS {self._table}_embedding_idx
                     ON {self._table} USING hnsw (embedding vector_cosine_ops)"""
@@ -70,7 +69,6 @@ class PgVectorNormStore:
 
         Возвращает число upsert-нутых записей.
         """
-        #: (norm_id, version_id, текст для векторизации)
         items: list[tuple[str, str, str]] = []
         for norm in norm_store.list_norms():
             for version in norm_store.versions(norm.norm_id):
@@ -102,7 +100,7 @@ class PgVectorNormStore:
     def rank(
         self,
         query: str,
-        hits: list,  # list[SearchHit]
+        hits: list,
     ) -> list[float]:
         """Вернуть косинусные близости запроса к каждому хиту через pgvector.
 
@@ -126,7 +124,6 @@ class PgVectorNormStore:
                     pass
                 norm_ids = list({hit.norm_id for hit in hits})
                 version_ids = list({hit.version_id for hit in hits})
-                # pgvector: 1 - cosine_distance = cosine_similarity (для L2-нормированных)
                 rows = conn.execute(
                     f"""SELECT norm_id, version_id,
                                1 - (embedding <=> %s::vector) as similarity

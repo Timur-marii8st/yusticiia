@@ -151,3 +151,32 @@ def test_document_goes_as_data_between_markers(monkeypatch) -> None:
     end = user.index("=== КОНЕЦ НЕДОВЕРЕННОГО ТЕКСТА ДОКУМЕНТА ===")
     assert start < user.index("Смирнов А.В.") < end
     assert sent[0]["temperature"] == 0, "разбор обязан быть воспроизводимым"
+
+
+def test_request_limits_the_length_of_the_answer(monkeypatch) -> None:
+    sent: list[dict] = []
+    monkeypatch.setattr(
+        openai_compatible.httpx,
+        "post",
+        lambda url, **kwargs: (sent.append(kwargs["json"]), _Response(VALID))[1],
+    )
+    _call(_provider())
+    assert sent[0]["max_tokens"] == 3000
+
+    sent.clear()
+    custom = OpenAICompatibleProvider("http://llm.invalid/v1", "test-key", "model-1", max_tokens=512)
+    _call(custom)
+    assert sent[0]["max_tokens"] == 512
+
+
+def test_schema_error_message_does_not_repeat_the_model_output() -> None:
+    from second_opinion.fact_extraction.schemas import LLMExtractionResult
+    from second_opinion.llm.provider import validate_payload
+
+    raw = '{"facts": [{"type": "restitution", "value": true, "confidence": "СЕКРЕТНЫЙ-ФРАГМЕНТ", "quote": "x"}]}'
+    with pytest.raises(ValueError) as caught:
+        validate_payload(LLMExtractionResult, raw)
+
+    message = str(caught.value)
+    assert "СЕКРЕТНЫЙ-ФРАГМЕНТ" not in message
+    assert "facts.0.confidence" in message

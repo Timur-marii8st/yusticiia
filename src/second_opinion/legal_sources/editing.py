@@ -140,7 +140,6 @@ def add_version(
             "source_url": source_url,
             "source_edition": source_edition,
             "retrieved_at": date.today().isoformat(),
-            # Опечатывание — отдельное действие после юридической сверки.
             "sha256": UNSEALED,
             "verification_status": "draft",
         }

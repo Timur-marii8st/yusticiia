@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, Query
 from ..schemas import SearchResponse
 
 
-def build_router(rag) -> APIRouter:  # noqa: ANN001 — LegalRag собирается в deps
+def build_router(rag) -> APIRouter:  # noqa: ANN001
     router = APIRouter(prefix="/search", tags=["поиск"])
 
     @router.get("")

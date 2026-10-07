@@ -23,7 +23,6 @@ def test_large_document_analysis_completes(pipeline) -> None:
     report = pipeline.analyze(document.document_id)
     elapsed = time.perf_counter() - start
 
-    # содержательная корректность не зависит от размера
     assert report.facts
     statuses = {e.rule_id for e in report.evaluations}
     assert "R-001" in statuses

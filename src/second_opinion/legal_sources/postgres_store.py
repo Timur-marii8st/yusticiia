@@ -24,6 +24,7 @@ import threading
 from datetime import date
 
 from ..domain.norms import LegalNorm, NormVersion
+from ..storage.sql import safe_sql_identifier
 from .store import NoApplicableVersionError, NormNotFoundError, NormStore
 
 
@@ -33,7 +34,7 @@ class PostgresNormStore:
     def __init__(self, dsn: str, *, table_prefix: str = "") -> None:
         try:
             import psycopg
-        except ImportError as exc:  # pragma: no cover — зависит от окружения
+        except ImportError as exc:  # pragma: no cover
             raise RuntimeError(
                 "norms_backend=postgres требует драйвер: "
                 "pip install -e '.[pg]'"
@@ -41,7 +42,7 @@ class PostgresNormStore:
 
         self._psycopg = psycopg
         self._dsn = dsn
-        prefix = table_prefix
+        prefix = safe_sql_identifier(table_prefix) if table_prefix else ""
         self._norms_table = f"{prefix}legal_norms" if prefix else "legal_norms"
         self._versions_table = (
             f"{prefix}legal_norm_versions" if prefix else "legal_norm_versions"
@@ -58,8 +59,6 @@ class PostgresNormStore:
                 f"CREATE TABLE IF NOT EXISTS {self._norms_table} ("  # noqa: S608
                 "norm_id text PRIMARY KEY, data jsonb NOT NULL)"
             )
-            # Даты вынесены из JSONB в колонки: выборка редакции на дату —
-            # самый частый запрос, и по ним нужен индекс.
             conn.execute(
                 f"CREATE TABLE IF NOT EXISTS {self._versions_table} ("  # noqa: S608
                 "norm_id text NOT NULL, version_id text NOT NULL, "
@@ -72,14 +71,10 @@ class PostgresNormStore:
                 f"ON {self._versions_table} (norm_id, effective_from)"
             )
 
-    # -- запись
-
     def add_norm(self, norm: LegalNorm, versions: list[NormVersion]) -> None:
         """Сохранить норму с редакциями, проверив инварианты."""
         if not versions:
             raise ValueError(f"норма {norm.norm_id}: нет ни одной редакции")
-        # Те же проверки, что у файлового носителя: пересечения интервалов
-        # и повторы идентификаторов недопустимы независимо от хранилища.
         probe = NormStore()
         probe.add_norm(norm, versions)
 
@@ -113,8 +108,6 @@ class PostgresNormStore:
             self.add_norm(norm, source.versions(norm.norm_id))
             count += 1
         return count
-
-    # -- чтение
 
     @staticmethod
     def _parse(data, model):
@@ -167,9 +160,18 @@ class PostgresNormStore:
         return sorted(norms, key=lambda n: (n.code, n.article, n.part or 0))
 
     def find_by_article(
-        self, code: str, article: int, part: int | None
+        self,
+        code: str,
+        article: int,
+        part: int | None,
+        article_suffix: str | None = None,
     ) -> LegalNorm | None:
         for norm in self.list_norms():
-            if norm.code == code and norm.article == article and norm.part == part:
+            if (
+                norm.code == code
+                and norm.article == article
+                and norm.part == part
+                and norm.article_suffix == article_suffix
+            ):
                 return norm
         return None

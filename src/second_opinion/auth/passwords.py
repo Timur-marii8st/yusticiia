@@ -8,10 +8,8 @@ from __future__ import annotations
 
 import bcrypt
 
-#: bcrypt учитывает только первые 72 байта пароля.
 MAX_PASSWORD_BYTES = 72
 
-#: Хэш заведомо несуществующего пароля — для ``waste_time_like_verify``.
 _DUMMY_HASH = bcrypt.hashpw(b"dummy-password-for-constant-time", bcrypt.gensalt())
 
 

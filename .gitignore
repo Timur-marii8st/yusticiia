@@ -46,3 +46,6 @@ evaluation/reports/
 Thumbs.db
 .idea/
 .vscode/
+
+# Кэш трассировки истории по ИПС: воспроизводится командой norms-trace-history
+data/drafts/norms/*.cache.json

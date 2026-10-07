@@ -39,8 +39,7 @@ class UncertainPeriod(BaseModel):
     """Период, для которого источник не уверен в действии редакции.
 
     Хранится и показывается наравне с остальным: скрывать неопределённость
-    запрещено принципами проекта (`docs/LEGAL_SAFETY_PRINCIPLES.md` §4,
-    инвариант И-09 в `docs/TZ.md`).
+    запрещено.
     """
 
     valid_from: date | None = None
@@ -64,7 +63,6 @@ class DocumentRedactions(BaseModel):
     source: str = Field(description="имя поставщика, откуда получены данные")
     redactions: list[Redaction] = Field(default_factory=list)
     uncertain: list[UncertainPeriod] = Field(default_factory=list)
-    #: Данные получены от живого сервиса, а не из заготовленной заглушки.
     live: bool = True
 
     def sorted_redactions(self) -> list[Redaction]:

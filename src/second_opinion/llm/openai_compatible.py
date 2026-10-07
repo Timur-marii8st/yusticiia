@@ -34,6 +34,7 @@ class OpenAICompatibleProvider:
         model: str,
         timeout: float = 60.0,
         auth_scheme: str = "Bearer",
+        max_tokens: int = 3000,
     ) -> None:
         missing = [
             name
@@ -53,13 +54,10 @@ class OpenAICompatibleProvider:
             )
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
-        # Схема авторизации отличается у поставщиков: OpenAI-совместимые
-        # контуры ждут `Bearer`, Yandex AI Studio — `Api-Key`. Значение
-        # подставляется в заголовок как есть, поэтому новый поставщик со
-        # своей схемой не требует правки кода.
         self._auth_scheme = auth_scheme.strip() or "Bearer"
         self._model = model
         self._timeout = timeout
+        self._max_tokens = max_tokens
 
     def generate_structured(
         self,
@@ -86,6 +84,7 @@ class OpenAICompatibleProvider:
         payload = {
             "model": self._model,
             "temperature": 0,
+            "max_tokens": self._max_tokens,
             "messages": [
                 {"role": "system", "content": SYSTEM_INSTRUCTION},
                 {"role": "user", "content": user_content},

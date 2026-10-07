@@ -31,7 +31,6 @@ def test_app_js_disclosure_is_keyboard_accessible(pipeline) -> None:
     assert 'setAttribute("tabindex", "0")' in js
     assert "aria-expanded" in js
     assert '"Enter"' in js or "'Enter'" in js
-    # бейджи озвучиваются статусом, а не символом
     assert 'aria-label' in js
 
 
@@ -53,7 +52,6 @@ def test_file_picker_is_a_visible_control(pipeline) -> None:
     assert "display: none" not in input_rule.group(1), (
         "display: none возвращает поле обратно в недоступность для клавиатуры"
     )
-    # Фокус внутри скрытого поля должен быть виден на обёртке.
     assert ".file-label:focus-within" in css
 
 
@@ -62,7 +60,7 @@ def test_report_download_goes_through_api_fetch(pipeline) -> None:
 
     Браузер идёт по `href` обычной навигацией, без заголовка Authorization,
     поэтому в развёртывании с авторизацией судья получал 401 вместо файла
-    (проверено: GET /api/analyses/{id} без заголовка → 401, с ним → 200).
+    (проверено: GET /api/analyses/{id} без заголовка -> 401, с ним -> 200).
     """
     client = TestClient(create_app(pipeline))
     js = client.get("/static/app.js").text
@@ -118,9 +116,7 @@ def test_document_has_one_heading_of_the_first_level(pipeline) -> None:
     html = client.get("/").text
 
     assert html.count("<h1") == 1, "заголовков первого уровня должно быть ровно один"
-    # Разделы страницы: доступ, личный кабинет, рабочая область, корпус.
     assert html.count("<h2") == 4, "разделов страницы должно быть четыре"
-    # Панели разбора подчинены рабочей области, а не стоят с ней наравне.
     assert html.count("<h3") >= 8
     assert html.index("<h2 id=\"workspace-title\"") < html.index("<h3")
 
@@ -178,10 +174,11 @@ def test_every_status_has_its_own_badge(pipeline) -> None:
     for status in (*FactStatus, *RuleStatus):
         assert f"{status.value}:" in table, f"нет бейджа для статуса {status.value}"
 
-    # Подпись бейджа — по-русски: её зачитывает экранный диктор, а «VERIFIED»
-    # он произносит по буквам.
     assert '"подтверждено"' in table
     assert '"исключено из проверок"' in table
+
+    assert 'NOT_APPLICABLE: ["н/п", "не применимо к этому делу"]' in table
+    assert 'PASS: ["✓"' in table
 
 
 def test_static_version_marker_matches_the_interface(pipeline) -> None:
@@ -213,7 +210,7 @@ def test_static_version_marker_matches_the_interface(pipeline) -> None:
         capture_output=True,
         text=True,
     )
-    if changed.returncode != 0:  # не репозиторий или git недоступен
+    if changed.returncode != 0:
         return
     touched = {line.rsplit("/", 1)[-1] for line in changed.stdout.split()}
     if touched & {"app.js", "style.css"} and "index.html" not in touched:
@@ -221,6 +218,55 @@ def test_static_version_marker_matches_the_interface(pipeline) -> None:
             "скрипт или стили изменены, а метка `?v=` в index.html — нет: "
             "браузер отдаст старый файл"
         )
+
+
+def _has_js_comment(src: str) -> bool:
+    """Есть ли `//`/`/* */` вне строковых литералов.
+
+    Наивный поиск подстроки ложно сработал бы на `//` внутри URL в
+    строке; здесь код проходится посимвольно и пропускает содержимое
+    `"..."`/`'...'`/`` `...` ``.
+    """
+    in_string: str | None = None
+    i, n = 0, len(src)
+    while i < n:
+        c = src[i]
+        if in_string:
+            if c == "\\" and i + 1 < n:
+                i += 2
+                continue
+            if c == in_string:
+                in_string = None
+            i += 1
+            continue
+        if c in ('"', "'", "`"):
+            in_string = c
+            i += 1
+            continue
+        if c == "/" and i + 1 < n and src[i + 1] in ("/", "*"):
+            return True
+        i += 1
+    return False
+
+
+def test_served_static_files_have_no_comments(pipeline) -> None:
+    """Интерфейс отдаётся без комментариев — их видно любому через devtools.
+
+    В отличие от исходников на сервере, статика открыта любому браузеру,
+    зашедшему на страницу: «просмотр кода» и вкладка Network показывают
+    файл целиком, без авторизации. Внутренние пояснения там неуместны
+    независимо от того, что записано в правилах комментирования кода.
+    """
+    client = TestClient(create_app(pipeline))
+
+    js = client.get("/static/app.js").text
+    assert not _has_js_comment(js), "в app.js остался комментарий"
+
+    css = client.get("/static/style.css").text
+    assert "/*" not in css, "в style.css остался комментарий"
+
+    html = client.get("/").text
+    assert "<!--" not in html, "в index.html остался HTML-комментарий"
 
 
 def test_internal_names_do_not_reach_the_reader(pipeline) -> None:
@@ -248,7 +294,6 @@ def test_internal_names_do_not_reach_the_reader(pipeline) -> None:
     for method in ExtractionMethod:
         assert f"{method.value}:" in methods, f"нет подписи для {method.value}"
 
-    # Значения подставляются через функции, а не печатаются напрямую.
     assert "${verificationLabel(hit.verification_status)}" in js
     assert "${methodLabel(fact.extraction_method)}" in js
     assert "${statusLabel(fact.status)}" in js
@@ -268,11 +313,9 @@ def test_interface_is_split_into_the_two_named_areas(pipeline) -> None:
     html = client.get("/").text
 
     assert ">Личный кабинет<" in html
-    # Название дословно по п. 2.5.2.а Положения: «Рабочая область анализа».
     assert ">Рабочая область анализа<" in html
     assert 'id="workspace"' in html
 
-    # Разбор дела лежит внутри рабочей области, а не рядом с ней.
     workspace = html[html.index('<section id="workspace"') :]
     workspace = workspace[: workspace.index('id="corpus-panel"')]
     for panel in ("upload-panel", "summary-panel", "concerns-panel", "sources-panel"):

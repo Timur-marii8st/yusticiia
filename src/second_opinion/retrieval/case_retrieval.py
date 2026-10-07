@@ -3,8 +3,6 @@ from __future__ import annotations
 from ..domain.cases import CaseMatch, ComparableCase
 from ..domain.facts import CaseFacts
 
-#: Совпадение только по статье (без содержательных признаков) не делает дело
-#: сопоставимым, если по документу извлечены содержательные признаки.
 _ARTICLE_ONLY_NOTE = (
     "сопоставление только по статье: остальные признаки дела не извлечены"
 )
@@ -43,6 +41,7 @@ class CaseRetriever:
             case
             for case in self._cases
             if case.article == qualification.article
+            and case.article_suffix == qualification.article_suffix
         ]
         substance_in_criteria = self._criteria_has_substance(criteria)
         matches: list[CaseMatch] = []
@@ -57,8 +56,6 @@ class CaseRetriever:
             matches.append(CaseMatch(case=case, reasons=reasons, score=score))
         matches.sort(key=lambda m: (-m.score, m.case.case_id))
         return matches[:limit]
-
-    # -- внутреннее
 
     @staticmethod
     def _criteria_has_substance(criteria: CaseFacts) -> bool:
@@ -78,7 +75,8 @@ class CaseRetriever:
     ) -> tuple[float, list[str], bool]:
         """Вернуть (балл, причины, есть ли содержательное совпадение)."""
         score = 2.0
-        reasons = [f"та же статья: ст. {case.article} УК РФ"]
+        article = f"{case.article}.{case.article_suffix}" if case.article_suffix else case.article
+        reasons = [f"та же статья: ст. {article} УК РФ"]
         substantive = False
 
         if part is not None and case.part == part:

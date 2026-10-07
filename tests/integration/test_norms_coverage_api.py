@@ -59,15 +59,12 @@ def test_unverified_history_is_visible_per_norm(client) -> None:
 
 
 def test_sealed_corpus_is_reported(client) -> None:
-    # Фикстуры в репозитории опечатаны, и это должно быть видно снаружи.
     body = client.get("/api/v1/norms/coverage").json()
 
     assert body["corpus_sealed"] is True
 
 
 def test_source_edition_absence_is_not_hidden(client) -> None:
-    # Пустой список редакций источника — честный ответ «не записано»,
-    # а не признак свежести.
     body = client.get("/api/v1/norms/coverage").json()
 
     assert all(isinstance(n["source_editions"], list) for n in body["norms"])

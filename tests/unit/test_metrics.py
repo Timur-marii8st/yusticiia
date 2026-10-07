@@ -26,7 +26,7 @@ def test_registry_disabled_does_not_observe_but_still_registers() -> None:
     assert "x_total" in snap["counters"]
     assert snap["counters"]["x_total"] == 0
     assert "x_dur" in snap["histograms"]
-    assert snap["histograms"]["x_dur"]["count"] == 0  # ничего не зафиксировано
+    assert snap["histograms"]["x_dur"]["count"] == 0
 
 
 def test_counter_and_histogram_observe_values() -> None:
@@ -43,12 +43,9 @@ def test_counter_and_histogram_observe_values() -> None:
     snap = hist.snapshot()
     assert snap["count"] == 3
     assert snap["sum"] == pytest.approx(2.51)
-    # bisect_left: 0.01 → бакет 0.025, 0.5 → бакет 1.0, 2.0 → бакет 2.5.
-    # Значение попадает в бакет, верхняя граница которого ≥ value.
-    assert snap["counts"][2] >= 1  # бакет 0.025
-    assert snap["counts"][7] >= 1  # бакет 1.0
-    assert snap["counts"][9] >= 1  # бакет 2.5 (2.0 < 2.5)
-    # +inf-бакет ещё не задействован.
+    assert snap["counts"][2] >= 1
+    assert snap["counts"][7] >= 1
+    assert snap["counts"][9] >= 1
     assert snap["counts"][-1] == 0
 
 
@@ -78,8 +75,6 @@ def test_global_registry_resets_between_tests() -> None:
     reg.counter("test_only_total").inc(5)
     assert reg.counter("test_only_total").get() == 5
     reset_metrics_for_tests()
-    # Следующее обращение к get_metrics() должно вернуть новый инстанс,
-    # в котором нет счётчика "test_only_total" (или он нулевой).
     reg2 = get_metrics()
     assert reg2 is not reg
     assert reg2.counter("test_only_total").get() == 0

@@ -44,8 +44,6 @@ def _judge_token(client: TestClient) -> str:
     return login.json()["tokens"]["access_token"]
 
 
-# -- POST /auth/users
-
 
 def test_create_user_requires_admin(pipeline) -> None:
     client = _client_with_admin(pipeline)
@@ -111,10 +109,8 @@ def test_create_user_short_password_rejected_by_schema(pipeline) -> None:
         json={"email": "weak@example.com", "password": "short", "full_name": "Слабый пароль"},
         headers={"Authorization": f"Bearer {admin}"},
     )
-    assert response.status_code == 422  # pydantic: min_length=8
+    assert response.status_code == 422
 
-
-# -- GET /auth/users
 
 
 def test_list_users_requires_admin(pipeline) -> None:
@@ -136,8 +132,6 @@ def test_list_users_returns_all(pipeline) -> None:
     emails = {u["email"] for u in body}
     assert "admin@example.com" in emails
 
-
-# -- PATCH /auth/users/{id}
 
 
 def test_update_user_changes_full_name(pipeline) -> None:
@@ -173,8 +167,6 @@ def test_update_user_unknown_id_returns_404(pipeline) -> None:
     assert response.status_code == 404
 
 
-# -- DELETE /auth/users/{id}
-
 
 def test_delete_user_success(pipeline) -> None:
     client = _client_with_admin(pipeline)
@@ -205,8 +197,6 @@ def test_delete_user_unknown_id_returns_404(pipeline) -> None:
     assert response.status_code == 404
 
 
-# -- /auth/refresh
-
 
 def test_refresh_token_success(pipeline) -> None:
     client = _client_with_admin(pipeline)
@@ -236,8 +226,6 @@ def test_refresh_token_missing_field_returns_422(pipeline) -> None:
     response = client.post("/auth/refresh", json={})
     assert response.status_code == 422
 
-
-# -- /auth/logout
 
 
 def test_logout_returns_200(pipeline) -> None:

@@ -36,7 +36,7 @@ class StageLimitRule(_BaseSanctionRule):
         stage = case.offense.stage
         if stage not in self._FRACTIONS:
             return self._evaluation(
-                status=RuleStatus.PASS,
+                status=RuleStatus.NOT_APPLICABLE,
                 headline=f"{self.title}: не применимо",
                 explanation="Преступление квалифицировано как оконченное; предел ст. 66 УК РФ не применяется.",
             )
@@ -110,7 +110,7 @@ class SequentialLimitRule(_BaseSanctionRule):
         stage = case.offense.stage
         if stage not in self._FRACTIONS:
             return self._evaluation(
-                status=RuleStatus.PASS,
+                status=RuleStatus.NOT_APPLICABLE,
                 headline=f"{self.title}: не применимо",
                 explanation="Преступление квалифицировано как оконченное; комбинированный предел не применяется.",
             )
@@ -122,7 +122,7 @@ class SequentialLimitRule(_BaseSanctionRule):
             )
         if not case.procedural.special_procedure:
             return self._evaluation(
-                status=RuleStatus.PASS,
+                status=RuleStatus.NOT_APPLICABLE,
                 headline=f"{self.title}: не применимо",
                 explanation="Дело рассмотрено не в особом порядке; применяется только предел ст. 66 УК РФ (см. R-002).",
             )

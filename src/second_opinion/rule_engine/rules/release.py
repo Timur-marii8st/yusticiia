@@ -54,16 +54,8 @@ from ...domain.rules import LegalRule, RuleEvaluation
 from ...legal_sources.store import NoApplicableVersionError, NormNotFoundError
 from .base import IMPRISONMENT, _facts_of_type, _versioned_ref
 
-#: Верхняя граница санкции для категорий «небольшой» и «средней тяжести»
-#: умышленного преступления (ч. 2, 3 ст. 15 УК РФ): до 3 лет и от 3 до
-#: 5 лет включительно. Ст. 75, 76, 76² применяются только в этих двух
-#: категориях — дальше по тяжести говорить не о чем.
 CATEGORY_LIMIT_MONTHS = 5 * 12
 
-#: Смягчающие коды, которыми это правило пользуется как сигналом (не
-#: доказательством): активное способствование раскрытию/явка с повинной
-#: и возмещение ущерба/заглаживание вреда. Те же коды, что у R-004
-#: (`MITIGATING_IK_CODES`) — правило не вводит новой разметки фактов.
 _SURRENDER_CODE = "61.1.и"
 _RESTITUTION_CODE = "61.1.к"
 
@@ -100,7 +92,10 @@ class ReleaseFromResponsibilityRule(LegalRule):
             )
 
         norm = context.norm_store.find_by_article(
-            qualification.code, qualification.article, qualification.part
+            qualification.code,
+            qualification.article,
+            qualification.part,
+            qualification.article_suffix,
         )
         if norm is None:
             return self._unknown(
@@ -132,7 +127,7 @@ class ReleaseFromResponsibilityRule(LegalRule):
 
         if sanction.max_months > CATEGORY_LIMIT_MONTHS:
             return self._evaluation(
-                status=RuleStatus.PASS,
+                status=RuleStatus.NOT_APPLICABLE,
                 headline=f"{self.title}: не применимо",
                 explanation=(
                     f"Максимум санкции по {norm.ref} — {sanction.max_months:.0f} мес., "
@@ -155,7 +150,7 @@ class ReleaseFromResponsibilityRule(LegalRule):
             )
         if prior:
             return self._evaluation(
-                status=RuleStatus.PASS,
+                status=RuleStatus.NOT_APPLICABLE,
                 headline=f"{self.title}: не применимо",
                 explanation=(
                     "Преступление совершено не впервые (сведения о судимости "

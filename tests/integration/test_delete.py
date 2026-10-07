@@ -34,7 +34,6 @@ def test_delete_analysis(client, pipeline) -> None:
     assert response.status_code == 200
     assert pipeline.get_analysis(analysis_id) is None
 
-    # повторное удаление — 404
     assert client.delete(f"/api/v1/analyses/{analysis_id}").status_code == 404
 
 
@@ -46,7 +45,6 @@ def test_delete_document_cascades_analyses(client, pipeline) -> None:
     assert pipeline.get_analysis(analysis_id) is None
     with pytest.raises(DocumentNotFound):
         pipeline.get_document(document_id)
-    # анализ недоступен и через API
     assert client.get(f"/api/v1/analyses/{analysis_id}").status_code == 404
 
 

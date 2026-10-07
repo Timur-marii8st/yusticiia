@@ -16,7 +16,6 @@ def norms_coverage(strict: bool) -> int:
     from ..legal_sources.coverage import analyze_store, format_report, needs_legal_review
 
     config = load_config()
-    # Аудит должен отражать носитель, который реально обслуживает запросы.
     try:
         store = build_norm_store(config)
     except (ValueError, OSError, RuntimeError) as exc:
@@ -45,7 +44,7 @@ def norms_import() -> int:
         source = NormStore.from_directory(config.fixtures_dir / "norms")
         target = PostgresNormStore(config.database_url)
         count = target.sync_from(source)
-    except Exception as exc:  # noqa: BLE001 — сообщение пользователю, не трассировка
+    except Exception as exc:  # noqa: BLE001
         print(f"ОШИБКА: {exc}", file=sys.stderr)
         return 2
 
@@ -119,7 +118,18 @@ def norms_confirm_history(
     except (NormEditError, ValueError) as exc:
         print(f"ОШИБКА: {exc}", file=sys.stderr)
         return 2
-    print(f"История сверена: {norm_id} → {path}")
+
+    from ..audit.trail import CLI_ACTOR, AuditTrail
+
+    AuditTrail(load_config().audit_path).log(
+        operation="norm_confirm_history",
+        component="cli",
+        request_id=norm_id,
+        actor=CLI_ACTOR,
+        input_hash=norm_id,
+        details={"checked_through": checked_through, "source": source},
+    )
+    print(f"История сверена: {norm_id} -> {path}")
     if stamp:
         print(f"Точка отсчёта записана: {stamp} — устаревание теперь отслеживается")
     else:
@@ -144,12 +154,13 @@ def norms_add_version(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
+    version_id = args.version_id or f"v-{args.effective_from[:4]}"
     try:
         text = text_path.read_text(encoding="utf-8")
         path = add_version(
             load_config().fixtures_dir / "norms",
             args.norm_id,
-            version_id=args.version_id or f"v-{args.effective_from[:4]}",
+            version_id=version_id,
             text=text,
             effective_from=_date.fromisoformat(args.effective_from),
             effective_to=_date.fromisoformat(args.effective_to) if args.effective_to else None,
@@ -159,7 +170,23 @@ def norms_add_version(args: argparse.Namespace) -> int:
     except (NormEditError, ValueError, OSError) as exc:
         print(f"ОШИБКА: {exc}", file=sys.stderr)
         return 2
-    print(f"Редакция добавлена: {args.norm_id} → {path}")
+
+    from ..audit.trail import CLI_ACTOR, AuditTrail
+
+    AuditTrail(load_config().audit_path).log(
+        operation="norm_add_version",
+        component="cli",
+        request_id=args.norm_id,
+        actor=CLI_ACTOR,
+        input_hash=args.norm_id,
+        output_hash=version_id,
+        details={
+            "effective_from": args.effective_from,
+            "effective_to": args.effective_to,
+            "source_url": args.source_url,
+        },
+    )
+    print(f"Редакция добавлена: {args.norm_id} -> {path}")
     print("Статус draft; пределы санкции (sanctions) внесите вручную.")
     print("Затем: second-opinion norms-seal")
     return 0

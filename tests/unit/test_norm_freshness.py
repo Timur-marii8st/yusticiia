@@ -79,7 +79,6 @@ def test_parses_source_edition() -> None:
 
 
 def test_unparseable_source_edition_is_none() -> None:
-    # Пропуск честнее исключения: норма остаётся непроверенной и это видно.
     assert parse_source_edition("") is None
     assert parse_source_edition("102041891") is None
     assert parse_source_edition("pravo::365") is None
@@ -113,7 +112,6 @@ def test_missing_edition_is_reported_not_assumed_fresh() -> None:
     report = check_updates(source, items)
 
     assert report.results[0].status == UNRECORDED
-    # Нечего сравнивать — но и «актуальна» писать нельзя.
     assert report.ok
     assert report.unverifiable
 
@@ -138,7 +136,6 @@ def test_source_without_prepared_editions() -> None:
 
 
 def test_closed_versions_are_not_checked() -> None:
-    # Закрытый интервал описывает прошлое: вопрос свежести к нему неприменим.
     source = _source()
     items = [
         (
@@ -157,8 +154,6 @@ def test_closed_versions_are_not_checked() -> None:
 
 
 def test_document_is_requested_once_for_many_norms() -> None:
-    # Все статьи кодекса живут в одном документе источника: опрашивать его
-    # на каждую статью значило бы бить по чужому серверу без нужды.
     source = _source()
     items = [
         (

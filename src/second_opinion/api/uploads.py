@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from fastapi import HTTPException, UploadFile
 
-#: Размер порции при чтении загружаемого файла.
 UPLOAD_CHUNK_BYTES = 64 * 1024
 
 

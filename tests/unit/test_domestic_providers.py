@@ -66,8 +66,6 @@ def _extract(provider, **kwargs):
     )
 
 
-# -- Yandex AI Studio
-
 
 def test_yandex_auth_scheme_is_api_key(monkeypatch) -> None:
     """Yandex AI Studio ждёт «Api-Key», а не «Bearer».
@@ -105,8 +103,6 @@ def test_bearer_stays_the_default(monkeypatch) -> None:
 
     assert sent[0]["Authorization"] == "Bearer k"
 
-
-# -- GigaChat
 
 
 def test_authorization_key_is_exchanged_for_a_token(monkeypatch) -> None:
@@ -168,7 +164,6 @@ def test_expired_token_is_refreshed(monkeypatch) -> None:
     def fake_post(url, **kw):
         if "oauth" in url:
             issued.append(f"tok-{len(issued) + 1}")
-            # Срок уже в прошлом: следующий вызов обязан обновить токен.
             return _Response({"access_token": issued[-1], "expires_at": 1_000})
         return _Response(ANSWER)
 

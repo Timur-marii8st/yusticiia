@@ -29,19 +29,12 @@ from .provider import LLMResult
 
 logger = logging.getLogger(__name__)
 
-#: Обмен ключа авторизации на access-токен.
 OAUTH_URL = "https://ngw.devices.sberbank.ru:9443/api/v2/oauth"
 
-#: OpenAI-совместимый адрес GigaChat.
 DEFAULT_BASE_URL = "https://api.giga.chat/v1"
 
-#: Область действия токена. Для физических лиц — PERS, для юридических —
-#: CORP или B2B в зависимости от договора; задаётся настройкой, потому что
-#: угадать её за оператора нельзя.
 DEFAULT_SCOPE = "GIGACHAT_API_PERS"
 
-#: Токен живёт 30 минут. Обновляем заранее: запрос, начатый за секунду до
-#: истечения, успел бы получить отказ уже в полёте.
 REFRESH_MARGIN_SECONDS = 120
 
 
@@ -91,8 +84,6 @@ class GigaChatTokenSource:
                 headers={
                     "Content-Type": "application/x-www-form-urlencoded",
                     "Accept": "application/json",
-                    # Идентификатор запроса требуется спецификацией и
-                    # обязан быть уникальным для каждого обращения.
                     "RqUID": str(uuid.uuid4()),
                     "Authorization": f"Basic {self._authorization_key}",
                 },
@@ -118,7 +109,6 @@ class GigaChatTokenSource:
             raise GigaChatAuthError(
                 "сервис авторизации GigaChat не вернул access_token"
             )
-        # `expires_at` приходит в миллисекундах эпохи.
         expires_at = payload.get("expires_at")
         self._expires_at = (
             float(expires_at) / 1000.0 if expires_at else time.time() + 30 * 60
@@ -152,8 +142,6 @@ class GigaChatProvider(OpenAICompatibleProvider):
         self._tokens = token_source or GigaChatTokenSource(
             authorization_key, scope=scope, timeout=timeout, verify=verify
         )
-        # Ключ в базовый класс не передаётся: наружу уходит токен, который
-        # подставляется перед каждым запросом.
         super().__init__(base_url, "подставляется-перед-запросом", model, timeout)
 
     def generate_structured(
@@ -169,9 +157,6 @@ class GigaChatProvider(OpenAICompatibleProvider):
         try:
             self._api_key = self._tokens.token()
         except GigaChatAuthError as exc:
-            # Отказ авторизации не должен ронять разбор: система умеет
-            # работать без модели, и честнее продолжить на правилах, чем
-            # прервать анализ документа.
             logger.warning("GigaChat недоступен: %s", exc)
             return None, LLMResult(
                 provider=self.name,

@@ -114,7 +114,7 @@ def norms_check_amendments(topic: str, articles: list[str]) -> int:
             f"Не подготовлено в ИПС: {report.editions_unprepared} — "
             "их текст недоступен"
         )
-    print(f"Сравнение: «{report.compared_from}» → «{report.compared_to}»")
+    print(f"Сравнение: «{report.compared_from}» -> «{report.compared_to}»")
     print()
 
     unknown = 0
@@ -159,7 +159,7 @@ def redactions_report(topic: str) -> int:
     print()
     for version in planned:
         end = version.effective_to.isoformat() if version.effective_to else "н/в"
-        print(f"  {version.version_id:<10} {version.effective_from} → {end}")
+        print(f"  {version.version_id:<10} {version.effective_from} -> {end}")
         if version.introduced_by:
             print(f"  {'':<10} введена: {version.introduced_by}")
 
@@ -176,4 +176,101 @@ def redactions_report(topic: str) -> int:
         "Это границы редакций, а не готовые нормы: текст и пределы санкции\n"
         "(sanctions) вносит юрист — из источника они не извлекаются."
     )
+    return 0
+
+
+def norms_crosscheck(topic: str) -> int:
+    """Сверить пределы лишения свободы в корпусе с текстом статей в ИПС."""
+    from ..api.deps import build_norm_store
+    from ..legal_sources.crosscheck import crosscheck_store, format_crosscheck
+    from ..legal_sources.redaction_source import RedactionSourceError
+
+    source, failure = pravo_source()
+    if source is None:
+        return failure
+
+    try:
+        store = build_norm_store(load_config())
+        label, results = crosscheck_store(store, source, topic)
+    except (RedactionSourceError, ValueError, OSError, RuntimeError) as exc:
+        print(f"ОШИБКА: {exc}", file=sys.stderr)
+        return 2
+
+    print(format_crosscheck(label, results))
+    print()
+    print(
+        "Сверяется только лишение свободы на срок в действующих версиях УК РФ.\n"
+        "«Не сверено» не означает совпадение: формулировку разобрать не удалось.\n"
+        "Расхождение - повод проверить и данные корпуса, и разбор текста."
+    )
+    return 1 if any(r.status == "mismatch" for r in results) else 0
+
+
+def norms_trace_history(topic: str, articles: list[str], out: str) -> int:
+    """Найти по ИПС редакции, в которых менялся текст статей, и записать черновик для юриста."""
+    import hashlib
+    import json
+    from datetime import date
+    from pathlib import Path
+
+    from ..legal_sources.crosscheck import parse_imprisonment, split_parts
+    from ..legal_sources.history_trace import trace_article_history
+    from ..legal_sources.redaction_source import RedactionSourceError
+
+    source, failure = pravo_source()
+    if source is None:
+        return failure
+
+    def progress(index: int) -> None:
+        print(f"  загружена редакция с индексом {index}", file=sys.stderr, flush=True)
+
+    try:
+        history = trace_article_history(
+            source,
+            topic,
+            articles,
+            on_fetch=progress,
+            cache_path=Path(out).with_suffix(".cache.json"),
+        )
+    except (RedactionSourceError, ValueError) as exc:
+        print(f"ОШИБКА: {exc}", file=sys.stderr)
+        return 2
+
+    payload: dict = {
+        "verification_status": "draft",
+        "note": (
+            "Черновик истории изменений статей по консолидированным редакциям ИПС. "
+            "Не сверен юристом. Изменение локализовано между соседними подготовленными "
+            "редакциями; возврат к прежней формулировке и акты без подготовленного текста "
+            "не видны; дата в подписи редакции - дата акта, а не вступления в силу."
+        ),
+        "source": {"system": "ИПС «Законодательство России»", "document_id": topic},
+        "retrieved_at": date.today().isoformat(),
+        "articles": {},
+    }
+    for article, versions in history.items():
+        entries = []
+        for version in versions:
+            parts = split_parts(version.text) if version.text else {}
+            entries.append(
+                {
+                    "edition": version.edition,
+                    "label": version.label,
+                    "act_date": version.act_date.isoformat() if version.act_date else None,
+                    "sha256": hashlib.sha256(version.text.encode("utf-8")).hexdigest(),
+                    "imprisonment_by_part": {
+                        str(number): [str(term) for term in parse_imprisonment(text)]
+                        for number, text in parts.items()
+                    },
+                    "text": version.text,
+                }
+            )
+        payload["articles"][article] = entries
+        print(f"ст. {article}: версий {len(versions)}")
+        for version in versions:
+            print(f"  с редакции {version.edition}: {version.label}")
+    target = Path(out)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"Черновик записан: {target}")
     return 0

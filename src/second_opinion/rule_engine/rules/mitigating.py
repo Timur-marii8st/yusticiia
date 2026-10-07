@@ -30,7 +30,7 @@ class MitigatingTwoThirdsRule(_BaseSanctionRule):
         has_ik = bool(case.mitigating_codes() & MITIGATING_IK_CODES)
         if not has_ik:
             return self._evaluation(
-                status=RuleStatus.PASS,
+                status=RuleStatus.NOT_APPLICABLE,
                 headline=f"{self.title}: не применимо",
                 explanation=(
                     "Смягчающие обстоятельства пп. «и»/«к» ч. 1 ст. 61 УК РФ "
@@ -39,7 +39,7 @@ class MitigatingTwoThirdsRule(_BaseSanctionRule):
             )
         if case.has_aggravating:
             return self._evaluation(
-                status=RuleStatus.PASS,
+                status=RuleStatus.NOT_APPLICABLE,
                 headline=f"{self.title}: не применимо из-за отягчающих",
                 explanation=(
                     "Имеются отягчающие обстоятельства; при них предел ст. 62 ч. 1 УК РФ не действует."

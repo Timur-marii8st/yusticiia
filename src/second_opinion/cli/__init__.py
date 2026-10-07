@@ -22,8 +22,14 @@ from .norms import (
     norms_import,
     norms_seal,
 )
-from .redactions import norms_check_amendments, norms_check_updates, redactions_report
-from .serve import create_admin, serve
+from .redactions import (
+    norms_check_amendments,
+    norms_check_updates,
+    norms_crosscheck,
+    norms_trace_history,
+    redactions_report,
+)
+from .serve import create_admin, mfa_reset, mfa_setup, serve
 
 __all__ = ["build_parser", "main"]
 
@@ -47,6 +53,22 @@ def _add_service_commands(sub: argparse._SubParsersAction) -> None:
             "запрашивается в терминале (в историю оболочки не попадает)"
         ),
     )
+
+    mfa_p = sub.add_parser(
+        "mfa-setup",
+        help="привязать приложение-аутентификатор к учётной записи (второй фактор)",
+    )
+    mfa_p.add_argument("--email", required=True)
+    mfa_p.add_argument(
+        "--code",
+        default=None,
+        help="код из приложения: подтверждает привязку; без него печатается секрет",
+    )
+
+    mfa_reset_p = sub.add_parser(
+        "mfa-reset", help="снять второй фактор с учётной записи (потерян телефон)"
+    )
+    mfa_reset_p.add_argument("--email", required=True)
 
 
 def _add_document_commands(sub: argparse._SubParsersAction) -> None:
@@ -165,12 +187,40 @@ def _add_redaction_commands(sub: argparse._SubParsersAction) -> None:
         help="номер статьи; повторяйте для нескольких (--article 66 --article 60)",
     )
 
+    trace_p = sub.add_parser(
+        "norms-trace-history",
+        help="найти по ИПС редакции, в которых менялся текст статей, и записать черновик",
+    )
+    trace_p.add_argument(
+        "--topic", required=True, help="идентификатор документа в ИПС (для УК РФ — 102041891)"
+    )
+    trace_p.add_argument(
+        "--article",
+        action="append",
+        required=True,
+        metavar="НОМЕР",
+        help="номер статьи; повторяйте для нескольких",
+    )
+    trace_p.add_argument(
+        "--out", required=True, help="файл черновика, например data/drafts/norms/history.json"
+    )
 
-#: Команда → что выполнить. Таблица вместо цепочки условий: в ней сразу видно,
-#: какие команды есть, и новая не может потеряться между ветками.
+    cross_p = sub.add_parser(
+        "norms-crosscheck",
+        help="сверить пределы лишения свободы корпуса с текстом статей в ИПС",
+    )
+    cross_p.add_argument(
+        "--topic",
+        required=True,
+        help="идентификатор документа в ИПС (для УК РФ — 102041891)",
+    )
+
+
 COMMANDS: dict[str, Callable[[argparse.Namespace], int]] = {
     "serve": lambda a: serve(a.host, a.port),
     "create-admin": lambda a: create_admin(a.email, a.full_name, a.password),
+    "mfa-setup": lambda a: mfa_setup(a.email, a.code),
+    "mfa-reset": lambda a: mfa_reset(a.email),
     "anonymize": lambda a: anonymize(a.file, a.output),
     "analyze": lambda a: analyze(a.file, a.applicable_at),
     "eval": lambda _: run_evaluation(),
@@ -184,6 +234,8 @@ COMMANDS: dict[str, Callable[[argparse.Namespace], int]] = {
     "redactions": lambda a: redactions_report(a.topic),
     "norms-check-updates": lambda _: norms_check_updates(),
     "norms-check-amendments": lambda a: norms_check_amendments(a.topic, a.article),
+    "norms-crosscheck": lambda a: norms_crosscheck(a.topic),
+    "norms-trace-history": lambda a: norms_trace_history(a.topic, a.article, a.out),
 }
 
 
@@ -201,7 +253,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    # Консоли с не-UTF-8 кодировкой не должны ронять вывод.
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             with contextlib.suppress(ValueError, OSError):

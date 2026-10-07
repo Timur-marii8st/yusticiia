@@ -4,7 +4,7 @@
 материалам и нельзя переслать. Судье нужен файл.
 
 Документ собирается из готового отчёта и ничего к нему не добавляет: это
-та же цепочка «вывод → факт → цитата → норма → редакция», разложенная по
+та же цепочка «вывод -> факт -> цитата -> норма -> редакция», разложенная по
 разделам заключения. Ни одного утверждения, которого нет в отчёте на
 экране, здесь появиться не может — иначе выгрузка стала бы вторым,
 неконтролируемым представлением результата.
@@ -20,18 +20,20 @@ import io
 from docx import Document as new_document
 from docx.document import Document as DocxDocument
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.shared import Pt
+from docx.shared import Pt, RGBColor
 
 from ..domain.analysis import AnalysisReport
 from ..domain.documents import Document
 from ..domain.enums import RuleStatus
 from ..privacy import detect_personal_data, mask_text
+from ..reporting import FACT_TYPE_LABELS, format_fact_value
 
 STATUS_LABELS = {
     RuleStatus.PASS: "соблюдено",
     RuleStatus.WARNING: "требует внимания",
     RuleStatus.FAIL: "возможно нарушение",
     RuleStatus.UNKNOWN: "недостаточно данных",
+    RuleStatus.NOT_APPLICABLE: "не применимо",
 }
 
 SEVERITY_LABELS = {
@@ -73,6 +75,11 @@ def build_docx(
     style = doc.styles["Normal"]
     style.font.name = "Times New Roman"
     style.font.size = Pt(12)
+
+    for heading_style_name in ("Title", "Heading 1"):
+        heading_style = doc.styles[heading_style_name]
+        if heading_style.font.color is not None:
+            heading_style.font.color.rgb = RGBColor(0x00, 0x00, 0x00)
 
     title = doc.add_heading("Второе мнение: заключение по проекту судебного акта", level=0)
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -134,8 +141,6 @@ def build_docx(
         if evaluation.explanation:
             doc.add_paragraph(visible(evaluation.explanation))
         if evaluation.norms_used:
-            # Редакция обязана ехать вместе с нормой: без неё ссылка не
-            # проверяема, а проверяемость — смысл всего отчёта.
             norms = "; ".join(
                 f"{norm.ref}" + (f" (редакция {norm.version_id})" if norm.version_id else "")
                 for norm in evaluation.norms_used
@@ -146,9 +151,11 @@ def build_docx(
     _heading(doc, "5. Обстоятельства и доказательства")
     for fact in report.facts:
         paragraph = doc.add_paragraph(style="List Bullet")
-        paragraph.add_run(f"{fact.type}: ").bold = True
-        paragraph.add_run(str(fact.value))
+        paragraph.add_run(f"{FACT_TYPE_LABELS.get(fact.type, fact.type)}: ").bold = True
+        paragraph.add_run(format_fact_value(fact))
         paragraph.add_run(f" [{fact.status}, метод: {fact.extraction_method}]")
+        if fact.rejection_reason:
+            doc.add_paragraph(f"Причина исключения: {visible(fact.rejection_reason)}")
         for evidence in fact.evidence:
             quote = doc.add_paragraph(f"«{visible(evidence.quote)}»")
             quote.paragraph_format.left_indent = Pt(24)

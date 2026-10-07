@@ -14,6 +14,7 @@ import pytest
 from second_opinion.config import AppConfig
 from second_opinion.legal_sources.pravo_gov import (
     Edition,
+    EditionListMissing,
     PravoGovSource,
     check_amendments,
     extract_articles,
@@ -84,8 +85,6 @@ def test_parses_editions_with_numbers_and_act_dates() -> None:
 
 
 def test_original_edition_has_no_act_date() -> None:
-    # Дату вступления исходной редакции в силу страница не сообщает,
-    # и подставлять её неоткуда.
     original = parse_editions(EDITIONS_PAGE)[0]
 
     assert original.act_date is None
@@ -93,7 +92,6 @@ def test_original_edition_has_no_act_date() -> None:
 
 
 def test_unprepared_edition_has_no_number() -> None:
-    # «не готова» — текста в ИПС нет, запросить редакцию нельзя.
     unprepared = [e for e in parse_editions(EDITIONS_PAGE) if not e.prepared]
 
     assert len(unprepared) == 1
@@ -119,8 +117,6 @@ def test_completeness_flag_is_read_from_page() -> None:
 
 
 def test_truncated_document_is_refused(monkeypatch) -> None:
-    # Обрыв текста выглядит как отсутствие статьи: если его не заметить,
-    # сверка объявит «статья не найдена» вместо честного отказа.
     source = PravoGovSource()
     monkeypatch.setattr(source, "_get", lambda params: TRUNCATED)
 
@@ -145,14 +141,11 @@ def test_redactions_keep_unprepared_as_uncertain(monkeypatch) -> None:
     history = source.redactions("102041891")
 
     assert [r.valid_from.year for r in history.redactions] == [1998, 2003, 2026]
-    # Исходная редакция и неподготовленная — обе в неопределённости.
     assert len(history.uncertain) == 2
     assert any("не подготовлен" in p.description for p in history.uncertain)
 
 
 def test_redactions_state_that_dates_are_act_dates(monkeypatch) -> None:
-    # Дата акта не равна дате вступления в силу, и это должно быть видно
-    # тому, кто возьмёт границы редакций в фикстуру.
     source = PravoGovSource()
     monkeypatch.setattr(source, "_get", lambda params: EDITIONS_PAGE)
 
@@ -232,6 +225,57 @@ def test_timeout_is_reported_as_slowness_not_absence(monkeypatch) -> None:
         PravoGovSource(timeout=180.0).editions("102041891")
 
 
+def _response(status: int, body: bytes = b""):
+    import httpx
+
+    return httpx.Response(status, content=body, request=httpx.Request("GET", "http://x"))
+
+
+def test_empty_answer_is_retried_with_pause(monkeypatch) -> None:
+    import httpx
+
+    answers = [_response(204), _response(503), _response(200, "тест".encode("windows-1251"))]
+    pauses: list[float] = []
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: answers.pop(0))
+    monkeypatch.setattr("second_opinion.legal_sources.pravo_gov.time.sleep", pauses.append)
+
+    assert PravoGovSource(backoff=2.0)._get({"nd": "1"}) == "тест"
+    assert pauses == [2.0, 4.0]
+
+
+def test_retries_are_limited_and_failure_is_reported(monkeypatch) -> None:
+    import httpx
+
+    calls: list[int] = []
+
+    def _always_empty(*args, **kwargs):
+        calls.append(1)
+        return _response(204)
+
+    monkeypatch.setattr(httpx, "get", _always_empty)
+    monkeypatch.setattr("second_opinion.legal_sources.pravo_gov.time.sleep", lambda _: None)
+
+    with pytest.raises(RedactionSourceError, match="HTTP 204"):
+        PravoGovSource(retries=2)._get({"nd": "1"})
+    assert len(calls) == 3
+
+
+def test_not_found_is_not_retried(monkeypatch) -> None:
+    import httpx
+
+    calls: list[int] = []
+
+    def _missing(*args, **kwargs):
+        calls.append(1)
+        return _response(404)
+
+    monkeypatch.setattr(httpx, "get", _missing)
+
+    with pytest.raises(RedactionSourceError, match="HTTP 404"):
+        PravoGovSource()._get({"nd": "1"})
+    assert len(calls) == 1
+
+
 def test_factory_passes_timeout_from_config(tmp_path) -> None:
     source = build_redaction_source(
         _config(tmp_path, redaction_source="pravo", pravo_timeout_seconds=42.0)
@@ -262,3 +306,62 @@ def test_editions_are_ordered_by_number_not_by_date() -> None:
     ordered = prepared_editions(editions)
 
     assert [e.number for e in ordered] == [0, 353, 355]
+
+
+def test_page_without_edition_list_is_retried(monkeypatch) -> None:
+    pages = ["<html>сбой</html>", EDITIONS_PAGE]
+    pauses: list[float] = []
+    source = PravoGovSource(backoff=3.0)
+    monkeypatch.setattr(source, "_get", lambda params: pages.pop(0))
+    monkeypatch.setattr("second_opinion.legal_sources.pravo_gov.time.sleep", pauses.append)
+
+    assert source.editions("102041891")
+    assert pauses == [3.0]
+
+
+def test_persistent_page_without_edition_list_fails_after_retries(monkeypatch) -> None:
+    calls: list[int] = []
+
+    def _broken(params):
+        calls.append(1)
+        return "<html>сбой</html>"
+
+    source = PravoGovSource(retries=2)
+    monkeypatch.setattr(source, "_get", _broken)
+    monkeypatch.setattr("second_opinion.legal_sources.pravo_gov.time.sleep", lambda _: None)
+
+    with pytest.raises(EditionListMissing):
+        source.editions("102041891")
+    assert len(calls) == 3
+
+
+def test_connection_reset_is_retried(monkeypatch) -> None:
+    import httpx
+
+    answers: list[object] = [httpx.ReadError("reset"), _response(200, "тест".encode("windows-1251"))]
+
+    def _get(*args, **kwargs):
+        answer = answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    pauses: list[float] = []
+    monkeypatch.setattr(httpx, "get", _get)
+    monkeypatch.setattr("second_opinion.legal_sources.pravo_gov.time.sleep", pauses.append)
+
+    assert PravoGovSource(backoff=2.0)._get({"nd": "1"}) == "тест"
+    assert pauses == [2.0]
+
+
+def test_persistent_connection_reset_is_reported(monkeypatch) -> None:
+    import httpx
+
+    def _reset(*args, **kwargs):
+        raise httpx.ReadError("reset")
+
+    monkeypatch.setattr(httpx, "get", _reset)
+    monkeypatch.setattr("second_opinion.legal_sources.pravo_gov.time.sleep", lambda _: None)
+
+    with pytest.raises(RedactionSourceError, match="недоступен"):
+        PravoGovSource(retries=1)._get({"nd": "1"})

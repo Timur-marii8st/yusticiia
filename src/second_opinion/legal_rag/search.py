@@ -13,11 +13,8 @@ from .embeddings import EmbeddingProvider, cosine
 
 _TOKEN = re.compile(r"[a-zа-яё0-9]+")
 
-#: Константа Reciprocal Rank Fusion: чем больше, тем ровнее вклад позиций.
 RRF_K = 60
 
-#: Слова, не несущие юридического смысла в запросе. «ук/рф/упк/статья/часть»
-#: совпали бы с каждой нормой и только размывали ранжирование.
 _STOPWORDS = {
     "и", "в", "во", "не", "на", "по", "для", "при", "это", "как", "или",
     "если", "то", "из", "за", "от", "об", "о", "к", "со", "что", "его",
@@ -26,7 +23,6 @@ _STOPWORDS = {
     "кодекса", "кодекс",
 }
 
-#: Длина префикса для грубого учёта словоформ (русская флексия).
 _PREFIX_LEN = 6
 
 
@@ -72,9 +68,7 @@ class SearchHit(BaseModel):
     synthetic: bool
     score: float
     matched_terms: list[str] = Field(default_factory=list)
-    #: Лексический балл (в гибридном режиме отделяется от итогового).
     lexical_score: float | None = None
-    #: Косинусная близость к запросу (только в гибридном режиме).
     semantic_score: float | None = None
 
 
@@ -84,16 +78,16 @@ class LegalRag:
 
     Инвариант: результат содержит только реально хранящиеся фрагменты
     текста норм; если ничего не найдено — возвращается пустой список,
-    а не сгенерированный ответ (см. docs/LEGAL_SAFETY_PRINCIPLES.md §6).
-    Реранкинг меняет только ПОРЯДОК кандидатов, найденных лексической
-    фазой, и никогда не добавляет новые фрагменты.
+    а не сгенерированный ответ. Реранкинг меняет только ПОРЯДОК
+    кандидатов, найденных лексической фазой, и никогда не добавляет
+    новые фрагменты.
     """
 
     def __init__(
         self,
         norm_store: NormStore,
         embedder: EmbeddingProvider | None = None,
-        vector_store=None,  # PgVectorNormStore, опционально
+        vector_store=None,
     ) -> None:
         self._store = norm_store
         self._embedder = embedder
@@ -124,8 +118,6 @@ class LegalRag:
         if not selected:
             return []
 
-        # IDF по выбранному корпусу редакций: редкие термины (например,
-        # «покушение») весят больше частых («наказание»).
         term_df: dict[str, int] = {}
         hay_token_sets: dict[str, set[str]] = {}
         for norm, version in selected:
@@ -178,8 +170,6 @@ class LegalRag:
         if self._embedder is None:
             return hits[:limit]
         return self._rerank(hits, query, limit)
-
-    # -- внутреннее
 
     def _rerank(
         self, hits: list[SearchHit], query: str, limit: int

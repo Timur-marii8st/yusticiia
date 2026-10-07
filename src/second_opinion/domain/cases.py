@@ -9,8 +9,8 @@ class ComparableCase(BaseModel):
     """Судебный акт в базе практики (для сопоставления).
 
     Фикстуры обязаны иметь ``synthetic=True`` и не выдаваться за реальную
-    практику (см. docs/LEGAL_SAFETY_PRINCIPLES.md). Реальное дело
-    (``synthetic=False``) обязано нести ``source_url``: утверждение
+    практику. Реальное дело (``synthetic=False``) обязано нести
+    ``source_url``: утверждение
     «это реальная практика» проверяемо ровно настолько, насколько его
     можно раскрыть до источника — тот же инвариант, что для норм и
     цитат, применённый к практике.
@@ -21,8 +21,9 @@ class ComparableCase(BaseModel):
     court: str
     date: date
     article: int
+    article_suffix: str | None = None
     part: int | None = None
-    stage: str = "completed"  # OffenseStage.value
+    stage: str = "completed"
     recidivism: bool = False
     special_procedure: bool = False
     guilty_plea: bool = False
@@ -30,14 +31,11 @@ class ComparableCase(BaseModel):
     group: bool = False
     mitigating_codes: list[str] = Field(default_factory=list)
     aggravating_codes: list[str] = Field(default_factory=list)
-    punishment_type: str = "imprisonment"  # PunishmentType.value
+    punishment_type: str = "imprisonment"
     term_months: float | None = None
     suspended: bool = False
     summary: str = ""
     synthetic: bool = True
-    #: Ссылка на источник — обязательна для реальных дел (см. валидатор
-    #: ниже). У синтетических фикстур остаётся пустой: источника нет,
-    #: и подделывать его пустой строкой смысла нет.
     source_url: str = ""
 
     @model_validator(mode="after")

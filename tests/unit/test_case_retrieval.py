@@ -25,8 +25,6 @@ def _retriever() -> CaseRetriever:
 
 
 def test_case_base_expanded() -> None:
-    # 26 синтетических (M6) + 5 реальных приговоров (real_cases_v1, 20.09.2026,
-    # ФТ-25) — растёт вместе с базой практики, число здесь не магическое.
     assert _retriever().total == 31
 
 
@@ -107,9 +105,6 @@ def test_jury_trial_matching() -> None:
 
 
 def test_no_substantive_similarity_returns_empty() -> None:
-    # Часть не совпадает ни с одним делом, стадия — тоже: извлечённые
-    # содержательные признаки не дали ни одного совпадения — честно
-    # возвращаем пусто, а не дела, «близкие по статье».
     criteria = _criteria(159, part=3, stage="attempt")
     assert _retriever().search(criteria, limit=50) == []
 

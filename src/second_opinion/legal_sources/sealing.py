@@ -27,7 +27,6 @@ from pathlib import Path
 
 MANIFEST_NAME = "MANIFEST.json"
 
-#: Значение-заглушка в неопечатанных фикстурах.
 UNSEALED = "AUTOFILL"
 
 

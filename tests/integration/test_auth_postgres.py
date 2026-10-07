@@ -47,7 +47,6 @@ def test_postgres_refresh_rotation_persists(pg_dsn: str) -> None:
 
     pair = auth.refresh_tokens(refresh1)
     assert pair is not None
-    # новый экземпляр сервиса на той же БД видит blacklist
     auth2 = AuthService(store=PostgresUserStore(pg_dsn, table_prefix=prefix))
     assert auth2.refresh_tokens(refresh1) is None
     assert auth2.refresh_tokens(pair.refresh_token) is not None

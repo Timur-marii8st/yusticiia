@@ -13,11 +13,6 @@ from ...domain.norms import NormRef, NormVersion
 from ...domain.rules import LegalRule, RuleEvaluation
 from ...legal_sources.store import NoApplicableVersionError, NormNotFoundError
 
-#: Нормы, на которые ссылаются правила движка. Ошибка в выборе их
-#: редакции превращается в ошибочный вывод о наказании, поэтому их
-#: редакционное покрытие проверяется отдельно (legal_sources/coverage).
-#: Совпадение с фактическими ссылками в коде держит
-#: tests/unit/test_norm_coverage.py — список не должен разъезжаться.
 REFERENCED_NORM_IDS = frozenset(
     {
         "uk-rf:art-60",
@@ -30,28 +25,17 @@ REFERENCED_NORM_IDS = frozenset(
         "upk-rf:art-420",
         "ppvs-rf:n60-p7",
         "ppvs-rf:n60-p14",
-        # Глава 11 УК РФ (release.py) — правило написано и покрыто тестами,
-        # но НЕ в DEFAULT_RULES движка (rule_engine/engine.py): нормы ниже
-        # verification_status=draft, активация ждёт юридической сверки
-        # (И-10). Присутствие здесь держит список ссылок в коде и список
-        # норм корпуса в согласии, как для всех остальных правил.
         "uk-rf:art-75",
         "uk-rf:art-76",
         "uk-rf:art-76-2",
     }
 )
 
-#: Подмножество ``REFERENCED_NORM_IDS``, упомянутое только в написанном,
-#: но не зарегистрированном правиле (сейчас — ``ReleaseFromResponsibilityRule``,
-#: гл. 11 УК РФ). Отчёт о покрытии норм обязан отличать «используется
-#: активным движком» от «упомянуто в черновике, ждущем сверки»: спутать
-#: их означало бы сказать юристу и жюри, что норма уже работает в отчёте
-#: судьи, хотя она физически до него не доезжает (И-10).
 DRAFT_ONLY_NORM_IDS = frozenset({"uk-rf:art-75", "uk-rf:art-76", "uk-rf:art-76-2"})
 
 IMPRISONMENT = PunishmentType.IMPRISONMENT.value
 MITIGATING_IK_CODES = {"61.1.и", "61.1.к"}
-SUSPENDED_MAX_MONTHS = 8 * 12  # ст. 73 ч. 3 УК РФ
+SUSPENDED_MAX_MONTHS = 8 * 12
 
 
 def _facts_of_type(case_facts: CaseFacts, fact_type: FactType) -> list[LegalFact]:
@@ -77,10 +61,21 @@ class _BaseSanctionRule(LegalRule):
         case = context.case_facts
         missing: list[str] = []
 
+        if case.sentence.punishment_type is None and case.primary_qualification is not None:
+            return (
+                self._unknown(
+                    ["вид назначенного наказания"],
+                    "Квалификация извлечена, а вид назначенного наказания — нет "
+                    "(например, штраф или иной вид, которые система не "
+                    "распознаёт). Предел санкции не проверялся: проверьте "
+                    "документ вручную.",
+                ),
+                {},
+            )
         if case.sentence.punishment_type != IMPRISONMENT:
             return (
                 self._evaluation(
-                    status=RuleStatus.PASS,
+                    status=RuleStatus.NOT_APPLICABLE,
                     headline=f"{self.title}: не применимо",
                     explanation=(
                         "Назначенный вид наказания не связан с лишением свободы; "
@@ -106,7 +101,10 @@ class _BaseSanctionRule(LegalRule):
             )
 
         norm = context.norm_store.find_by_article(
-            qualification.code, qualification.article, qualification.part
+            qualification.code,
+            qualification.article,
+            qualification.part,
+            qualification.article_suffix,
         )
         if norm is None:
             return (

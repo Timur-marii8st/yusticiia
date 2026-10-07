@@ -85,7 +85,6 @@ def test_real_ocr_on_scanned_image_pdf() -> None:
     except ImportError:
         pytest.skip("reportlab/Pillow не установлены")
 
-    # Рисуем картинку с русским текстом
     image = Image.new("RGB", (600, 100), color="white")
     draw = ImageDraw.Draw(image)
     draw.text((10, 30), "Приговор ч. 2 ст. 158 УК РФ", fill="black")
@@ -102,6 +101,5 @@ def test_real_ocr_on_scanned_image_pdf() -> None:
     c2.save()
 
     doc = parse_document("ocr_scan.pdf", pdf_buffer.getvalue(), MAX_BYTES)
-    # OCR может дать неточную транскрипцию; проверяем, что хоть что-то распознано
     assert doc.text.strip()
     assert len(doc.text) > 5

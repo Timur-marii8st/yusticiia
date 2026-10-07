@@ -49,8 +49,6 @@ def _config(tmp_path, **overrides) -> AppConfig:
     return AppConfig(**base)
 
 
-# -- разбор ответа
-
 
 def test_parses_periods_and_changing_documents() -> None:
     history = parse_redactions("777", RESPONSE)
@@ -85,8 +83,6 @@ def test_unparseable_date_is_skipped_not_guessed() -> None:
     assert parse_redactions("777", payload).redactions == []
 
 
-# -- план редакций
-
 
 def test_plan_uses_year_based_ids() -> None:
     planned = plan_versions(parse_redactions("777", RESPONSE))
@@ -110,8 +106,6 @@ def test_plan_from_stub_is_marked() -> None:
     history = parse_redactions("777", RESPONSE).model_copy(update={"live": False})
     assert all("ЗАГЛУШКА" in p.note for p in plan_versions(history))
 
-
-# -- заглушка
 
 
 def _write_stub(directory: Path, topic: str, payload: dict) -> None:
@@ -148,8 +142,6 @@ def test_stub_rejects_unsafe_topic(tmp_path, topic: str) -> None:
     with pytest.raises(RedactionSourceError, match="недопустимый идентификатор"):
         StubRedactionSource(tmp_path).redactions(topic)
 
-
-# -- клиент ГАРАНТ и выбор источника
 
 
 def test_garant_requires_token_and_base_url() -> None:

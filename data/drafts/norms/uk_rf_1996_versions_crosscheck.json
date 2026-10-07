@@ -1,0 +1,49 @@
+{
+  "verification_status": "draft",
+  "note": "Разовая сверка версий 1996 года из корпуса с исходной редакцией УК РФ в ИПС. Не сверено юристом. Расхождения: в корпусе нет нижнего предела лишения свободы, а в исходной редакции он есть. Корпус не менялся.",
+  "source": {
+    "system": "ИПС «Законодательство России»",
+    "document": "УК РФ, документ 102041891",
+    "edition": "исходная редакция (номер 0 в списке ИПС)",
+    "checked_at": "2026-10-06"
+  },
+  "versions": [
+    {
+      "norm_id": "uk-rf:art-111-part-1",
+      "version_id": "v-1996",
+      "corpus": "от 24 до 96 мес.",
+      "source": "от 24 до 96 мес.",
+      "result": "match"
+    },
+    {
+      "norm_id": "uk-rf:art-158-part-1",
+      "version_id": "v-1996",
+      "corpus": "до 36 мес.",
+      "source": "до 36 мес.",
+      "result": "match"
+    },
+    {
+      "norm_id": "uk-rf:art-158-part-2",
+      "version_id": "v-1996",
+      "corpus": "до 72 мес.",
+      "source": "от 24 до 72 мес.",
+      "result": "mismatch",
+      "proposed_fix": "min_months: 24"
+    },
+    {
+      "norm_id": "uk-rf:art-159-part-1",
+      "version_id": "v-1996",
+      "corpus": "до 36 мес.",
+      "source": "до 36 мес.",
+      "result": "match"
+    },
+    {
+      "norm_id": "uk-rf:art-159-part-2",
+      "version_id": "v-1996",
+      "corpus": "до 72 мес.",
+      "source": "от 24 до 72 мес.",
+      "result": "mismatch",
+      "proposed_fix": "min_months: 24"
+    }
+  ]
+}

@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from ..config import load_config
+from ..reporting import FACT_TYPE_LABELS, format_fact_value
 
 
 def analyze(file_path: Path, applicable_at: str | None) -> int:
@@ -22,7 +23,8 @@ def analyze(file_path: Path, applicable_at: str | None) -> int:
     print(f"\nИзвлечено фактов: {len(report.facts)}")
     for fact in report.facts:
         evidence = fact.evidence[0].quote if fact.evidence else "—"
-        print(f"  [{fact.status.value}] {fact.type.value}: {fact.value!r}  «{evidence[:60]}»")
+        label = FACT_TYPE_LABELS.get(fact.type, fact.type)
+        print(f"  [{fact.status.value}] {label}: {format_fact_value(fact)}  «{evidence[:60]}»")
     print(f"\nПроверок: {len(report.evaluations)}")
     for evaluation in report.evaluations:
         print(f"  [{evaluation.status.value}] {evaluation.headline}")

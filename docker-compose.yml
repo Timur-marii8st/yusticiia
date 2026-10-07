@@ -4,11 +4,13 @@ services:
     environment:
       POSTGRES_DB: second_opinion
       POSTGRES_USER: second_opinion
-      POSTGRES_PASSWORD: second_opinion
+      POSTGRES_PASSWORD: ${SO_DB_ADMIN_PASSWORD:-second_opinion}
+      SO_DB_APP_PASSWORD: ${SO_DB_APP_PASSWORD:-second_opinion}
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./deploy/postgres-init:/docker-entrypoint-initdb.d:ro
     profiles: ["postgres"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U second_opinion -d second_opinion"]
@@ -19,12 +21,16 @@ services:
   app:
     build: .
     container_name: second-opinion
+    user: "${SO_UID:-10001}:${SO_GID:-10001}"
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
       - ./data:/app/data
     environment:
-      SO_LLM_PROVIDER: mock
+      SO_LLM_PROVIDER: ${SO_LLM_PROVIDER:-mock}
+      SO_OPENAI_BASE_URL: ${SO_OPENAI_BASE_URL:-}
+      SO_OPENAI_API_KEY: ${SO_OPENAI_API_KEY:-}
+      SO_LLM_MODEL: ${SO_LLM_MODEL:-}
       SO_MAX_UPLOAD_BYTES: "5242880"
       SO_STORAGE_BACKEND: ${SO_STORAGE_BACKEND:-file}
       SO_DATABASE_URL: ${SO_DATABASE_URL:-}
@@ -35,5 +41,96 @@ services:
         condition: service_healthy
         required: false
 
+  # Закрытый контур для языковой модели (НТ-02, docs/TZ.md § 2.10): модель
+  # работает на той же машине, что и система, наружу не ходит — порт
+  # публикуется только на loopback, `app` обращается к ней по имени `vllm`
+  # во внутренней сети compose.
+  #
+  # Установка на Ubuntu, переменные и проверка: docs/DEPLOYMENT_VLLM.md.
+  # Ключ SO_OPENAI_API_KEY общий: им vLLM закрывает адреса /v1, им же
+  # подписывает запросы `app`.
+  vllm:
+    image: vllm/vllm-openai:${VLLM_IMAGE_TAG:-v0.31.0-cu129}
+    profiles: ["vllm"]
+    restart: unless-stopped
+    command:
+      - "--model"
+      - "${SO_LLM_MODEL:-Qwen/Qwen2.5-7B-Instruct}"
+      - "--port"
+      - "8000"
+      - "--max-model-len"
+      - "${VLLM_MAX_MODEL_LEN:-16384}"
+      - "--gpu-memory-utilization"
+      - "${VLLM_GPU_MEMORY_UTILIZATION:-0.90}"
+      - "--generation-config"
+      - "${VLLM_GENERATION_CONFIG:-vllm}"
+      - "--load-format"
+      - "${VLLM_LOAD_FORMAT:-safetensors}"
+      - "--no-trust-remote-code"
+      - "--api-key"
+      - "${SO_OPENAI_API_KEY:-local}"
+    environment:
+      HF_HUB_OFFLINE: ${HF_HUB_OFFLINE:-0}
+      HF_ENDPOINT: ${HF_ENDPOINT:-https://huggingface.co}
+      VLLM_NO_USAGE_STATS: "1"
+      DO_NOT_TRACK: "1"
+    ports:
+      - "127.0.0.1:8001:8000"
+    volumes:
+      - hf-cache:/root/.cache/huggingface
+    ipc: host
+    networks:
+      default:
+        aliases: [vllm]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request as u; u.urlopen('http://127.0.0.1:8000/health')\""]
+      interval: 15s
+      timeout: 5s
+      retries: 120
+      start_period: 120s
+
+  # Без GPU — только для проверки контракта и формата запросов (на малой
+  # модели), не для работы: на CPU один документ занимает минуты.
+  # Образ — готовый arm64 (Docker Desktop на Apple Silicon) или x86_64.
+  vllm-cpu:
+    image: vllm/vllm-openai-cpu:${VLLM_CPU_TAG:-v0.31.0-arm64}
+    profiles: ["vllm-cpu"]
+    command:
+      - "--model"
+      - "${SO_LLM_MODEL:-Qwen/Qwen2.5-0.5B-Instruct}"
+      - "--port"
+      - "8000"
+      - "--dtype"
+      - "${VLLM_CPU_DTYPE:-bfloat16}"
+      - "--generation-config"
+      - "${VLLM_GENERATION_CONFIG:-vllm}"
+      - "--load-format"
+      - "${VLLM_LOAD_FORMAT:-safetensors}"
+      - "--no-trust-remote-code"
+      - "--api-key"
+      - "${SO_OPENAI_API_KEY:-local}"
+    ports:
+      - "127.0.0.1:8001:8000"
+    volumes:
+      - hf-cache:/root/.cache/huggingface
+    shm_size: 4g
+    cap_add: [SYS_NICE]
+    security_opt: ["seccomp=unconfined"]
+    environment:
+      VLLM_CPU_KVCACHE_SPACE: ${VLLM_CPU_KVCACHE_SPACE:-4}
+      VLLM_NO_USAGE_STATS: "1"
+      DO_NOT_TRACK: "1"
+    networks:
+      default:
+        aliases: [vllm]
+
 volumes:
   pgdata:
+  hf-cache:

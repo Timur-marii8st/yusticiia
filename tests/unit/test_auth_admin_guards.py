@@ -65,8 +65,6 @@ def copying_backend(monkeypatch):
     return auth
 
 
-# -- сохранность полей при одновременной смене пароля
-
 
 def test_patch_password_with_other_fields_keeps_them(client, copying_backend) -> None:
     """Пароль и прочие поля в одном PATCH — сохраняются оба.
@@ -110,8 +108,6 @@ def test_patch_without_password_still_saves_fields(client, copying_backend) -> N
     assert copying_backend.get_user(uid).full_name == "Стало"
 
 
-# -- последний администратор
-
 
 def test_service_blocks_removing_last_admin() -> None:
     auth = AuthService(store=InMemoryUserStore())
@@ -128,7 +124,7 @@ def test_service_allows_when_another_admin_exists() -> None:
     first = auth.create_user("a@example.com", "longpassword1", "Первый", UserRole.ADMIN)
     auth.create_user("b@example.com", "longpassword1", "Второй", UserRole.ADMIN)
 
-    auth.ensure_admin_remains(first.user_id, is_active=False)  # не должно бросать
+    auth.ensure_admin_remains(first.user_id, is_active=False)
 
 
 def test_service_ignores_non_admin_users() -> None:

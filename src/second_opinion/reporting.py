@@ -16,8 +16,9 @@
 from __future__ import annotations
 
 from .domain.analysis import AnalysisReport, CaseSummary, Concern, SummaryLine
-from .domain.enums import FactStatus, RuleStatus
-from .domain.facts import CaseFacts, LegalFact
+from .domain.enums import FactStatus, FactType, RuleStatus
+from .domain.facts import CaseFacts, LegalFact, Qualification
+from .legal_sources.coverage import HistoryCaveat
 
 STAGE_LABELS = {
     "completed": "оконченное преступление",
@@ -34,9 +35,56 @@ PUNISHMENT_LABELS = {
     "other": "наказание",
 }
 
-#: Порядок разделов проблемных мест: сначала то, что не сошлось по праву.
-#: Статистическое наблюдение идёт последним и намеренно отделено от
-#: остальных: это не нарушение и не предупреждение движка.
+GROUP_OFFENSE_LABELS = {
+    "group_of_persons": "группой лиц",
+    "group_with_conspiracy": "группой лиц по предварительному сговору",
+    "organized_group": "организованной группой",
+}
+
+FACT_TYPE_LABELS = {
+    FactType.QUALIFICATION: "Квалификация",
+    FactType.DEFENDANT_AGE: "Возраст подсудимого",
+    FactType.PRIOR_CONVICTIONS: "Наличие судимостей",
+    FactType.MINOR_DEPENDENTS: "Несовершеннолетние дети",
+    FactType.HEALTH_FACTOR: "Состояние здоровья",
+    FactType.OFFENSE_STAGE: "Стадия преступления",
+    FactType.GROUP_OFFENSE: "Групповой характер деяния",
+    FactType.GUILTY_PLEA: "Признание вины",
+    FactType.SURRENDER_OR_CONFESSION: "Явка с повинной / способствование расследованию",
+    FactType.RESTITUTION: "Возмещение ущерба / заглаживание вреда",
+    FactType.AGGRAVATING_RECIDIVISM: "Рецидив (отягчающее)",
+    FactType.SPECIAL_PROCEDURE: "Особый порядок судопроизводства",
+    FactType.JURY_TRIAL: "Суд присяжных",
+    FactType.PUNISHMENT_TYPE: "Вид наказания",
+    FactType.PUNISHMENT_TERM: "Размер наказания (мес.)",
+    FactType.FINAL_PUNISHMENT_TERM: "Окончательный срок по совокупности (мес.)",
+    FactType.SUSPENDED_SENTENCE: "Условное осуждение",
+    FactType.DATE_OF_OFFENSE: "Дата совершения",
+    FactType.EXCEPTIONAL_CIRCUMSTANCES: "Ст. 64 УК РФ упомянута в тексте",
+}
+
+
+def format_fact_value(fact: LegalFact) -> str:
+    """Значение факта по-русски, а не `str()` от сырого хранимого значения.
+
+    ``LegalFact.value`` типизировано как ``Any`` (домен намеренно не
+    валидирует его форму на этом уровне — см. ``domain/facts.py``), и для
+    квалификации это словарь, а не модель ``Qualification``: распознаём
+    по типу факта, а не по классу значения.
+    """
+    value = fact.value
+    if fact.type is FactType.QUALIFICATION and isinstance(value, dict):
+        return Qualification(**value).ref
+    if fact.type is FactType.OFFENSE_STAGE:
+        return STAGE_LABELS.get(value, str(value))
+    if fact.type is FactType.PUNISHMENT_TYPE:
+        return PUNISHMENT_LABELS.get(value, str(value))
+    if fact.type is FactType.GROUP_OFFENSE:
+        return GROUP_OFFENSE_LABELS.get(value, str(value))
+    if isinstance(value, bool):
+        return "да" if value else "нет"
+    return str(value)
+
 SEVERITY_ORDER = {"violation": 0, "attention": 1, "data": 2, "statistics": 3}
 
 
@@ -79,9 +127,12 @@ def build_summary(case_facts: CaseFacts, facts: list[LegalFact]) -> CaseSummary:
             text += f"; {stage_text}"
         lines.append(SummaryLine(text=text, fact_ids=_ids(facts, "qualification", "offense_stage")))
     else:
-        lines.append(
-            SummaryLine(text="Квалификация из документа не извлечена.", fact_ids=[])
+        text = (
+            "Квалификация из документа не извлечена."
+            if case_facts.has_criminal_content
+            else "Статья УК РФ и назначенное наказание в документе не найдены."
         )
+        lines.append(SummaryLine(text=text, fact_ids=[]))
 
     if stage and stage != "completed":
         headline_parts.append(STAGE_LABELS.get(stage, stage))
@@ -143,14 +194,19 @@ def build_summary(case_facts: CaseFacts, facts: list[LegalFact]) -> CaseSummary:
         text = f"Назначено: {kind}"
         if sentence.term_months is not None:
             text += f" на срок {_months(sentence.term_months)}"
+        if sentence.final_term_months is not None:
+            text += f", окончательно по совокупности {_months(sentence.final_term_months)}"
         if sentence.suspended:
             text += ", условно"
         lines.append(
             SummaryLine(
-                # «мес.» уже заканчивается точкой — вторая выглядит опечаткой.
                 text=text.rstrip(".") + ".",
                 fact_ids=_ids(
-                    facts, "punishment_type", "punishment_term", "suspended_sentence"
+                    facts,
+                    "punishment_type",
+                    "punishment_term",
+                    "final_punishment_term",
+                    "suspended_sentence",
                 ),
             )
         )
@@ -159,8 +215,44 @@ def build_summary(case_facts: CaseFacts, facts: list[LegalFact]) -> CaseSummary:
     return CaseSummary(headline=headline, lines=lines)
 
 
+def _history_concerns(report: AnalysisReport, caveats: list[HistoryCaveat]) -> list[Concern]:
+    concerns: list[Concern] = []
+    unrecorded = [c for c in caveats if c.kind == "unrecorded"]
+    if unrecorded:
+        listed = "; ".join(f"{c.ref} (с {c.since.isoformat()})" for c in unrecorded)
+        concerns.append(
+            Concern(
+                severity="data",
+                title="Редакционная история норм не сверена",
+                detail=(
+                    f"Применена единственная известная редакция: {listed}. Изменения "
+                    "после этой даты в корпусе не зафиксированы; если норма "
+                    f"менялась, на {report.applicable_at} могла действовать другая редакция."
+                ),
+            )
+        )
+    near = [c for c in caveats if c.kind == "near_boundary"]
+    if near:
+        listed = "; ".join(
+            f"{c.ref}: редакция с {c.since.isoformat()}, прошло {c.days_since} дн." for c in near
+        )
+        concerns.append(
+            Concern(
+                severity="data",
+                title="Дата применения близка к границе редакции",
+                detail=(
+                    f"{listed}. Граница редакции в источнике может быть датой акта, а "
+                    "не вступления в силу: проверьте дату вступления в силу изменяющего закона."
+                ),
+            )
+        )
+    return concerns
+
+
 def build_concerns(
-    report: AnalysisReport, unverified_norms: list[str] | None = None
+    report: AnalysisReport,
+    unverified_norms: list[str] | None = None,
+    history_caveats: list[HistoryCaveat] | None = None,
 ) -> list[Concern]:
     """Собрать раздел проблемных мест.
 
@@ -192,9 +284,36 @@ def build_concerns(
                 )
             )
 
-    # Непроверенное не растворяется среди выполненного: проверки в статусе
-    # UNKNOWN — это не «всё хорошо», а «сказать нечего». Собираются в одну
-    # строку, иначе семь однотипных замечаний вытеснят настоящее нарушение.
+    if not report.case_facts.has_criminal_content:
+        concerns.append(
+            Concern(
+                severity="data",
+                title="Документ не распознан как приговор по уголовному делу",
+                detail=(
+                    "В тексте не найдены ни статья УК РФ, ни назначенное наказание. "
+                    "Система проверяет приговоры по уголовным делам; решения по "
+                    "гражданским, трудовым и административным делам она не "
+                    "анализирует. Если это приговор, возможно, текст распознан с "
+                    "ошибками: проверьте исходный файл."
+                ),
+            )
+        )
+
+    pending = [f for f in report.facts if f.status is FactStatus.LIKELY]
+    if pending:
+        kinds = ", ".join(sorted({FACT_TYPE_LABELS.get(f.type, f.type.value) for f in pending}))
+        concerns.append(
+            Concern(
+                severity="data",
+                title=f"Факты модели ждут подтверждения: {len(pending)}",
+                detail=(
+                    f"{kinds}. В проверках эти факты не участвуют, пока судья не "
+                    "подтвердил их: подтвердите факт, если он верен, и проверки пересчитаются."
+                ),
+                fact_ids=[f.id for f in pending],
+            )
+        )
+
     unknown = [e for e in report.evaluations if e.status is RuleStatus.UNKNOWN]
     if unknown:
         concerns.append(
@@ -218,6 +337,8 @@ def build_concerns(
             )
         )
 
+    concerns += _history_concerns(report, history_caveats or [])
+
     if unverified_norms:
         concerns.append(
             Concern(
@@ -233,8 +354,6 @@ def build_concerns(
 
     position = report.analytics.sentence_position if report.analytics else None
     if position is not None and position.band == "outside":
-        # В раздел попадает только выход за весь наблюдаемый диапазон:
-        # «выше верхней четверти» — обычное дело и замечанием не является.
         concerns.append(
             Concern(
                 severity="statistics",

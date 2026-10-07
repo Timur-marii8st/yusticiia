@@ -59,9 +59,6 @@ def build_legal_rag(norm_store: NormStore):
 
     if config.rag_mode == "hybrid_pgvector":
         if config.storage_backend != "postgres" or not config.database_url:
-            # Оператор запросил pgvector, но не настроил носитель. Молча
-            # отдать другой режим нельзя: на демонстрации это выглядит как
-            # работающий поиск, а работает не тот, который заявлен.
             logger.warning(
                 "SO_RAG_MODE=hybrid_pgvector, но носитель не настроен "
                 "(SO_STORAGE_BACKEND=%s, SO_DATABASE_URL %s) — поиск идёт "
@@ -80,7 +77,7 @@ def build_legal_rag(norm_store: NormStore):
             return LegalRag(
                 norm_store, embedder=embedder, vector_store=vector_store
             )
-        except Exception as exc:  # noqa: BLE001 — откат к гибриду без вектора
+        except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "pgvector недоступен (%s) — поиск переходит в режим hybrid "
                 "без векторного хранилища: выдача будет отличаться от "
@@ -164,6 +161,7 @@ def build_pipeline(config: AppConfig | None = None) -> AnalysisPipeline:
             config.openai_api_key,
             config.llm_model,
             auth_scheme=config.llm_auth_scheme,
+            max_tokens=config.llm_max_tokens,
         )
     else:
         provider = MockLLMProvider()

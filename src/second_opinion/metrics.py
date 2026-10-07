@@ -21,8 +21,6 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from time import perf_counter
 
-# Фиксированные границы бакетов для гистограмм (секунды).
-# Покрывают типичный latency анализа: 1 мс — 1 с.
 _LATENCY_BUCKETS: tuple[float, ...] = (
     0.001,
     0.005,
@@ -74,14 +72,9 @@ class _Histogram:
         with self._lock:
             self._sum += value
             self._count += 1
-            # Бакет считается по правилу Prometheus `le`: значение попадает
-            # в первый бакет, верхняя граница которого >= value. Поэтому
-            # bisect_left, а не bisect_right: ровно на границе значение
-            # остаётся в своём бакете, а не уезжает в следующий.
             index = bisect.bisect_left(self.buckets, value)
             if index >= len(self.buckets):
                 index = len(self.buckets) - 1
-            # +inf-бакет содержит всё
             self._counts[index] += 1
 
     def snapshot(self) -> dict[str, object]:
@@ -171,7 +164,6 @@ class MetricsRegistry:
                     h._count = 0
 
 
-# Глобальный реестр — единственный, как AuditTrail.
 _global_registry: MetricsRegistry | None = None
 _global_lock = threading.Lock()
 
@@ -196,8 +188,6 @@ def reset_metrics_for_tests() -> None:
         _global_registry = None
 
 
-# Имена метрик, которые используются в pipeline. Зафиксированы
-# константами, чтобы случайно не разъехаться в разных местах.
 ANALYSES_TOTAL = "second_opinion_analyses_total"
 ANALYSES_FAILED_TOTAL = "second_opinion_analyses_failed_total"
 FACTS_EXTRACTED = "second_opinion_facts_extracted_total"
@@ -207,6 +197,17 @@ ANALYZE_DURATION_SECONDS = "second_opinion_analyze_duration_seconds"
 EXTRACT_DURATION_SECONDS = "second_opinion_extract_duration_seconds"
 RULE_ENGINE_DURATION_SECONDS = "second_opinion_rule_engine_duration_seconds"
 RETRIEVAL_DURATION_SECONDS = "second_opinion_retrieval_duration_seconds"
+
+COUNTED_STATUSES = (401, 403, 413, 429, 503)
+
+
+def http_status_metric(status_code: int) -> str | None:
+    """Имя счётчика для ответов, всплеск которых означает перебор, перегрузку или сбой."""
+    if status_code in COUNTED_STATUSES:
+        return f"second_opinion_http_{status_code}_total"
+    if status_code >= 500:
+        return "second_opinion_http_5xx_total"
+    return None
 
 METRIC_HELP: dict[str, str] = {
     ANALYSES_TOTAL: "Total number of successful analyses",

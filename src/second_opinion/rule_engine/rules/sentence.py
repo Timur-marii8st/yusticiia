@@ -3,13 +3,21 @@
 
 from __future__ import annotations
 
-from ...domain.enums import FactType, RuleStatus
+from ...domain.enums import FactType, PunishmentType, RuleStatus
 from ...domain.facts import CaseFacts
 from ...domain.norms import NormRef
 from ...domain.rules import LegalRule, RuleEvaluation
 from .base import (
     SUSPENDED_MAX_MONTHS,
     _facts_of_type,
+)
+
+TERMLESS_TYPES = frozenset(
+    {
+        PunishmentType.FINE.value,
+        PunishmentType.RESTRICTION_OF_LIBERTY.value,
+        PunishmentType.OTHER.value,
+    }
 )
 
 
@@ -28,6 +36,20 @@ class SuspendedLimitRule(LegalRule):
     def evaluate(self, context) -> RuleEvaluation:
         case: CaseFacts = context.case_facts
         norm_ref = NormRef(norm_id="uk-rf:art-73", version_id="", ref="УК РФ ст. 73 ч. 1")
+        if case.sentence.suspended is None and not case.has_criminal_content:
+            return self._not_criminal_document()
+        if case.sentence.suspended is None and case.sentence.punishment_type not in (
+            None,
+            PunishmentType.IMPRISONMENT.value,
+        ):
+            return self._evaluation(
+                status=RuleStatus.NOT_APPLICABLE,
+                headline=f"{self.title}: не применимо",
+                explanation=(
+                    "Назначено наказание не в виде лишения свободы: условное осуждение "
+                    "по ч. 1 ст. 73 УК РФ в корпусе описано для лишения свободы."
+                ),
+            )
         if case.sentence.suspended is None:
             return self._unknown(
                 ["признак условного осуждения"],
@@ -36,7 +58,7 @@ class SuspendedLimitRule(LegalRule):
             )
         if not case.sentence.suspended:
             return self._evaluation(
-                status=RuleStatus.PASS,
+                status=RuleStatus.NOT_APPLICABLE,
                 headline=f"{self.title}: не применимо",
                 explanation="Условное осуждение не назначалось.",
             )
@@ -115,13 +137,31 @@ class SentenceCompletenessRule(LegalRule):
                 ),
                 facts_used=facts_used,
             )
+        if not has_type and not has_term and case.primary_qualification is not None:
+            return self._unknown(
+                ["вид и размер назначенного наказания"],
+                "Квалификация извлечена, а данных о назначенном наказании нет "
+                "(например, штраф или иной вид, которые система не распознаёт): "
+                "проверки пределов не проводились, проверьте документ вручную.",
+            )
         if not has_type and not has_term:
             return self._evaluation(
-                status=RuleStatus.PASS,
+                status=RuleStatus.NOT_APPLICABLE,
                 headline=f"{self.title}: не применимо",
                 explanation=(
                     "Данных о назначенном наказании в извлечённых фактах нет "
                     "(например, процессуальный документ); проверять нечего."
+                ),
+                facts_used=facts_used,
+            )
+        if has_type and case.sentence.punishment_type in TERMLESS_TYPES:
+            return self._evaluation(
+                status=RuleStatus.NOT_APPLICABLE,
+                headline=f"{self.title}: не применимо",
+                explanation=(
+                    "Размер этого вида наказания (сумма штрафа, срок ограничения свободы) "
+                    "система не извлекает: пара «вид и срок» относится к лишению свободы, "
+                    "исправительным и обязательным работам."
                 ),
                 facts_used=facts_used,
             )

@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field, field_serializer, field_validator, model_
 
 from .enums import PunishmentType, VerificationStatus
 
-#: Код постановлений Пленума ВС РФ в фикстурах корпуса (`code` на уровне файла).
 PLENUM_CODE = "ППВС"
 
 
@@ -23,21 +22,12 @@ class LegalNorm(BaseModel):
     """Норма права (статья/часть), без привязки к редакции."""
 
     norm_id: str
-    code: str  # «УК РФ», «УПК РФ»
+    code: str
     article: int = Field(ge=1)
     part: int | None = Field(default=None, ge=1)
-    #: Номер статьи, введённой позднее между двумя существующими
-    #: («76²», «159¹», «228.1») — не часть (``part``), а самостоятельная
-    #: статья со своим составом. УК РФ печатает такой номер надстрочным
-    #: индексом; здесь — просто «.N», без попытки воспроизвести типографику
-    #: источника. ``None`` — обычная статья без такого номера.
     article_suffix: str | None = None
     title: str
-    #: Дата, по которую юрист сверил историю изменений статьи. Отличает
-    #: проверенный факт «норма не менялась» от допущения «мы внесли один
-    #: текст и считаем, что он действовал всегда».
     amendments_checked_through: date | None = None
-    #: Чем сверялась история: КонсультантПлюс, ГАРАНТ, pravo.gov.ru.
     amendments_checked_source: str = ""
 
     @property
@@ -72,15 +62,9 @@ class NormVersion(BaseModel):
     text: str
     sanctions: list[SanctionSpec] = Field(default_factory=list)
     effective_from: date
-    effective_to: date | None = None  # None — действует по настоящее время
+    effective_to: date | None = None
     source_document: str
     source_url: str = ""
-    #: Редакция источника, из которой взят текст, в виде
-    #: ``источник:документ:редакция`` — например ``pravo:102041891:365``.
-    #: Нужна, чтобы отличать «наш текст соответствует такой-то редакции
-    #: источника» от «мы однажды что-то скачали». Пустая строка означает
-    #: «не записано»: детектор обновлений тогда честно говорит, что
-    #: сравнивать не с чем, а не делает вид, что норма свежая.
     source_edition: str = ""
     retrieved_at: date
     sha256: str

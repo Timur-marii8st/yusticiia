@@ -87,7 +87,6 @@ def test_audit_log_rotates_instead_of_growing_forever(tmp_path) -> None:
     assert rotated, "журнал не ротировался"
     assert path.exists(), "после ротации не начат новый журнал"
 
-    # Ни одна запись не потеряна: старые лежат в закрытых файлах.
     total = sum(1 for f in [*rotated, path] for _ in f.read_text(encoding="utf-8").splitlines())
     assert total == 12
 

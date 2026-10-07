@@ -27,7 +27,6 @@ class SentencePosition(BaseModel):
     term_months: float
     n_compared: int
     band: str
-    #: Доля дел выборки со сроком не больше назначенного, 0.0–1.0.
     share_at_or_below: float
     note: str = ""
 
@@ -45,10 +44,7 @@ class AnalyticsSummary(BaseModel):
     max_months: float | None = None
     punishment_type_distribution: dict[str, int] = Field(default_factory=dict)
     suspended_share: float | None = None
-    #: Доля дел с каждым признаком в выборке (описательная).
     feature_spread: dict[str, float] = Field(default_factory=dict)
-    #: Положение назначенного срока в распределении (ФТ-27). ``None`` —
-    #: сравнивать не с чем: срок не извлечён или в выборке нет сроков.
     sentence_position: SentencePosition | None = None
 
 
@@ -93,7 +89,6 @@ class AnalysisReport(BaseModel):
 
     analysis_id: str
     document_id: str
-    #: Кто выполнил анализ (см. Document.owner).
     owner: str = ""
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC).replace(microsecond=0)
@@ -102,7 +97,6 @@ class AnalysisReport(BaseModel):
     applicable_at_assumed: bool = False
     facts: list[LegalFact] = Field(default_factory=list)
     case_facts: CaseFacts = Field(default_factory=CaseFacts)
-    #: Краткое изложение дела (ФТ-29) и проблемные места (ФТ-31).
     summary: CaseSummary = Field(default_factory=CaseSummary)
     concerns: list[Concern] = Field(default_factory=list)
     evaluations: list[RuleEvaluation] = Field(default_factory=list)

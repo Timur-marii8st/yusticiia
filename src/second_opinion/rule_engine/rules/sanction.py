@@ -65,16 +65,25 @@ class SanctionRangeRule(_BaseSanctionRule):
             None,
         )
         if sanction_min and term < sanction_min:
+            cited = bool(_facts_of_type(case, FactType.EXCEPTIONAL_CIRCUMSTANCES))
+            explanation = (
+                f"Назначено {term:.0f} мес. при минимуме санкции "
+                f"{sanction_min:.0f} мес. Назначение ниже низшего предела "
+                "возможно только по основаниям ст. 64 УК РФ — "
+            )
+            explanation += (
+                "статья упомянута в тексте документа, проверьте обоснованность "
+                "применения."
+                if cited
+                else "статья в тексте документа не упомянута ни разу, проверьте, "
+                "не пропущено ли основание."
+            )
             return self._evaluation(
                 status=RuleStatus.WARNING,
                 headline=f"{self.title}: срок ниже минимума санкции",
-                explanation=(
-                    f"Назначено {term:.0f} мес. при минимуме санкции "
-                    f"{sanction_min:.0f} мес. Назначение ниже низшего предела "
-                    "возможно только по основаниям ст. 64 УК РФ — проверьте, "
-                    "указаны ли они в акте."
-                ),
-                facts_used=facts_used,
+                explanation=explanation,
+                facts_used=facts_used
+                + [f.id for f in _facts_of_type(case, FactType.EXCEPTIONAL_CIRCUMSTANCES)],
                 norms_used=norms_used + [
                     NormRef(norm_id="uk-rf:art-64", version_id="", ref="УК РФ ст. 64")
                 ],

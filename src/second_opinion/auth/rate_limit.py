@@ -14,8 +14,6 @@ import threading
 import time
 from collections import OrderedDict, deque
 
-#: Потолок числа отслеживаемых клиентов: перебор с меняющихся адресов
-#: не должен раздувать словарь.
 MAX_TRACKED_CLIENTS = 4096
 
 

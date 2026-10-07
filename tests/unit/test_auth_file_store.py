@@ -55,8 +55,8 @@ def test_corrupt_blacklist_does_not_crash(tmp_path) -> None:
     store.revoke_refresh("jti-1", "user-1")
     (tmp_path / "refresh_blacklist.json").write_text("{битый", encoding="utf-8")
 
-    assert store.is_refresh_revoked("jti-1") is False  # файл нечитаем
-    store.revoke_refresh("jti-2", "user-1")  # и перезаписывается штатно
+    assert store.is_refresh_revoked("jti-1") is False
+    store.revoke_refresh("jti-2", "user-1")
     assert store.is_refresh_revoked("jti-2") is True
 
 

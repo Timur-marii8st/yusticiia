@@ -65,7 +65,6 @@ def test_length_preserving_mask_keeps_offsets() -> None:
 
     report = detect_personal_data(JUDGMENT)
     for span in report.spans:
-        # Вне найденных фрагментов текст совпадает посимвольно.
         assert masked[: span.start] == JUDGMENT[: span.start]
         break
 
@@ -77,7 +76,6 @@ def test_readable_mask_hides_but_stays_readable() -> None:
     assert "Смирнова Алексея Викторовича" not in masked
     assert "Ивановой И.И." not in masked
     assert "+7 (916) 123-45-67" not in masked
-    # Структура документа сохранена: это по-прежнему читаемый текст.
     assert "Н-ский районный суд" in masked
     assert "установил" in masked
 

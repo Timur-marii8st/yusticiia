@@ -73,10 +73,7 @@ def test_postgres_pipeline_e2e(pg_dsn: str, tmp_path) -> None:
 
     from second_opinion.config import AppConfig
 
-    # Уникальные таблицы на прогон, чтобы параллельные CI не мешали друг другу.
     suffix = uuid.uuid4().hex[:8]
-    # Переопределяем таблицы через временное патчирование PostgresJsonRepository:
-    # проще собрать pipeline вручную с кастомными таблицами.
     from second_opinion.audit.trail import AuditTrail
     from second_opinion.domain.analysis import AnalysisReport
     from second_opinion.domain.documents import Document
@@ -102,7 +99,6 @@ def test_postgres_pipeline_e2e(pg_dsn: str, tmp_path) -> None:
         storage_backend="postgres",
     )
 
-    # Таблицы с суффиксом
     documents = PostgresJsonRepository[Document](
         pg_dsn, table=f"documents_{suffix}", model=Document, id_field="document_id"
     )
@@ -125,6 +121,5 @@ def test_postgres_pipeline_e2e(pg_dsn: str, tmp_path) -> None:
     report = pipeline.analyze(document.document_id)
     assert report.facts
     assert report.evaluations
-    # каскад удаления
     pipeline.delete_document(document.document_id)
     assert pipeline.get_analysis(report.analysis_id) is None

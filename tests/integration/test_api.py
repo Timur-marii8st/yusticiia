@@ -46,7 +46,6 @@ def test_metrics_enabled_after_increments(pipeline, monkeypatch) -> None:
         from second_opinion.api.app import create_app
 
         client = TestClient(create_app(pipeline))
-        # Прямой инкремент счётчика — снимок должен показать ненулевое значение.
         from second_opinion.metrics import get_metrics
 
         get_metrics().counter(ANALYSES_TOTAL, "test").inc()
@@ -135,7 +134,7 @@ def test_cases_filter(client) -> None:
 
 def test_empty_text_rejected(client) -> None:
     response = client.post("/api/v1/documents", json={"filename": "x.txt", "text": ""})
-    assert response.status_code == 422  # min_length=1
+    assert response.status_code == 422
 
 
 def test_unsupported_format_rejected(client) -> None:
@@ -160,14 +159,28 @@ def test_patch_fact_recalculates_report(client, sample_clean_text) -> None:
 
     response = client.patch(
         f"/api/v1/analyses/{analysis['analysis_id']}/facts/{restitution['id']}",
-        json={"status": "NOT_FOUND"},
+        json={"status": "NOT_FOUND", "reason": "ошибка извлечения"},
     )
     assert response.status_code == 200, response.text
     updated = response.json()
     fact = next(f for f in updated["facts"] if f["id"] == restitution["id"])
     assert fact["status"] == "NOT_FOUND"
+    assert fact["rejection_reason"] == "ошибка извлечения"
     r004 = next(e for e in updated["evaluations"] if e["rule_id"] == "R-004")
     assert "не применимо" in r004["headline"]
+
+
+def test_patch_fact_exclusion_requires_a_reason(client, sample_clean_text) -> None:
+    document_id = _upload(client, sample_clean_text)
+    analysis = client.post(f"/api/v1/documents/{document_id}/analyze", json={}).json()
+    restitution = next(f for f in analysis["facts"] if f["type"] == "restitution")
+
+    response = client.patch(
+        f"/api/v1/analyses/{analysis['analysis_id']}/facts/{restitution['id']}",
+        json={"status": "NOT_FOUND"},
+    )
+    assert response.status_code == 400
+    assert "причины" in response.json()["detail"]
 
 
 def test_patch_fact_invalid_status_400(client, sample_clean_text) -> None:

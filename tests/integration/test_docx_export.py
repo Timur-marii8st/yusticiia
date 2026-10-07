@@ -38,18 +38,28 @@ def test_docx_contains_the_same_conclusion_as_the_report(pipeline, sample_violat
     assert "Проблемные места" in text
     assert report.summary.headline in text
 
-    # Нарушение предела обязано доехать до файла: ради него заключение и печатают.
     violation = next(c for c in report.concerns if c.severity == "violation")
     assert violation.title in text
 
-    # Норма без редакции непроверяема, поэтому редакция едет вместе с нормой.
     versioned = [n for e in report.evaluations for n in e.norms_used if n.version_id]
     assert versioned, "в отчёте нет ни одной нормы с редакцией — проверять нечего"
     assert f"редакция {versioned[0].version_id}" in text
 
-    # Цитаты-доказательства — часть цепочки обоснования, не украшение.
     quoted = next(f for f in report.facts if f.evidence)
     assert quoted.evidence[0].quote in text
+
+
+def test_docx_carries_the_exclusion_reason(pipeline, sample_clean_text) -> None:
+    """Мотивировка отклонения (Концепция ВС РФ, риск № 5) — часть заключения, не только аудита."""
+    document = pipeline.ingest("case.txt", sample_clean_text.encode("utf-8"))
+    report = pipeline.analyze(document.document_id)
+    fact = report.facts[0]
+    report = pipeline.update_fact(
+        report.analysis_id, fact.id, status="NOT_FOUND", reason="ошибка извлечения"
+    )
+
+    text = _text_of(build_docx(report, document))
+    assert "Причина исключения: ошибка извлечения" in text
 
 
 def test_docx_survives_a_deleted_document(pipeline, sample_clean_text) -> None:
@@ -74,7 +84,6 @@ def test_endpoint_returns_a_docx_file(pipeline, sample_clean_text) -> None:
     assert response.status_code == 200
     assert response.headers["content-type"] == DOCX_MEDIA_TYPE
     assert "attachment;" in response.headers["content-disposition"]
-    # .docx — это zip-контейнер; проверяем сигнатуру, а не только заголовки.
     assert response.content[:2] == b"PK"
     assert "Краткое изложение дела" in _text_of(response.content)
 
@@ -122,6 +131,5 @@ def test_masked_export_hides_personal_data(pipeline, sample_clean_text) -> None:
     assert "Персональные данные в этом файле скрыты" in masked
     assert "Обнаружено возможных персональных данных" in plain
 
-    # Хранимый документ не изменился: обезличивается то, что уходит.
     stored = client.get(f"/api/v1/documents/{document_id}").json()["text"]
     assert "Смирнова А.В." in stored

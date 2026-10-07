@@ -106,8 +106,6 @@ def test_norm_version_rejects_reversed_dates() -> None:
         )
 
 
-# -- сборка CaseFacts: приоритет форм группового деяния
-
 
 def _group_fact(value: str) -> LegalFact:
     from second_opinion.domain.enums import ExtractionMethod
@@ -154,10 +152,6 @@ def test_plenum_ref_is_a_point_of_a_ruling_not_an_article() -> None:
     )
     assert point.ref == "п. 14 ППВС № 60"
 
-    # Ссылка на постановление целиком — случай законный, поэтому пустой
-    # `part` печатается без пункта. Идентификатор здесь намеренно без
-    # `-pN`: записи корпуса, у которых пункт назван в идентификаторе,
-    # обязаны называть его и в поле — это проверяется отдельно.
     whole = LegalNorm(
         norm_id="ppvs-rf:n58",
         code="ППВС РФ",

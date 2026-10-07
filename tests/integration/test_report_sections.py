@@ -25,11 +25,8 @@ def test_summary_is_assembled_from_extracted_facts(pipeline, sample_clean_text) 
     known_ids = {fact.id for fact in report.facts}
     for line in summary.lines:
         assert line.text.strip()
-        # Каждая строка держится на фактах отчёта: ссылка на несуществующий
-        # факт означала бы, что изложение нельзя раскрыть до цитаты.
         assert set(line.fact_ids) <= known_ids
 
-    # Изложение обязано опираться хоть на что-то, иначе это свободный текст.
     assert any(line.fact_ids for line in summary.lines)
 
 
@@ -42,7 +39,6 @@ def test_violation_becomes_a_concern(pipeline, sample_violation_text) -> None:
     assert violations[0].rule_id == "R-002"
     assert violations[0].detail
 
-    # Нарушения идут первыми: ограничение данных не должно оттеснять их вниз.
     assert report.concerns[0].severity == "violation"
 
 
@@ -52,8 +48,6 @@ def test_missing_data_is_named_not_hidden(pipeline, sample_violation_text) -> No
 
     data_concerns = [c for c in report.concerns if c.severity == "data"]
     assert data_concerns, "проверки в статусе UNKNOWN не отражены в проблемных местах"
-    # Они собраны в одну строку: семь однотипных замечаний вытеснили бы
-    # настоящее нарушение из поля зрения.
     unknown_lines = [c for c in data_concerns if "нехватки данных" in c.title]
     assert len(unknown_lines) == 1
 
@@ -81,10 +75,10 @@ def test_sections_are_recomputed_after_a_correction(pipeline, sample_violation_t
     stage_fact = next(f for f in report.facts if f.type == "offense_stage")
     assert any(c.rule_id == "R-002" for c in report.concerns)
 
-    updated = pipeline.update_fact(report.analysis_id, stage_fact.id, status="NOT_FOUND")
+    updated = pipeline.update_fact(
+        report.analysis_id, stage_fact.id, status="NOT_FOUND", reason="ошибка извлечения"
+    )
 
-    # Стадия исключена — правило ст. 66 больше не применимо, и замечание
-    # обязано уйти вместе с ним.
     assert not any(c.rule_id == "R-002" and c.severity == "violation" for c in updated.concerns)
     assert all(
         "покушение" not in line.text for line in updated.summary.lines

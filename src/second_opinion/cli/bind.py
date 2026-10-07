@@ -16,8 +16,6 @@ def is_loopback(host: str) -> bool:
     try:
         return ipaddress.ip_address(host).is_loopback
     except ValueError:
-        # Имя хоста вместо адреса — считаем внешним: безопаснее ошибиться
-        # в сторону предупреждения.
         return False
 def check_bind_safety(host: str) -> int:
     """Проверить связку «адрес привязки ↔ авторизация».
@@ -30,8 +28,6 @@ def check_bind_safety(host: str) -> int:
     from ..api.auth_mode import AUTH_MODE_ACCOUNTS, resolve_auth_mode
 
     mode = resolve_auth_mode(config.auth_mode, config.auth_token)
-    # В режиме accounts общего секрета нет по замыслу, и его отсутствие
-    # не означает открытого доступа: /api/* требует личный токен.
     if mode == AUTH_MODE_ACCOUNTS or config.auth_token or is_loopback(host):
         return 0
     message = (

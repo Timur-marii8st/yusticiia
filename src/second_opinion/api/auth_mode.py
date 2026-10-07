@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-#: ``/api/*`` открыт: демонстрация на loopback.
 AUTH_MODE_OPEN = "open"
-#: Общий секрет развёртывания ИЛИ личный токен.
 AUTH_MODE_SHARED = "shared"
-#: Только личный токен; общий секрет не принимается.
 AUTH_MODE_ACCOUNTS = "accounts"
 
 AUTH_MODES = (AUTH_MODE_OPEN, AUTH_MODE_SHARED, AUTH_MODE_ACCOUNTS)

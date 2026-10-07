@@ -25,10 +25,8 @@ from ..domain.norms import LegalNorm, NormVersion
 from ..rule_engine.rules import DRAFT_ONLY_NORM_IDS, REFERENCED_NORM_IDS
 from .store import NormStore
 
-#: Статья уголовного закона, за столько лет ни разу не изменившаяся, —
-#: скорее незафиксированная история, чем установленный факт. Порог грубый
-#: и служит приоритизацией сверки, а не юридическим выводом.
 UNRECORDED_HISTORY_YEARS = 10
+BOUNDARY_WINDOW_DAYS = 90
 
 _DAY = timedelta(days=1)
 
@@ -56,11 +54,6 @@ class NormCoverage:
     ref: str
     has_sanctions: bool
     used_by_rules: bool
-    #: Норма упомянута только в написанном, но не зарегистрированном
-    #: правиле (``DRAFT_ONLY_NORM_IDS``) — код существует, но до отчёта
-    #: судьи физически не доезжает. Отличать от ``used_by_rules`` обязательно:
-    #: иначе отчёт о покрытии сказал бы, что норма «используется движком
-    #: правил», хотя ни один прогон анализа её не читает.
     draft_rule_only: bool
     history_verified: bool
     version_count: int
@@ -99,7 +92,7 @@ def analyze_norm(norm: LegalNorm, versions: list[NormVersion]) -> NormCoverage:
     gaps: list[tuple[date, date]] = []
     for earlier, later in zip(ordered, ordered[1:], strict=False):
         if earlier.effective_to is None:
-            continue  # пересечение — забота NormStore
+            continue
         expected_next = earlier.effective_to + _DAY
         if expected_next < later.effective_from:
             gaps.append((expected_next, later.effective_from - _DAY))
@@ -116,6 +109,39 @@ def analyze_norm(norm: LegalNorm, versions: list[NormVersion]) -> NormCoverage:
         gaps=tuple(gaps),
         statuses=tuple(v.verification_status.value for v in ordered),
     )
+
+
+@dataclass(frozen=True)
+class HistoryCaveat:
+    """Почему редакция нормы на дату дела определена менее надёжно, чем текст."""
+
+    ref: str
+    kind: str
+    since: date
+    days_since: int = 0
+
+
+def history_caveats(
+    norm: LegalNorm, versions: list[NormVersion], version_id: str, applicable_at: date
+) -> list[HistoryCaveat]:
+    """Оговорки к применённой редакции на дату ``applicable_at``.
+
+    ``unrecorded`` - история изменений нормы не сверена, единственная
+    редакция действует дольше десяти лет. ``near_boundary`` - дата дела
+    не позже ``BOUNDARY_WINDOW_DAYS`` после начала не первой редакции:
+    источник даёт дату акта, а закон может вступать в силу позже.
+    """
+    ordered = sorted(versions, key=lambda v: v.effective_from)
+    coverage = analyze_norm(norm, ordered)
+    caveats: list[HistoryCaveat] = []
+    if coverage.history_unrecorded(applicable_at):
+        caveats.append(HistoryCaveat(norm.ref, "unrecorded", coverage.covered_from))
+    applied = next((v for v in ordered if v.version_id == version_id), None)
+    if applied is not None and applied is not ordered[0]:
+        days = (applicable_at - applied.effective_from).days
+        if 0 <= days <= BOUNDARY_WINDOW_DAYS:
+            caveats.append(HistoryCaveat(norm.ref, "near_boundary", applied.effective_from, days))
+    return caveats
 
 
 def analyze_store(store: NormStore) -> list[NormCoverage]:
@@ -146,10 +172,7 @@ def format_report(coverages: list[NormCoverage], as_of: date | None = None) -> s
     header = f"{'норма':<34} {'ред.':>4} {'правила':>8}  интервал"
     lines += [header, "-" * 78]
     for c in coverages:
-        span = f"{c.covered_from.isoformat()} → {c.covered_to.isoformat() if c.covered_to else 'н/в'}"
-        # «чрк» — норма упомянута только в написанном, но не активированном
-        # правиле: не путать с «да», иначе отчёт скажет, что она уже
-        # работает в анализе, хотя ни один прогон её не читает.
+        span = f"{c.covered_from.isoformat()} -> {c.covered_to.isoformat() if c.covered_to else 'н/в'}"
         mark = "чрк" if c.draft_rule_only else "да" if c.rule_relevant else "—"
         lines.append(f"{c.ref:<34} {c.version_count:>4} {mark:>8}  {span}")
         for start, end in c.gaps:
@@ -178,7 +201,7 @@ def format_report(coverages: list[NormCoverage], as_of: date | None = None) -> s
     lines += [
         "",
         "Единственная открытая редакция означает утверждение «норма с тех пор",
-        "не менялась». Оно должно быть либо подтверждено сверкой, либо",
-        "заменено фактическими редакциями: см. docs/DATA_SOURCES.md.",
+        "не менялась». Оно должно быть либо подтверждено сверкой (norms-confirm-history),",
+        "либо заменено фактическими редакциями: см. docs/NORM_COVERAGE.md.",
     ]
     return "\n".join(lines)

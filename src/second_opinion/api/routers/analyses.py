@@ -3,24 +3,25 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
+from ...fact_values import FactValidationError
 from ...pipeline import (
     UNSET_VALUE,
     AnalysisNotFound,
     AnalysisPipeline,
     DocumentNotFound,
     FactNotFound,
-    FactValidationError,
 )
 from ..errors import human_message
+from ..ownership import require_owner
 from ..request_context import actor
 from ..schemas import AnalysisReportResponse, DeletedResponse, HistoryResponse
 
-#: Тип содержимого .docx — заключение для подшивки в дело (ФТ-34).
 DOCX_MEDIA_TYPE = (
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 )
@@ -29,6 +30,7 @@ DOCX_MEDIA_TYPE = (
 class FactUpdatePayload(BaseModel):
     status: str | None = None
     value: Any = None
+    reason: str | None = None
 
 
 class FactAddPayload(BaseModel):
@@ -88,15 +90,20 @@ def build_router(pipeline: AnalysisPipeline) -> APIRouter:
             )
         return {"scope": effective_scope, "total": len(items), "items": items}
 
-    @router.get("/{analysis_id}")
-    def get_analysis(analysis_id: str) -> AnalysisReportResponse:
+    def _own_analysis(analysis_id: str, request: Request):  # noqa: ANN202
         report = pipeline.get_analysis(analysis_id)
         if report is None:
             raise HTTPException(status_code=404, detail="отчёт не найден")
+        require_owner(report.owner, request, "отчёт не найден")
         return report
+
+    @router.get("/{analysis_id}")
+    def get_analysis(analysis_id: str, request: Request) -> AnalysisReportResponse:
+        return _own_analysis(analysis_id, request)
 
     @router.delete("/{analysis_id}")
     def delete_analysis(analysis_id: str, request: Request) -> DeletedResponse:
+        _own_analysis(analysis_id, request)
         try:
             pipeline.delete_analysis(analysis_id, actor=actor(request))
         except AnalysisNotFound as exc:
@@ -105,9 +112,6 @@ def build_router(pipeline: AnalysisPipeline) -> APIRouter:
 
     @router.get(
         "/{analysis_id}/document",
-        # Ответ — файл, а не JSON. Без явного описания схема объявляла бы его
-        # «любым объектом», и по спецификации нельзя было бы понять, что
-        # эндпойнт отдаёт документ.
         response_class=Response,
         responses={
             200: {
@@ -118,7 +122,9 @@ def build_router(pipeline: AnalysisPipeline) -> APIRouter:
             }
         },
     )
-    def download_analysis_document(analysis_id: str, mask: bool = False) -> Response:
+    def download_analysis_document(
+        analysis_id: str, request: Request, mask: bool = False
+    ) -> Response:
         """Заключение в .docx — файл, который можно подшить в дело.
 
         Печать из браузера годится посмотреть, но не переслать и не приложить
@@ -130,22 +136,21 @@ def build_router(pipeline: AnalysisPipeline) -> APIRouter:
         """
         from ...export import build_docx
 
-        report = pipeline.get_analysis(analysis_id)
-        if report is None:
-            raise HTTPException(status_code=404, detail="отчёт не найден")
+        report = _own_analysis(analysis_id, request)
         try:
             document = pipeline.get_document(report.document_id)
         except DocumentNotFound:
-            # Документ удалён по праву на забвение, отчёт остался: заключение
-            # собирается без реквизитов файла, а не падает.
             document = None
         payload = build_docx(report, document, mask_personal_data=mask)
+        readable_name = f"Заключение_{analysis_id[:8]}.docx"
+        ascii_fallback = f"zaklyuchenie_{analysis_id[:8]}.docx"
         return Response(
             content=payload,
             media_type=DOCX_MEDIA_TYPE,
             headers={
                 "Content-Disposition": (
-                    f'attachment; filename="second-opinion-{analysis_id[:8]}.docx"'
+                    f'attachment; filename="{ascii_fallback}"; '
+                    f"filename*=UTF-8''{quote(readable_name)}"
                 )
             },
         )
@@ -158,6 +163,7 @@ def build_router(pipeline: AnalysisPipeline) -> APIRouter:
 
         Цитата обязана дословно находиться в тексте документа.
         """
+        _own_analysis(analysis_id, request)
         try:
             report = pipeline.add_fact(
                 analysis_id,
@@ -183,6 +189,7 @@ def build_router(pipeline: AnalysisPipeline) -> APIRouter:
 
         Отчёт пересчитывается детерминированным движком.
         """
+        _own_analysis(analysis_id, request)
         value = payload.value if "value" in payload.model_fields_set else UNSET_VALUE
         try:
             report = pipeline.update_fact(
@@ -190,6 +197,7 @@ def build_router(pipeline: AnalysisPipeline) -> APIRouter:
                 fact_id,
                 status=payload.status,
                 value=value,
+                reason=payload.reason,
                 actor=actor(request),
             )
         except (AnalysisNotFound, FactNotFound) as exc:

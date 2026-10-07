@@ -20,23 +20,32 @@ class NormStore:
     """Хранилище норм с временны́ми редакциями.
 
     ``get_norm(norm_id, applicable_at)`` возвращает редакцию, действовавшую
-    на указанную дату (см. docs/ADR/ADR-002).
+    на указанную дату.
     """
 
     def __init__(self) -> None:
         self._norms: dict[str, LegalNorm] = {}
         self._versions: dict[str, list[NormVersion]] = {}
 
-    # -- загрузка
-
     @classmethod
     def from_directory(cls, directory: Path) -> NormStore:
         store = cls()
+        store.reload_from_directory(directory)
+        return store
+
+    def reload_from_directory(self, directory: Path) -> None:
+        """Перечитать корпус на месте, не создавая новый объект.
+
+        ``add_norm`` перезаписывает запись по ``norm_id``, поэтому повторная
+        загрузка тех же файлов безопасна. В отличие от ``from_directory``,
+        существующие держатели этого хранилища (``AnalysisPipeline``,
+        ``AnalysisDerivation``) сразу видят обновление — без этого правка
+        корпуса через веб-интерфейс требовала бы перезапуска процесса.
+        """
         for path in sorted(Path(directory).glob("*.json")):
             if path.name == MANIFEST_NAME:
                 continue
-            store.load_file(path)
-        return store
+            self.load_file(path)
 
     def load_file(self, path: Path) -> None:
         with Path(path).open(encoding="utf-8") as fh:
@@ -61,17 +70,11 @@ class NormStore:
                 version = dict(version)
                 sha256 = version.get("sha256", "")
                 if not sha256 or sha256 == UNSEALED:
-                    # Сумма не подставляется на лету: тогда любая правка
-                    # текста подтверждала бы саму себя, и контроль целостности
-                    # стал бы тавтологией.
                     raise UnsealedNormError(
                         f"норма {norm.norm_id} версия {version['version_id']}: "
                         "контрольная сумма не заполнена — опечатайте корпус "
                         "командой `second-opinion norms-seal`"
                     )
-                # Источник берётся из самой редакции, а при отсутствии — из
-                # шапки файла: ``setdefault``, а не отдельный аргумент, иначе
-                # редакция со своим ``source_document`` дублирует ключ.
                 version.setdefault("source_document", source_document)
                 versions.append(NormVersion(**version))
             self.add_norm(norm, versions)
@@ -91,8 +94,6 @@ class NormStore:
         self._versions[norm.norm_id] = sorted(
             versions, key=lambda v: v.effective_from
         )
-
-    # -- запросы
 
     def get_norm_meta(self, norm_id: str) -> LegalNorm:
         try:
@@ -118,10 +119,19 @@ class NormStore:
         )
 
     def find_by_article(
-        self, code: str, article: int, part: int | None
+        self,
+        code: str,
+        article: int,
+        part: int | None,
+        article_suffix: str | None = None,
     ) -> LegalNorm | None:
         for norm in self._norms.values():
-            if norm.code == code and norm.article == article and norm.part == part:
+            if (
+                norm.code == code
+                and norm.article == article
+                and norm.part == part
+                and norm.article_suffix == article_suffix
+            ):
                 return norm
         return None
 
