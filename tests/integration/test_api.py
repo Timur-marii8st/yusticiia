@@ -96,6 +96,25 @@ def test_analyze_with_explicit_applicable_at(client, sample_clean_text) -> None:
     assert response.json()["applicable_at"] == "2024-06-01"
 
 
+@pytest.mark.parametrize("bad", ["вчера", "2024-13-01", "01.06.2024", "2024-06-01T10:00"])
+def test_analyze_rejects_a_malformed_applicable_at(client, sample_clean_text, bad: str) -> None:
+    """Явно названная дата, которую не удалось прочитать, не заменяется молча сегодняшней."""
+    document_id = _upload(client, sample_clean_text)
+
+    response = client.post(f"/api/v1/documents/{document_id}/analyze", json={"applicable_at": bad})
+
+    assert response.status_code == 422
+    assert "ГГГГ-ММ-ДД" in response.json()["detail"]
+
+
+def test_analyze_treats_a_blank_applicable_at_as_missing(client, sample_clean_text) -> None:
+    document_id = _upload(client, sample_clean_text)
+
+    response = client.post(f"/api/v1/documents/{document_id}/analyze", json={"applicable_at": "  "})
+
+    assert response.status_code == 200
+
+
 def test_norm_temporal_endpoint(client) -> None:
     response = client.get(
         "/api/v1/norms/uk-rf:art-999-synthetic", params={"applicable_at": "2022-06-01"}

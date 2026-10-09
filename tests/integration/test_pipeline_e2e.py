@@ -128,7 +128,7 @@ def test_suspended_boundary_exactly_eight_years_passes_r006(pipeline) -> None:
 
 def test_analysis_is_reproducible_across_pipeline_instances(tmp_path) -> None:
     """Воспроизводимость: два независимых конвейера дают одинаковый
-    содержательный результат по одному документу (ADR-001: детерминизм)."""
+    содержательный результат по одному документу (детерминизм)."""
     from second_opinion.api.deps import build_pipeline
     from second_opinion.config import AppConfig
 

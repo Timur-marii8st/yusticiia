@@ -40,7 +40,7 @@ def test_bootstrap_password_is_verifiable(empty_users) -> None:
 
 
 def test_bootstrap_refuses_when_admin_exists() -> None:
-    """Второй админ заводится через API, чтобы попасть в аудит."""
+    """Второй админ заводится командой create-user, чтобы попасть в аудит."""
     with pytest.raises(AdminAlreadyExistsError):
         bootstrap_admin("second@court.example.ru", "надёжный-пароль-2026")
 

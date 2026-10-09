@@ -6,7 +6,7 @@ from typing import Any
 from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import Response
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 
 from ...fact_values import FactValidationError
@@ -25,6 +25,17 @@ from ..schemas import AnalysisReportResponse, DeletedResponse, HistoryResponse
 DOCX_MEDIA_TYPE = (
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 )
+
+
+def _preparer(report: Any):
+    """Данные личного кабинета того, кто выполнил анализ; без учётной записи их нет."""
+    from ...auth.service import get_auth_service
+    from ...export import Preparer
+
+    user = get_auth_service().get_user(report.owner) if report.owner else None
+    if user is None:
+        return None
+    return Preparer(user.full_name, str(user.email), user.role.value)
 
 
 class FactUpdatePayload(BaseModel):
@@ -97,6 +108,12 @@ def build_router(pipeline: AnalysisPipeline) -> APIRouter:
         require_owner(report.owner, request, "отчёт не найден")
         return report
 
+    def _document_of(report):  # noqa: ANN202
+        try:
+            return pipeline.get_document(report.document_id)
+        except DocumentNotFound:
+            return None
+
     @router.get("/{analysis_id}")
     def get_analysis(analysis_id: str, request: Request) -> AnalysisReportResponse:
         return _own_analysis(analysis_id, request)
@@ -137,11 +154,9 @@ def build_router(pipeline: AnalysisPipeline) -> APIRouter:
         from ...export import build_docx
 
         report = _own_analysis(analysis_id, request)
-        try:
-            document = pipeline.get_document(report.document_id)
-        except DocumentNotFound:
-            document = None
-        payload = build_docx(report, document, mask_personal_data=mask)
+        payload = build_docx(
+            report, _document_of(report), mask_personal_data=mask, prepared_by=_preparer(report)
+        )
         readable_name = f"Заключение_{analysis_id[:8]}.docx"
         ascii_fallback = f"zaklyuchenie_{analysis_id[:8]}.docx"
         return Response(
@@ -154,6 +169,26 @@ def build_router(pipeline: AnalysisPipeline) -> APIRouter:
                 )
             },
         )
+
+    @router.get(
+        "/{analysis_id}/print",
+        response_class=HTMLResponse,
+        responses={
+            200: {
+                "description": "Печатная форма заключения: тот же лист, что в .docx",
+                "content": {"text/html": {"schema": {"type": "string"}}},
+            }
+        },
+    )
+    def print_analysis(analysis_id: str, request: Request, mask: bool = False) -> HTMLResponse:
+        """Печатная форма заключения: то же содержание, что в .docx, страницей HTML."""
+        from ...export import build_html
+
+        report = _own_analysis(analysis_id, request)
+        page = build_html(
+            report, _document_of(report), mask_personal_data=mask, prepared_by=_preparer(report)
+        )
+        return HTMLResponse(page)
 
     @router.post("/{analysis_id}/facts")
     def add_fact(

@@ -23,6 +23,23 @@ def test_index_has_a11y_landmarks(pipeline) -> None:
     assert 'lang="ru"' in html
 
 
+def test_interface_has_no_password_or_account_forms(pipeline) -> None:
+    client = TestClient(create_app(pipeline))
+    html = client.get("/").text
+    js = client.get("/static/app.js").text
+
+    assert "password-box" not in html and "pw-change-btn" not in html
+    assert "change-password" not in js and "/auth/users" not in js
+
+
+def test_corpus_edit_forms_are_for_administrators_only(pipeline) -> None:
+    client = TestClient(create_app(pipeline))
+    js = client.get("/static/app.js").text
+
+    assert 'if (accountRole === "admin") li.appendChild(normEditBox(norm));' in js
+    assert "может только администратор" in client.get("/").text
+
+
 def test_app_js_disclosure_is_keyboard_accessible(pipeline) -> None:
     client = TestClient(create_app(pipeline))
     js = client.get("/static/app.js").text

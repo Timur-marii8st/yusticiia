@@ -1,4 +1,4 @@
-"""Хранилища пользователей и auth-служебных данных (ADR-006).
+"""Хранилища пользователей и auth-служебных данных.
 
 Файловое — дефолт (``SO_STORAGE_BACKEND=file``): пользователи переживают
 перезапуск, поэтому личный кабинет работает «из коробки». In-memory —
@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import threading
 from datetime import UTC, datetime
@@ -21,6 +22,8 @@ from ..storage.repositories import atomic_write_json
 from ..storage.sql import safe_sql_identifier
 
 _SAFE_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
+
+logger = logging.getLogger(__name__)
 
 
 class UserStore(Protocol):
@@ -101,6 +104,7 @@ class PostgresUserStore:
         self._users_table = f"{p}users" if p else "users"
         self._blacklist_table = f"{p}auth_refresh_blacklist" if p else "auth_refresh_blacklist"
         self._audit_table = f"{p}auth_login_audit" if p else "auth_login_audit"
+        self._view = f"{p}user_accounts" if p else "user_accounts"
         self._lock = threading.Lock()
         self._ensure_tables()
 
@@ -122,6 +126,29 @@ class PostgresUserStore:
                 f"CREATE TABLE IF NOT EXISTS {self._audit_table} ("  # noqa: S608
                 "id text PRIMARY KEY, data jsonb NOT NULL)"
             )
+            self._ensure_account_views(conn)
+
+    def _ensure_account_views(self, conn) -> None:
+        """Уникальный адрес на уровне базы и читаемое представление учётных записей.
+
+        Источник истины остаётся ``data`` (JSONB). Представление ``user_accounts``
+        показывает адрес, роль и состояние обычными столбцами для запросов
+        администратора базы; менять записи нужно командами ``second-opinion``.
+        """
+        try:
+            conn.execute(
+                f"CREATE UNIQUE INDEX IF NOT EXISTS {self._users_table}_email_key "  # noqa: S608
+                f"ON {self._users_table} ((lower(data->>'email')))"
+            )
+        except self._psycopg.Error as exc:
+            logger.warning("уникальный индекс адресов не создан: %s", exc)
+        conn.execute(
+            f"CREATE OR REPLACE VIEW {self._view} AS "  # noqa: S608
+            "SELECT id AS user_id, data->>'email' AS email, data->>'full_name' AS full_name, "
+            "data->>'role' AS role, (data->>'is_active')::boolean AS is_active, "
+            "data->>'created_at' AS created_at, data->>'last_login' AS last_login "
+            f"FROM {self._users_table}"
+        )
 
     def save_user(self, user: User) -> None:
         payload = user.model_dump_json()
@@ -216,7 +243,7 @@ class JsonFileUserStore:
 
     In-memory теряет пользователей при перезапуске, из-за чего личный
     кабинет был недостижим на дефолтной конфигурации. Postgres остаётся
-    вариантом для многопользовательского режима (ADR-006).
+    вариантом для многопользовательского режима.
     """
 
     def __init__(self, directory: Path) -> None:

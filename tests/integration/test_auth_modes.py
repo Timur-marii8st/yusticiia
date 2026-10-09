@@ -122,4 +122,4 @@ def test_password_change_is_checked_too(pipeline) -> None:
     service = get_auth_service()
     user = service.get_user_by_email("admin@example.com")
     with pytest.raises(ValueError, match="короче"):
-        service.change_password(user, "admin123", "korotk")
+        service.set_password(user.user_id, "korotk")

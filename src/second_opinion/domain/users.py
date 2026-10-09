@@ -32,10 +32,6 @@ class User(BaseModel):
     password_history: list[str] = Field(default_factory=list)
     failed_login_attempts: int = 0
     locked_until: datetime | None = None
-    totp_enabled: bool = False
-    totp_secret: str = ""
-    totp_pending_secret: str = ""
-    totp_last_step: int = 0
 
     password_hash: str = ""
 

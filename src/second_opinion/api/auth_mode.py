@@ -1,4 +1,4 @@
-"""Режимы авторизации API (ФТ-40, ADR-008). Описание — в docs/SECURITY.md."""
+"""Режимы авторизации API (ФТ-40). Описание — в docs/SECURITY.md."""
 
 from __future__ import annotations
 

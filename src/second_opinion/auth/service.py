@@ -10,7 +10,6 @@ import jwt
 
 from ..config import AppConfig, load_config
 from ..domain.users import LoginAttempt, TokenPair, TokenPayload, User, UserRole
-from . import totp
 from .passwords import (
     MAX_PASSWORD_BYTES,
     hash_password,
@@ -42,10 +41,7 @@ def ensure_password_length(password: str, minimum: int) -> None:
     и пропуск хотя бы одного из них обнуляет всю политику.
     """
     if len(password) < minimum:
-        raise ValueError(
-            f"пароль короче {minimum} символов; это минимальная длина, "
-            "заданная SO_PASSWORD_MIN_LENGTH"
-        )
+        raise ValueError(f"пароль короче {minimum} символов")
 
 
 def resolve_jwt_secret(config: AppConfig) -> str:
@@ -88,18 +84,6 @@ class AccountLockedError(ValueError):
 
 class LastAdminError(ValueError):
     """Действие оставило бы систему без активного администратора."""
-
-
-class MfaRequiredError(ValueError):
-    """Пароль верен, но у учётной записи включён второй фактор, а код не передан."""
-
-
-class MfaEnrollmentRequiredError(ValueError):
-    """Администратору обязателен второй фактор, а он ещё не включён."""
-
-
-class InvalidSecondFactorError(ValueError):
-    """Код второго фактора неверен или уже использован."""
 
 
 class AuthService:
@@ -151,6 +135,12 @@ class AuthService:
                 return InMemoryUserStore()
         return JsonFileUserStore(cfg.store_dir / "auth")
 
+    def _minimum_length(self, role: UserRole) -> int:
+        """Администратору пароль не короче 12 символов, остальным ``SO_PASSWORD_MIN_LENGTH``."""
+        if role is UserRole.ADMIN:
+            return max(self._password_min_length, MIN_ADMIN_PASSWORD_LENGTH)
+        return self._password_min_length
+
     def create_user(
         self,
         email: str,
@@ -159,7 +149,7 @@ class AuthService:
         role: UserRole = UserRole.JUDGE,
     ) -> User:
         """Создать нового пользователя."""
-        ensure_password_length(password, self._password_min_length)
+        ensure_password_length(password, self._minimum_length(role))
         if self._store.get_user_by_email(email):
             raise ValueError(f"Пользователь с email {email} уже существует")
 
@@ -224,7 +214,7 @@ class AuthService:
         ][: self._password_history_depth]
 
     def _apply_new_password(self, user: User, new_password: str) -> None:
-        ensure_password_length(new_password, self._password_min_length)
+        ensure_password_length(new_password, self._minimum_length(user.role))
         self._check_password_reuse(user, new_password)
         self._remember_password(user)
         user.password_hash = hash_password(new_password)
@@ -233,14 +223,12 @@ class AuthService:
         user.locked_until = None
         self.save_user(user)
 
-    def authenticate(self, email: str, password: str, otp: str | None = None) -> User | None:
+    def authenticate(self, email: str, password: str) -> User | None:
         """Проверить учётные данные пользователя.
 
         При истёкшем пароле — ``PasswordExpiredError``, при активной
-        блокировке — ``AccountLockedError`` (вход запрещён, но существующая
-        сессия может сменить пароль). Если включён второй фактор, а код не
-        передан, — ``MfaRequiredError``; неверный код считается неудачной
-        попыткой наравне с неверным паролем.
+        блокировке — ``AccountLockedError``. Новый пароль задаёт только
+        оператор (``set_password`` из команды ``reset-password``).
         """
         user = self.get_user_by_email(email)
         if not user or not user.is_active:
@@ -265,7 +253,6 @@ class AuthService:
                 )
             )
             return None
-        self._check_second_factor(user, email, otp)
         user.failed_login_attempts = 0
         user.locked_until = None
         self.save_user(user)
@@ -275,7 +262,9 @@ class AuthService:
                     email=email, user_id=user.user_id, success=False, reason="password_expired"
                 )
             )
-            raise PasswordExpiredError("Срок действия пароля истёк — смените пароль")
+            raise PasswordExpiredError(
+                "Срок действия пароля истёк — обратитесь к администратору для сброса пароля"
+            )
         self._store.record_login(
             LoginAttempt(email=email, user_id=user.user_id, success=True, reason="ok")
         )
@@ -287,85 +276,6 @@ class AuthService:
             user.locked_until = datetime.now(UTC) + timedelta(minutes=self._login_lockout_minutes)
         self.save_user(user)
 
-    def _check_second_factor(self, user: User, email: str, otp: str | None) -> None:
-        """Проверить код после верного пароля; счётчик неудач сбрасывается только после него."""
-        if not user.totp_enabled:
-            if self._config.admin_mfa_required and user.role is UserRole.ADMIN:
-                self._store.record_login(
-                    LoginAttempt(
-                        email=email, user_id=user.user_id, success=False, reason="mfa_enrollment"
-                    )
-                )
-                raise MfaEnrollmentRequiredError(
-                    "Для администратора обязателен второй фактор: попросите оператора "
-                    "выполнить `second-opinion mfa-setup`"
-                )
-            return
-        if not otp:
-            self._store.record_login(
-                LoginAttempt(
-                    email=email, user_id=user.user_id, success=False, reason="mfa_required"
-                )
-            )
-            raise MfaRequiredError("Требуется код из приложения-аутентификатора")
-        step = totp.verify(user.totp_secret, otp, after_step=user.totp_last_step)
-        if step is None:
-            self._register_failure(user)
-            self._store.record_login(
-                LoginAttempt(email=email, user_id=user.user_id, success=False, reason="bad_otp")
-            )
-            raise InvalidSecondFactorError
-        user.totp_last_step = step
-
-    def mfa_begin_setup(self, user: User) -> tuple[str, str]:
-        """Выпустить секрет для привязки приложения: действует после ``mfa_enable``."""
-        if user.totp_enabled:
-            raise ValueError("Второй фактор уже включён")
-        secret = totp.generate_secret()
-        user.totp_pending_secret = secret
-        self.save_user(user)
-        return secret, totp.provisioning_uri(secret, user.email)
-
-    def mfa_enable(self, user: User, code: str) -> None:
-        """Включить второй фактор, подтвердив его кодом из приложения."""
-        if user.totp_enabled:
-            raise ValueError("Второй фактор уже включён")
-        if not user.totp_pending_secret:
-            raise ValueError("Сначала запросите секрет: POST /auth/mfa/setup")
-        step = totp.verify(user.totp_pending_secret, code)
-        if step is None:
-            raise ValueError("Код не подошёл: проверьте время на устройстве и повторите")
-        user.totp_secret = user.totp_pending_secret
-        user.totp_pending_secret = ""
-        user.totp_enabled = True
-        user.totp_last_step = step
-        self.save_user(user)
-
-    def mfa_disable(self, user: User, password: str, code: str) -> None:
-        """Отключить второй фактор: нужны пароль и действующий код."""
-        if not user.totp_enabled:
-            raise ValueError("Второй фактор не включён")
-        if self._config.admin_mfa_required and user.role is UserRole.ADMIN:
-            raise ValueError("Для администратора второй фактор обязателен и не отключается")
-        if not verify_password(password, user.password_hash):
-            raise ValueError("Пароль неверен")
-        step = totp.verify(user.totp_secret, code, after_step=user.totp_last_step)
-        if step is None:
-            raise ValueError("Код не подошёл")
-        self.mfa_reset(user.user_id)
-
-    def mfa_reset(self, user_id: str) -> User | None:
-        """Снять второй фактор без проверки кода: действие администратора или оператора."""
-        user = self.get_user(user_id)
-        if not user:
-            return None
-        user.totp_enabled = False
-        user.totp_secret = ""
-        user.totp_pending_secret = ""
-        user.totp_last_step = 0
-        self.save_user(user)
-        return user
-
     def set_password(self, user_id: str, new_password: str) -> User | None:
         """Установить новый пароль (admin-сброс): обновляет метку смены."""
         user = self.get_user(user_id)
@@ -373,14 +283,6 @@ class AuthService:
             return None
         self._apply_new_password(user, new_password)
         return user
-
-    def change_password(self, user: User, current_password: str, new_password: str) -> None:
-        """Смена пароля владельцем с проверкой текущего."""
-        if not verify_password(current_password, user.password_hash):
-            raise ValueError("Текущий пароль неверен")
-        if new_password == current_password:
-            raise ValueError("Новый пароль не должен совпадать с текущим")
-        self._apply_new_password(user, new_password)
 
     def update_last_login(self, user_id: str) -> None:
         """Обновить время последнего входа."""
@@ -406,9 +308,9 @@ class AuthService:
         """Проверить, что после изменения останется активный администратор.
 
         Снятие роли, деактивация и удаление последнего администратора
-        делают управление учётными записями недоступным никому: завести
-        нового админа через API уже нельзя, останется только бутстрап с
-        остановкой сервиса. Удаление здесь равнозначно деактивации.
+        оставляют систему без администратора: корпус норм править будет
+        некому, а завести нового администратора можно только командой
+        оператора. Удаление здесь равнозначно деактивации.
         """
         admins = self._active_admin_ids()
         if user_id not in admins:
@@ -545,12 +447,12 @@ def bootstrap_admin(
 ) -> User:
     """Завести первого администратора.
 
-    Без этого личный кабинет недостижим: ``POST /auth/users`` сам требует
-    роль ``admin``, то есть первую учётку через API не создать. Пароля по
+    Без этого личный кабинет недостижим: учётные записи заводятся только
+    командами оператора, а первой записи для входа ещё нет. Пароля по
     умолчанию нет намеренно — он задаётся оператором.
 
     Повторный вызов при уже существующем активном администраторе
-    отклоняется: заводить следующих админов следует через API, где
+    отклоняется: следующих пользователей заводит ``create-user``, где
     действие попадает в аудит.
     """
     auth = get_auth_service()
@@ -558,7 +460,7 @@ def bootstrap_admin(
     if existing:
         raise AdminAlreadyExistsError(
             "активный администратор уже существует "
-            f"({existing[0].email}) — создавайте учётки через POST /auth/users"
+            f"({existing[0].email}) — создавайте учётки командой create-user"
         )
     validate_admin_password(password)
     return auth.create_user(

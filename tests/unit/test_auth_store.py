@@ -105,11 +105,9 @@ def test_api_audit_requires_admin(pipeline) -> None:
         "/auth/login", json={"email": "admin@example.com", "password": "admin123"}
     ).json()["tokens"]["access_token"]
 
-    client.post(
-        "/auth/users",
-        json={"email": "judge2@example.com", "password": "judgepass1", "full_name": "J"},
-        headers={"Authorization": f"Bearer {admin}"},
-    )
+    from second_opinion.auth.service import get_auth_service
+
+    get_auth_service().create_user("judge2@example.com", "judgepass1", "J")
     client.post("/auth/login", json={"email": "judge2@example.com", "password": "wrong"})
 
     audit = client.get("/auth/audit", headers={"Authorization": f"Bearer {admin}"})
@@ -124,48 +122,35 @@ def test_api_audit_requires_admin(pipeline) -> None:
     assert forbidden.status_code == 403
 
 
-def test_api_admin_password_reset_refreshes_expiry(pipeline, monkeypatch) -> None:
-    from second_opinion.auth.service import get_auth_service
-
+def test_password_reset_refreshes_expiry(monkeypatch) -> None:
     monkeypatch.setenv("SO_PASSWORD_MAX_AGE_DAYS", "30")
-    client = TestClient(create_app(pipeline, auth_token="test-secret"))
-    admin = client.post(
-        "/auth/login", json={"email": "admin@example.com", "password": "admin123"}
-    ).json()["tokens"]["access_token"]
-    headers = {"Authorization": f"Bearer {admin}"}
+    from second_opinion.config import load_config
 
-    created = client.post(
-        "/auth/users",
-        json={"email": "exp@example.com", "password": "longpass12", "full_name": "E"},
-        headers=headers,
-    )
-    uid = created.json()["user_id"]
-
-    auth = get_auth_service()
-    user = auth.get_user(uid)
-    assert user is not None
+    load_config.cache_clear()
+    auth = _service()
+    user = auth.create_user("exp@example.com", "longpass12", "E")
     user.password_changed_at = datetime.now(UTC) - timedelta(days=60)
     auth.save_user(user)
+    assert auth.is_password_expired(auth.get_user(user.user_id)) is True
 
-    resp = client.patch(f"/auth/users/{uid}", json={"password": "newlongpass3"}, headers=headers)
-    assert resp.status_code == 200
-    assert auth.is_password_expired(auth.get_user(uid)) is False
+    auth.set_password(user.user_id, "newlongpass3")
 
+    assert auth.is_password_expired(auth.get_user(user.user_id)) is False
 
 
 def test_password_history_rejects_reuse() -> None:
     auth = _service()
     user = auth.create_user("u@example.com", "longpassword1", "U")
-    auth.change_password(user, "longpassword1", "longpassword2")
+    auth.set_password(user.user_id, "longpassword2")
     with pytest.raises(ValueError, match="последних паролей"):
-        auth.change_password(auth.get_user(user.user_id), "longpassword2", "longpassword1")
+        auth.set_password(user.user_id, "longpassword1")
 
 
 def test_password_history_depth_zero_disables_check() -> None:
     auth = AuthService(store=InMemoryUserStore(), password_history_depth=0)
     user = auth.create_user("u@example.com", "longpassword1", "U")
-    auth.change_password(user, "longpassword1", "longpassword2")
-    auth.change_password(auth.get_user(user.user_id), "longpassword2", "longpassword1")
+    auth.set_password(user.user_id, "longpassword2")
+    auth.set_password(user.user_id, "longpassword1")
     assert auth.authenticate("u@example.com", "longpassword1") is not None
 
 
@@ -250,3 +235,17 @@ def test_unknown_email_still_pays_password_check_cost(monkeypatch) -> None:
 
     auth.authenticate("known@example.com", "неверный-пароль")
     assert calls == [1], "по известному адресу заглушка не нужна — считался реальный хэш"
+
+
+def test_administrator_password_needs_twelve_characters_on_every_path() -> None:
+    from second_opinion.domain.users import UserRole
+
+    auth = _service()
+
+    with pytest.raises(ValueError, match="короче 12"):
+        auth.create_user("root@example.com", "tenchars12", "Админ", UserRole.ADMIN)
+    root = auth.create_user("root@example.com", "twelve-chars-1", "Админ", UserRole.ADMIN)
+    with pytest.raises(ValueError, match="короче 12"):
+        auth.set_password(root.user_id, "tenchars12")
+    judge = auth.create_user("judge@example.com", "tenchars12", "Судья")
+    auth.set_password(judge.user_id, "tenchars34")

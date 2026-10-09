@@ -202,6 +202,6 @@ def format_report(coverages: list[NormCoverage], as_of: date | None = None) -> s
         "",
         "Единственная открытая редакция означает утверждение «норма с тех пор",
         "не менялась». Оно должно быть либо подтверждено сверкой (norms-confirm-history),",
-        "либо заменено фактическими редакциями: см. docs/NORM_COVERAGE.md.",
+        "либо заменено фактическими редакциями: см. docs/DATA_SOURCES.md.",
     ]
     return "\n".join(lines)

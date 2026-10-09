@@ -227,7 +227,6 @@ class MeResponse(BaseModel):
     full_name: str
     role: UserRole
     is_active: bool
-    mfa_enabled: bool = False
 
 
 class UserResponse(BaseModel):
@@ -240,16 +239,10 @@ class UserResponse(BaseModel):
     is_active: bool
     created_at: datetime
     last_login: datetime | None = None
-    mfa_enabled: bool = False
 
 
 class MessageResponse(BaseModel):
     message: str
-
-
-class MfaSetupResponse(BaseModel):
-    secret: str = Field(description="секрет для ручного ввода в приложение-аутентификатор")
-    otpauth_uri: str = Field(description="адрес otpauth:// для импорта секрета")
 
 
 class LoginAttemptResponse(BaseModel):
@@ -275,7 +268,6 @@ __all__ = [
     "LoginResponse",
     "MeResponse",
     "MessageResponse",
-    "MfaSetupResponse",
     "MetricsResponse",
     "MetricsSnapshot",
     "NormCoverageItem",

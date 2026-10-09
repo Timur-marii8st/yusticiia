@@ -29,7 +29,15 @@ from .redactions import (
     norms_trace_history,
     redactions_report,
 )
-from .serve import create_admin, mfa_reset, mfa_setup, serve
+from .serve import (
+    create_admin,
+    create_user,
+    delete_user,
+    list_users,
+    reset_password,
+    serve,
+    update_user,
+)
 
 __all__ = ["build_parser", "main"]
 
@@ -54,31 +62,59 @@ def _add_service_commands(sub: argparse._SubParsersAction) -> None:
         ),
     )
 
-    mfa_p = sub.add_parser(
-        "mfa-setup",
-        help="привязать приложение-аутентификатор к учётной записи (второй фактор)",
+    user_p = sub.add_parser(
+        "create-user",
+        help="завести учётную запись судьи, помощника или администратора",
     )
-    mfa_p.add_argument("--email", required=True)
-    mfa_p.add_argument(
-        "--code",
+    user_p.add_argument("--email", required=True)
+    user_p.add_argument("--full-name", required=True)
+    user_p.add_argument("--role", choices=["judge", "clerk", "admin"], default="judge")
+    user_p.add_argument(
+        "--password",
         default=None,
-        help="код из приложения: подтверждает привязку; без него печатается секрет",
+        help=(
+            "пароль; по умолчанию берётся из SO_NEW_PASSWORD либо запрашивается в "
+            "терминале (в историю оболочки не попадает)"
+        ),
     )
 
-    mfa_reset_p = sub.add_parser(
-        "mfa-reset", help="снять второй фактор с учётной записи (потерян телефон)"
+    sub.add_parser("list-users", help="показать заведённые учётные записи")
+
+    update_p = sub.add_parser(
+        "update-user", help="сменить роль, имя или признак «активна» у учётной записи"
     )
-    mfa_reset_p.add_argument("--email", required=True)
+    update_p.add_argument("--email", required=True)
+    update_p.add_argument("--role", choices=["judge", "clerk", "admin"], default=None)
+    update_p.add_argument("--full-name", default=None)
+    update_p.add_argument(
+        "--active",
+        choices=["yes", "no"],
+        default=None,
+        help="no блокирует вход, yes возвращает",
+    )
+
+    delete_p = sub.add_parser("delete-user", help="удалить учётную запись")
+    delete_p.add_argument("--email", required=True)
+
+    reset_p = sub.add_parser(
+        "reset-password",
+        help="задать новый пароль существующей учётной записи (забыт пароль)",
+    )
+    reset_p.add_argument("--email", required=True)
+    reset_p.add_argument(
+        "--password",
+        default=None,
+        help=(
+            "новый пароль; по умолчанию берётся из SO_NEW_PASSWORD либо "
+            "запрашивается в терминале (в историю оболочки не попадает)"
+        ),
+    )
 
 
 def _add_document_commands(sub: argparse._SubParsersAction) -> None:
-    anon_p = sub.add_parser(
-        "anonymize", help="подготовить обезличенную копию документа (Д-06)"
-    )
+    anon_p = sub.add_parser("anonymize", help="подготовить обезличенную копию документа (Д-06)")
     anon_p.add_argument("file", type=Path, help="файл судебного акта")
-    anon_p.add_argument(
-        "--output", type=Path, help="куда записать (по умолчанию рядом с исходным)"
-    )
+    anon_p.add_argument("--output", type=Path, help="куда записать (по умолчанию рядом с исходным)")
 
     analyze_p = sub.add_parser("analyze", help="анализ файла в консоли")
     analyze_p.add_argument("file", type=Path)
@@ -125,9 +161,7 @@ def _add_norm_commands(sub: argparse._SubParsersAction) -> None:
         ),
     )
 
-    add_p = sub.add_parser(
-        "norms-add-version", help="добавить редакцию существующей норме"
-    )
+    add_p = sub.add_parser("norms-add-version", help="добавить редакцию существующей норме")
     add_p.add_argument("--norm-id", required=True)
     add_p.add_argument("--text-file", required=True)
     add_p.add_argument("--effective-from", required=True, help="ГГГГ-ММ-ДД")
@@ -161,9 +195,7 @@ def _add_redaction_commands(sub: argparse._SubParsersAction) -> None:
         "redactions",
         help="план редакций документа по внешнему источнику (SO_REDACTION_SOURCE)",
     )
-    red_p.add_argument(
-        "--topic", required=True, help="идентификатор документа в источнике"
-    )
+    red_p.add_argument("--topic", required=True, help="идентификатор документа в источнике")
 
     sub.add_parser(
         "norms-check-updates",
@@ -219,8 +251,11 @@ def _add_redaction_commands(sub: argparse._SubParsersAction) -> None:
 COMMANDS: dict[str, Callable[[argparse.Namespace], int]] = {
     "serve": lambda a: serve(a.host, a.port),
     "create-admin": lambda a: create_admin(a.email, a.full_name, a.password),
-    "mfa-setup": lambda a: mfa_setup(a.email, a.code),
-    "mfa-reset": lambda a: mfa_reset(a.email),
+    "create-user": lambda a: create_user(a.email, a.full_name, a.role, a.password),
+    "list-users": lambda _: list_users(),
+    "update-user": lambda a: update_user(a.email, a.role, a.full_name, a.active),
+    "delete-user": lambda a: delete_user(a.email),
+    "reset-password": lambda a: reset_password(a.email, a.password),
     "anonymize": lambda a: anonymize(a.file, a.output),
     "analyze": lambda a: analyze(a.file, a.applicable_at),
     "eval": lambda _: run_evaluation(),

@@ -65,3 +65,36 @@ def test_postgres_login_audit_roundtrip(pg_dsn: str) -> None:
     log = auth.list_login_attempts()
     assert {a.email for a in log} == {"audit@example.com"}
     assert {a.success for a in log} == {True, False}
+
+
+def test_postgres_view_shows_accounts_with_roles(pg_dsn: str) -> None:
+    import psycopg
+
+    from second_opinion.auth.repository import PostgresUserStore
+    from second_opinion.auth.service import AuthService
+    from second_opinion.domain.users import UserRole
+
+    prefix = _prefix()
+    auth = AuthService(store=PostgresUserStore(pg_dsn, table_prefix=prefix))
+    auth.create_user("judge@example.com", "longpassword1", "Судья")
+    auth.create_user("root@example.com", "longpassword12", "Админ", UserRole.ADMIN)
+
+    with psycopg.connect(pg_dsn) as conn:
+        rows = conn.execute(
+            f"SELECT email, role, is_active FROM {prefix}user_accounts ORDER BY email"
+        ).fetchall()
+
+    assert rows == [("judge@example.com", "judge", True), ("root@example.com", "admin", True)]
+
+
+def test_postgres_rejects_a_second_account_with_the_same_address(pg_dsn: str) -> None:
+    import psycopg
+
+    from second_opinion.auth.repository import PostgresUserStore
+    from second_opinion.domain.users import User
+
+    store = PostgresUserStore(pg_dsn, table_prefix=_prefix())
+    store.save_user(User(user_id="a1", email="same@example.com", full_name="А"))
+
+    with pytest.raises(psycopg.errors.UniqueViolation):
+        store.save_user(User(user_id="a2", email="Same@Example.com", full_name="Б"))

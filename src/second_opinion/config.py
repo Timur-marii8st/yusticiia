@@ -26,7 +26,6 @@ class AppConfig:
     jwt_secret: str = ""
     require_auth: bool = False
     cookie_secure: bool = False
-    admin_mfa_required: bool = False
     auth_mode: str = ""
     password_min_length: int = 8
     storage_backend: str = "file"
@@ -100,7 +99,6 @@ def load_config() -> AppConfig:
         jwt_secret=_env("SO_JWT_SECRET"),
         require_auth=_env("SO_REQUIRE_AUTH") in ("1", "true", "yes"),
         cookie_secure=_env("SO_COOKIE_SECURE") in ("1", "true", "yes"),
-        admin_mfa_required=_env("SO_ADMIN_MFA_REQUIRED") in ("1", "true", "yes"),
         auth_mode=(_env("SO_AUTH_MODE") or "").strip().lower(),
         password_min_length=int(_env("SO_PASSWORD_MIN_LENGTH") or 8),
         storage_backend=_env("SO_STORAGE_BACKEND", "file") or "file",

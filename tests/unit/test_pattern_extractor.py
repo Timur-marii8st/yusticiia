@@ -29,7 +29,7 @@ def test_all_evidence_quotes_match_text_by_offsets(sample_clean_text: str) -> No
     assert facts
     for fact in facts:
         for evidence in fact.evidence:
-            fragment = document.text[evidence.start_offset:evidence.end_offset]
+            fragment = document.text[evidence.start_offset : evidence.end_offset]
             assert fragment == evidence.quote, (fact.type, fact.id)
 
 
@@ -271,6 +271,49 @@ def test_prior_conviction_date_is_not_taken_when_formula_has_no_date() -> None:
     assert _by_type(_facts(text), FactType.DATE_OF_OFFENSE) == []
 
 
+def test_date_of_a_document_is_not_the_date_of_the_offense() -> None:
+    """Реальный приговор: после «совершил покушение на преступление» идёт приказ
+    о назначении должностного лица «от 02 ноября 2009 года», и дата приказа читалась
+    как дата деяния (и по ней выбиралась бы редакция нормы)."""
+    text = (
+        "обвиняемого в совершении преступления, предусмотренного ч. 2 ст. 159 УК РФ, "
+        "У С Т А Н О В И Л: "
+        "ФИО1 совершил покушение на умышленное преступление небольшой тяжести при "
+        "следующих обстоятельствах. Приказом № от 02 ноября 2009 года начальника "
+        "станции назначена на должность начальника филиала. "
+        "ПРИГОВОРИЛ: назначить наказание в виде штрафа."
+    )
+
+    assert _by_type(_facts(text), FactType.DATE_OF_OFFENSE) == []
+
+
+def test_date_of_offense_after_a_document_date_is_still_found() -> None:
+    text = (
+        "обвиняемого в совершении преступления, предусмотренного ч. 2 ст. 159 УК РФ, "
+        "У С Т А Н О В И Л: "
+        "Приказом № от 02 ноября 2009 года Иванова назначена на должность. "
+        "Подсудимый совершил мошенничество 14 января 2026 года. "
+        "ПРИГОВОРИЛ: назначить наказание в виде штрафа."
+    )
+
+    assert _by_type(_facts(text), FactType.DATE_OF_OFFENSE)[0].value == "2026-01-14"
+
+
+def test_date_of_offense_after_the_phrase_under_the_following_circumstances() -> None:
+    """Реальный приговор: глагол «совершил» стоит далеко от даты, а перед ней фраза
+    «при следующих обстоятельствах»."""
+    text = (
+        "обвиняемого в совершении преступления, предусмотренного ч. 1 ст. 161 УК РФ, "
+        "У С Т А Н О В И Л: "
+        "ФИО2 грабёж, то есть открытое хищение чужого имущества потерпевшей Потерпевший №1, "
+        "при следующих обстоятельствах: ФИО2, в период времени с 11 часов до 12 часов "
+        "30 минут 2 сентября 2025 года, находясь в состоянии алкогольного опьянения, "
+        "ПРИГОВОРИЛ: назначить наказание в виде лишения свободы на срок 12 месяцев."
+    )
+
+    assert _by_type(_facts(text), FactType.DATE_OF_OFFENSE)[0].value == "2025-09-02"
+
+
 def test_attempt_stage_detected(sample_violation_text: str) -> None:
     stage = _by_type(_facts(sample_violation_text), FactType.OFFENSE_STAGE)[0]
     assert stage.value == "attempt"
@@ -306,9 +349,7 @@ def test_sentence_taken_from_resolutive_part() -> None:
 
 
 def test_restitution_with_participle_between_verb_and_noun() -> None:
-    facts = _facts(
-        "Подсудимый добровольно возместил причинённый ущерб потерпевшему."
-    )
+    facts = _facts("Подсудимый добровольно возместил причинённый ущерб потерпевшему.")
     assert FactType.RESTITUTION in {f.type for f in facts}
 
 
@@ -316,7 +357,6 @@ def test_negative_document_extracts_nothing(sample_negative_text: str) -> None:
     """Негативный контроль: процессуальный документ без обстоятельств
     дела не должен порождать юридически значимых фактов."""
     assert _facts(sample_negative_text) == []
-
 
 
 def test_article_64_citation_detected() -> None:
@@ -354,7 +394,6 @@ def test_article_64_not_taken_from_prior_conviction_biography() -> None:
     assert _by_type(_facts(text), FactType.EXCEPTIONAL_CIRCUMSTANCES) == []
 
 
-
 def test_group_of_persons_plain() -> None:
     facts = _facts("Преступление совершено группой лиц по предварительному сговору.")
     group = [f for f in facts if f.type is FactType.GROUP_OFFENSE]
@@ -372,7 +411,6 @@ def test_no_group_words_no_fact() -> None:
     assert FactType.GROUP_OFFENSE not in {
         f.type for f in _facts("Он единолично совершил кражу из квартиры.")
     }
-
 
 
 def test_term_with_parenthesized_number_word() -> None:
@@ -533,7 +571,6 @@ def test_negated_surrender_and_group_and_recidivism() -> None:
     assert not _kinds("При отсутствии признания вины суд учитывает.", FactType.GUILTY_PLEA)
 
 
-
 _RESOLUTIVE = " ПРИГОВОРИЛ: признать виновным в совершении преступления, предусмотренного "
 
 
@@ -549,7 +586,9 @@ def test_qualification_from_fully_spelled_citation() -> None:
         "Иванов совершил кражу.",
         "частью 1 статьи 158 Уголовного кодекса Российской Федерации, и назначить наказание.",
     )
-    values = [(f.value["article"], f.value["part"]) for f in _by_type(facts, FactType.QUALIFICATION)]
+    values = [
+        (f.value["article"], f.value["part"]) for f in _by_type(facts, FactType.QUALIFICATION)
+    ]
     assert values == [(158, 1)]
 
 
@@ -558,7 +597,9 @@ def test_qualification_from_spelled_citation_with_point_and_article_first() -> N
         "Иванов совершил кражу.",
         "пунктами «б» и «в» части 2 статьи 159 Уголовного кодекса РФ, а также статьёй 161 частью 1 Уголовного кодекса.",
     )
-    values = {(f.value["article"], f.value["part"]) for f in _by_type(facts, FactType.QUALIFICATION)}
+    values = {
+        (f.value["article"], f.value["part"]) for f in _by_type(facts, FactType.QUALIFICATION)
+    }
     assert (159, 2) in values
 
 
@@ -568,7 +609,9 @@ def test_procedural_code_citation_is_not_a_qualification() -> None:
         "частью 1 статьи 228 Уголовного кодекса, процессуальные издержки на основании "
         "части 10 статьи 316 Уголовно-процессуального кодекса Российской Федерации.",
     )
-    values = [(f.value["article"], f.value["part"]) for f in _by_type(facts, FactType.QUALIFICATION)]
+    values = [
+        (f.value["article"], f.value["part"]) for f in _by_type(facts, FactType.QUALIFICATION)
+    ]
     assert values == [(228, 1)]
     assert _by_type(facts, FactType.SPECIAL_PROCEDURE)
 
@@ -586,9 +629,17 @@ def test_fine_in_resolutive_part_is_not_replaced_by_earlier_imprisonment() -> No
 
 
 def test_other_termless_punishments_in_resolutive_part() -> None:
-    restriction = _verdict("Иванов виновен.", "частью 1 статьи 111 Уголовного кодекса, и назначить наказание в виде ограничения свободы на срок 1 год.")
-    arrest = _verdict("Иванов виновен.", "частью 1 статьи 111 Уголовного кодекса, и назначить наказание в виде ареста на срок 3 месяца.")
-    assert [f.value for f in _by_type(restriction, FactType.PUNISHMENT_TYPE)] == ["restriction_of_liberty"]
+    restriction = _verdict(
+        "Иванов виновен.",
+        "частью 1 статьи 111 Уголовного кодекса, и назначить наказание в виде ограничения свободы на срок 1 год.",
+    )
+    arrest = _verdict(
+        "Иванов виновен.",
+        "частью 1 статьи 111 Уголовного кодекса, и назначить наказание в виде ареста на срок 3 месяца.",
+    )
+    assert [f.value for f in _by_type(restriction, FactType.PUNISHMENT_TYPE)] == [
+        "restriction_of_liberty"
+    ]
     assert [f.value for f in _by_type(arrest, FactType.PUNISHMENT_TYPE)] == ["other"]
     assert _by_type(restriction, FactType.PUNISHMENT_TERM) == []
 
@@ -617,7 +668,9 @@ def test_term_in_words_without_preposition() -> None:
 
 
 def test_term_in_words_with_years_and_months() -> None:
-    assert _term("и назначить наказание в виде лишения свободы сроком на один год шесть месяцев.") == [18.0]
+    assert _term(
+        "и назначить наказание в виде лишения свободы сроком на один год шесть месяцев."
+    ) == [18.0]
 
 
 def test_term_in_words_months_only_and_compound_number() -> None:
@@ -637,7 +690,9 @@ def test_probation_term_in_words_is_not_taken_as_sentence_term() -> None:
 
 
 def test_guilty_plea_with_words_between_noun_and_verb() -> None:
-    assert _kinds("Подсудимый вину в совершении описанного преступления признал.", FactType.GUILTY_PLEA)
+    assert _kinds(
+        "Подсудимый вину в совершении описанного преступления признал.", FactType.GUILTY_PLEA
+    )
 
 
 def test_guilty_plea_from_noun_forms() -> None:
@@ -653,9 +708,13 @@ def test_guilty_plea_denied_with_words_between_is_not_a_fact() -> None:
 
 
 def test_partial_guilty_plea_is_not_reported_as_a_plea() -> None:
-    assert not _kinds("Вину в инкриминируемом деянии подсудимый признал частично.", FactType.GUILTY_PLEA)
+    assert not _kinds(
+        "Вину в инкриминируемом деянии подсудимый признал частично.", FactType.GUILTY_PLEA
+    )
     assert not _kinds("Подсудимый частично признал вину.", FactType.GUILTY_PLEA)
-    assert _kinds("Подсудимый вину в инкриминируемом деянии признал полностью.", FactType.GUILTY_PLEA)
+    assert _kinds(
+        "Подсудимый вину в инкриминируемом деянии признал полностью.", FactType.GUILTY_PLEA
+    )
 
 
 _COMBINED = (
@@ -674,12 +733,18 @@ def test_term_for_the_offense_and_final_term_are_separate_facts() -> None:
 
 
 def test_no_final_term_without_final_punishment_wording() -> None:
-    facts = _verdict("Иванов виновен.", "частью 1 статьи 161 Уголовного кодекса, наказание в виде лишения свободы сроком 2 года.")
+    facts = _verdict(
+        "Иванов виновен.",
+        "частью 1 статьи 161 Уголовного кодекса, наказание в виде лишения свободы сроком 2 года.",
+    )
     assert _by_type(facts, FactType.FINAL_PUNISHMENT_TERM) == []
 
 
 def test_final_fine_has_no_final_term() -> None:
-    facts = _verdict("Иванов виновен.", "частью 1 статьи 159 Уголовного кодекса, окончательное наказание в виде штрафа в размере 20 000 рублей.")
+    facts = _verdict(
+        "Иванов виновен.",
+        "частью 1 статьи 159 Уголовного кодекса, окончательное наказание в виде штрафа в размере 20 000 рублей.",
+    )
     assert _by_type(facts, FactType.FINAL_PUNISHMENT_TERM) == []
 
 
@@ -705,7 +770,30 @@ def test_term_before_the_punishment_name_wins_over_additional_punishment_term() 
 
 
 def test_term_before_the_punishment_name_in_years() -> None:
-    facts = _verdict("Иванов виновен.", "частью 1 статьи 158 Уголовного кодекса, наказание в виде 2 лет лишения свободы.")
+    facts = _verdict(
+        "Иванов виновен.",
+        "частью 1 статьи 158 Уголовного кодекса, наказание в виде 2 лет лишения свободы.",
+    )
     assert [f.value for f in _by_type(facts, FactType.PUNISHMENT_TERM)] == [24.0]
     quote = _by_type(facts, FactType.PUNISHMENT_TERM)[0].evidence[0].quote
     assert quote == "2 лет"
+
+
+def test_quotes_are_completed_to_the_end_of_the_word_and_of_the_code_name() -> None:
+    """Цитата не обрывается на основе слова: «возраст 34 год» читалось как опечатка."""
+    text = (
+        "Подсудимый, возраст 34 года, обвиняемого в совершении преступления, предусмотренного ч. 2 ст. 158 УК РФ. "
+        "У С Т А Н О В И Л: ... ПРИГОВОРИЛ: назначить наказание в виде лишения свободы на срок "
+        "1 год 6 месяцев условно, в соответствии со ст. 73 УК РФ."
+    )
+
+    facts = _facts(text)
+    age = _by_type(facts, FactType.DEFENDANT_AGE)[0].evidence[0]
+    qualification = _by_type(facts, FactType.QUALIFICATION)[0].evidence[0]
+
+    assert age.quote == "возраст 34 года"
+    assert qualification.quote.endswith("УК РФ")
+    for fact in facts:
+        for evidence in fact.evidence:
+            assert text[evidence.start_offset : evidence.end_offset] == evidence.quote
+            assert not evidence.quote.endswith(("год", "УК"))

@@ -8,12 +8,12 @@
 | Вы | Читайте по порядку |
 |---|---|
 | Разбираетесь, что это за система | [PRODUCT_VISION.md](PRODUCT_VISION.md) -> [ARCHITECTURE.md](ARCHITECTURE.md) -> [GLOSSARY.md](GLOSSARY.md) |
-| Собираетесь править код | [../CONTRIBUTING.md](../CONTRIBUTING.md) -> [ARCHITECTURE.md](ARCHITECTURE.md) -> [DOMAIN_MODEL.md](DOMAIN_MODEL.md) |
-| Проверяете юридическую часть | [LEGAL_SAFETY_PRINCIPLES.md](LEGAL_SAFETY_PRINCIPLES.md) -> [RULE_ENGINE.md](RULE_ENGINE.md) -> [NORM_COVERAGE.md](NORM_COVERAGE.md) -> [LAWYER_REVIEW.md](LAWYER_REVIEW.md) |
+| Собираетесь править код | [../README.md](../README.md#разработка) -> [ARCHITECTURE.md](ARCHITECTURE.md) -> [DOMAIN_MODEL.md](DOMAIN_MODEL.md) |
+| Проверяете юридическую часть | [LEGAL_SAFETY_PRINCIPLES.md](LEGAL_SAFETY_PRINCIPLES.md) -> [RULE_ENGINE.md](RULE_ENGINE.md) -> [DATA_SOURCES.md](DATA_SOURCES.md) |
 | Подключаетесь к API | [API.md](API.md) |
 | Разворачиваете систему | [../README.md](../README.md) -> [SECURITY.md](SECURITY.md) |
 | Поднимаете модель на сервере Ubuntu | [DEPLOYMENT_VLLM.md](DEPLOYMENT_VLLM.md) |
-| Оцениваете, что сделано | [TZ.md](TZ.md) -> [../CHANGELOG.md](../CHANGELOG.md) |
+| Оцениваете, что сделано | [CONCEPT.md](CONCEPT.md) -> [TZ.md](TZ.md) |
 | Готовите документ для жюри конкурса | [CONCEPT.md](CONCEPT.md) |
 
 ## Требования и замысел
@@ -32,11 +32,9 @@
 ## Устройство системы
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — слои, конвейер разбора, раскладка
-  кода, границы между модулями.
+  кода, границы между модулями, ключевые решения и отклонённые варианты.
 - [DOMAIN_MODEL.md](DOMAIN_MODEL.md) — модели фактов, норм, оценок и
   отчёта; какие связи обязательны.
-- [ADR/](ADR/) — архитектурные решения: контекст, решение, последствия.
-  Принятое решение не переписывается, пересмотр оформляется новым ADR.
 
 ## Юридическая часть
 
@@ -47,11 +45,7 @@
   порядок добавления нового.
 - [LEGAL_RAG.md](LEGAL_RAG.md) — поиск по базе источников с обязательным
   цитированием.
-- [NORM_COVERAGE.md](NORM_COVERAGE.md) — полнота редакционной истории
-  норм: что сверено юристом, а что ещё ждёт сверки.
-- [LAWYER_REVIEW.md](LAWYER_REVIEW.md) — лист сверки для юриста: вопросы по
-  датам, пределам санкций, редакциям и расчёту по ст. 69, 70 с готовыми
-  командами фиксации ответа.
+
 - [DATA_SOURCES.md](DATA_SOURCES.md) — откуда берутся тексты норм и как
   корпус пополняется.
 
@@ -75,9 +69,8 @@
 
 ## Чего здесь нет
 
-Рабочие заметки разработки — открытые вопросы, архив аудитов, помесячный
-статус, кодстайл и правила комментирования — в репозитории не хранятся:
-они нужны тому, кто ведёт разработку, и только запутали бы читателя,
-который разбирается в системе. История изменений с датами — в
-[../CHANGELOG.md](../CHANGELOG.md), порядок работы с кодом — в
-[../CONTRIBUTING.md](../CONTRIBUTING.md).
+Рабочие заметки разработки — открытые вопросы, журнал изменений, листы сверки
+для юриста, протоколы архитектурных решений — в репозитории не хранятся: они
+нужны тому, кто ведёт разработку, и только запутали бы читателя, который
+разбирается в системе. Итог по архитектурным решениям — в
+[ARCHITECTURE.md](ARCHITECTURE.md), раздел «Ключевые решения».

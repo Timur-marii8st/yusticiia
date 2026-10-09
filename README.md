@@ -26,10 +26,11 @@
 Требования: Python 3.11+.
 
 ```bash
-python -m venv .venv
 # Windows:
+python -m venv .venv
 .venv\Scripts\pip install -e ".[dev]"
 # Linux/macOS:
+python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
 # запуск сервера (по умолчанию офлайн: LLM-провайдер — мок)
@@ -38,10 +39,11 @@ python -m venv .venv
 # - http://127.0.0.1:8000
 ```
 
-Эквивалент через make (Linux/macOS): `make install && make dev`.
+Эквивалент через make (Linux/macOS): `make install && make dev`; если `python3` в системе старше 3.11,
+интерпретатор задаётся явно: `make install PYTHON=python3.12`.
 
-Без установки: `python -m second_opinion.cli serve` из корня репозитория
-(при доступном `src/`).
+Запуск модулем: `python -m second_opinion.cli serve` (после установки зависимостей;
+все команды CLI доступны и так).
 
 Внешний LLM по умолчанию ВЫКЛЮЧЕН. Включение — только явно через переменные
 окружения (см. `.env.example`), реальные документы во внешний контур без
@@ -50,9 +52,8 @@ python -m venv .venv
 ### Личный кабинет
 
 Демо-сценарий работает без входа. Персональные учётные записи (JWT, роли
-`judge`/`clerk`/`admin`) включаются заведением первого администратора —
-через API его не создать, так как `POST /auth/users` сам требует роль
-`admin`:
+`judge`/`clerk`/`admin`) заводит и меняет только оператор сервера командами: ни создать запись,
+ни сменить пароль через интерфейс или HTTP-API нельзя. Первый администратор:
 
 ```bash
 export SO_JWT_SECRET="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
@@ -60,10 +61,35 @@ second-opinion create-admin --email admin@court.example.ru
 # пароль будет запрошен в терминале (или SO_ADMIN_PASSWORD / --password)
 ```
 
-Пароля по умолчанию нет: его задаёт оператор. Пользователи сохраняются в
-`<data>/store/auth`, поэтому переживают перезапуск. `SO_JWT_SECRET` —
-отдельный секрет от `SO_AUTH_TOKEN`; если он не задан, ключ подписи
+Пароля по умолчанию нет: его задаёт оператор (администратору не короче 12 символов).
+Пользователи сохраняются в `<data>/store/auth`, поэтому переживают перезапуск.
+`SO_JWT_SECRET` — отдельный секрет от `SO_AUTH_TOKEN`; если он не задан, ключ подписи
 случаен и выданные токены действуют только до перезапуска.
+
+Пароль забыт: оператор сервера задаёт новый командой, пароль вводится дважды в терминале
+(или `SO_NEW_PASSWORD` / `--password`), блокировка входа снимается:
+
+```bash
+second-opinion reset-password --email admin@court.example.ru
+```
+
+Остальные учётные записи (пароль вводится дважды в терминале, либо `--password`, либо
+`SO_NEW_PASSWORD`):
+
+```bash
+second-opinion create-user --email judge@court.example.ru --full-name "Иванов И.И." --role judge
+second-opinion update-user --email judge@court.example.ru --role clerk
+second-opinion update-user --email judge@court.example.ru --active no
+second-opinion delete-user --email judge@court.example.ru
+second-opinion list-users
+```
+
+Команды работают с тем хранилищем, которое задано (`SO_STORAGE_BACKEND`): файлы или та же
+PostgreSQL, где лежат документы и отчёты (таблица `users`, читаемое представление
+`user_accounts` с адресом, ролью и состоянием). Последнего активного администратора понизить,
+заблокировать и удалить нельзя. Права по ролям: правку корпуса норм («Состояние нормативного
+корпуса») видит и делает только администратор. Как устроены пароли целиком —
+[docs/SECURITY.md](docs/SECURITY.md#пароли).
 
 ## Docker
 
@@ -79,6 +105,42 @@ docker compose up
 Процесс в контейнере работает не от root (uid 10001). На Linux каталог `data/` на
 хосте должен принадлежать тому же пользователю: `mkdir -p data && sudo chown 10001:10001 data`
 либо запускать с `SO_UID=$(id -u) SO_GID=$(id -g) docker compose up`.
+
+### Развёртывание на сервере (Ubuntu), пошагово
+
+1. Поставьте Docker Engine с плагином `docker compose` (шаг 2 в
+   [docs/DEPLOYMENT_VLLM.md](docs/DEPLOYMENT_VLLM.md) или инструкция на docs.docker.com).
+2. Скопируйте репозиторий на сервер и перейдите в него:
+   `git clone <адрес репозитория> /opt/second-opinion && cd /opt/second-opinion`.
+3. Задайте настройки файлом `.env` (режим личных учётных записей, ключ подписи токенов,
+   `Secure` на cookie за TLS):
+
+   ```bash
+   printf 'SO_AUTH_MODE=accounts\nSO_JWT_SECRET=%s\nSO_COOKIE_SECURE=1\n' "$(openssl rand -hex 32)" > .env
+   ```
+
+4. Подготовьте каталог данных (контейнер работает от пользователя 10001):
+   `mkdir -p data && sudo chown 10001:10001 data`.
+5. Запустите: `docker compose up -d --build`. При первом запуске нормы и дела копируются из
+   образа в `data/fixtures`.
+6. Заведите администратора (пароль не короче 12 символов, вводится дважды):
+   `docker compose exec app second-opinion create-admin --email admin@court.example.ru`.
+7. Заведите судей и помощников:
+   `docker compose exec app second-opinion create-user --email judge@court.example.ru --full-name "Иванов И.И." --role judge`.
+   Пароль пользователю передаёт оператор: сменить его через интерфейс нельзя.
+8. Поставьте перед приложением обратный прокси с TLS (nginx или Caddy, например
+   `reverse_proxy 127.0.0.1:8000`) и ограничьте доступ сетью суда. Порт 8000 публикуется
+   только на loopback сервера.
+9. Проверьте: `curl -s http://127.0.0.1:8000/health` отвечает `"auth_mode":"accounts"`, а
+   через прокси открывается страница входа.
+10. Обновление: `git pull && docker compose up -d --build` (данные и учётные записи
+    остаются в `data/`). Журнал: `docker compose logs -f app`. Резервные копии:
+    [docs/PRIVACY.md](docs/PRIVACY.md#резервные-копии).
+
+Нужна PostgreSQL вместо файлов: добавьте в `.env` строки `SO_STORAGE_BACKEND=postgres`,
+`SO_DB_ADMIN_PASSWORD`, `SO_DB_APP_PASSWORD` и `SO_DATABASE_URL=postgresql://so_app:<пароль
+приложения>@db:5432/second_opinion` и запускайте `docker compose --profile postgres up -d
+--build`; учётные записи тогда лежат в той же базе, команды из шагов 6 и 7 те же.
 
 ### PostgreSQL (опционально)
 
@@ -181,7 +243,6 @@ second-opinion analyze data/fixtures/sample_documents/sample_228_attempt_violati
 | `SO_JWT_SECRET` | ключ подписи JWT личных учёток, ≥32 байт | пусто (эфемерный) |
 | `SO_REQUIRE_AUTH` | `1` — не стартовать на внешнем адресе без `SO_AUTH_TOKEN` | `0` |
 | `SO_COOKIE_SECURE` | `1` — ставить `Secure` на cookie refresh-токена (за прокси с TLS обязательно) | `0` |
-| `SO_ADMIN_MFA_REQUIRED` | `1` — администратору обязателен второй фактор (TOTP); первый раз его включает оператор: `second-opinion mfa-setup` | `0` |
 | `SO_ADMIN_PASSWORD` | пароль для `create-admin` (разовый, бутстрап) | пусто |
 | `SO_STORAGE_BACKEND` | `file` \| `postgres` | `file` |
 | `SO_DATABASE_URL` | DSN PostgreSQL при `postgres` | пусто |
@@ -197,10 +258,11 @@ second-opinion analyze data/fixtures/sample_documents/sample_228_attempt_violati
 ```bash
 curl http://127.0.0.1:8000/health          # {"status":"ok",...}
 curl http://127.0.0.1:8000/metrics        # {"enabled": false} или {"enabled": true, "metrics": {...}}
-curl "http://127.0.0.1:8000/api/v1/search?q=покушение"
+curl -G http://127.0.0.1:8000/api/v1/search --data-urlencode "q=покушение"
 ```
 
-и смоук-сценарий выше («Демо-образец» -> «Проанализировать»).
+и смоук-сценарий выше («Демо-образец» -> «Проанализировать»). Кириллицу в адресе curl
+передаёт сырыми байтами, и сервер отвечает 400: запрос кодируется через `--data-urlencode`.
 
 ## Структура проекта
 
@@ -209,16 +271,63 @@ curl "http://127.0.0.1:8000/api/v1/search?q=покушение"
 `evaluation/` — метрики и датасеты.
 
 Карта модулей с назначением каждого —
-[CONTRIBUTING.md](CONTRIBUTING.md#раскладка-исходников).
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#раскладка-пакета).
 
-## Тестирование
+## Разработка
+
+Python 3.11 и новее. Дополнительные наборы зависимостей: `pg` — драйвер PostgreSQL и
+pgvector, `ocr` — распознавание сканов; всё сразу: `pip install -e ".[dev,pg,ocr]"`.
+
+| Действие | Linux/macOS | Windows |
+|---|---|---|
+| Запуск приложения | `make dev` | `.venv\Scripts\second-opinion serve` |
+| Тесты | `make test` | `.venv\Scripts\pytest` |
+| Линтер | `make lint` | `.venv\Scripts\ruff check .` |
+| Автоисправление | `make fmt` | `.venv\Scripts\ruff check --fix .` |
+| Типы | `make types` | `.venv\Scripts\mypy` |
+| Оценка качества | `make eval` | `.venv\Scripts\second-opinion eval` |
+| Всё сразу | `make check` | команды выше по очереди |
+
+`make check` — линтер, типы, тесты с покрытием, печать корпуса норм, метрики. Те же проверки
+выполняет непрерывная интеграция на двух версиях Python
+([.github/workflows/ci.yml](.github/workflows/ci.yml)). Отдельные шаги:
 
 ```bash
-make check      # линтер, типы, тесты с покрытием, печать корпуса, метрики
+ruff check .                        # линтер
+mypy                                # типы
+pytest --cov                        # тесты и порог покрытия 80%
+second-opinion norms-seal --check   # если менялся корпус норм
+python -m evaluation.run            # если менялись извлечение, поиск или правила
 ```
 
-Отдельные шаги и то, как поднять базу для тестов PostgreSQL (без неё
-пропускаются), — [CONTRIBUTING.md](CONTRIBUTING.md#что-проверяется-перед-коммитом).
+Шестнадцать тестов работают против настоящего PostgreSQL и **без переменной окружения
+молча уходят в пропуск**: прогон выглядит зелёным, ничего не проверив. Поднять базу:
+
+```bash
+docker run -d --name so-test-pg -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=second_opinion_test \
+  -p 55432:5432 pgvector/pgvector:pg16
+
+SO_TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55432/second_opinion_test \
+  pytest --cov
+```
+
+Образ ставит зависимости из `requirements.lock`: версии закреплены, хэши проверяются
+(`pip install --require-hashes`). После изменения зависимостей в `pyproject.toml` файл
+пересобирается (`pip-compile --extra pg --extra ocr --strip-extras`, затем к каждой строке
+добавляются `--hash=sha256:...` для всех файлов этой версии на PyPI); тест
+`test_lock_pins_every_runtime_dependency` следит, чтобы у каждой прямой зависимости была
+закреплённая версия с хэшами.
+
+Правила проекта, которые нельзя нарушать: цитата факта дословно находится в документе (если
+текст нужно изменить, замена сохраняет длину); норма применяется в редакции на юридически
+значимую дату; статистика не основание для наказания (запрещённые формулировки проверяет
+тест); машинно полученный текст нормы остаётся черновиком, пока его не сверит юрист;
+документы не уходят во внешний контур без явного решения оператора. Полный список
+инвариантов — раздел 5 [docs/TZ.md](docs/TZ.md). Комментарии `#` в коде не используются,
+кроме директив инструментов (`noqa`, `pragma: no cover`, `type: ignore`): пояснения лежат в
+докстрингах и в `docs/`. Если правка меняет поведение, документация правится в том же
+коммите.
 
 ## Оценка качества (evaluation)
 
@@ -236,10 +345,9 @@ second-opinion eval     # или: make eval
 Указатель по документам — [docs/README.md](docs/README.md): что читать,
 смотря какая у вас задача.
 
-Самое нужное сразу: [docs/TZ.md](docs/TZ.md) — требования и статус
-каждого; [docs/API.md](docs/API.md) — справочник HTTP API;
-[CONTRIBUTING.md](CONTRIBUTING.md) — как работать с кодом;
-[CHANGELOG.md](CHANGELOG.md) — история изменений.
+Самое нужное сразу: [docs/CONCEPT.md](docs/CONCEPT.md) — концепция проекта;
+[docs/TZ.md](docs/TZ.md) — требования и статус каждого;
+[docs/API.md](docs/API.md) — справочник HTTP API.
 
 ## Статус данных (важно)
 
@@ -247,7 +355,8 @@ second-opinion eval     # или: make eval
   03.09.2026 (`verification_status: verified`; синтетическая демо-норма
   ст. 999 — исключение). Это точные изложения со ссылкой на первоисточник,
   а не официальный текст: перед судебной демонстрацией — контрольная
-  сверка с КП. Что ещё требует сверки — [docs/NORM_COVERAGE.md](docs/NORM_COVERAGE.md).
+  сверка с КП. Что ещё требует сверки —
+  [docs/DATA_SOURCES.md](docs/DATA_SOURCES.md#покрытие-редакционной-истории-и-сверка).
 - Дела в `data/fixtures/cases/` — преимущественно синтетические
   (`synthetic: true`) плюс несколько реальных приговоров с `source_url`
   на текст; оба вида явно маркируются, подмена одного другим отклоняется
@@ -271,5 +380,5 @@ second-opinion eval     # или: make eval
 ## Что сделано и что впереди
 
 Требования пронумерованы в [docs/TZ.md](docs/TZ.md); там же, в разделе 7,
-очереди работ с указанием, что именно мешает закрыть каждую. История
-итераций — в [CHANGELOG.md](CHANGELOG.md).
+очереди работ с указанием, что именно мешает закрыть каждую. Честная карта покрытия —
+в [docs/CONCEPT.md](docs/CONCEPT.md).

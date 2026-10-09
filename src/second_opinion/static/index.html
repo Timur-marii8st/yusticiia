@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Второе мнение — юридический аудит проекта судебного акта</title>
-  <link rel="stylesheet" href="/static/style.css?v=0.73">
+  <link rel="stylesheet" href="/static/style.css?v=0.81">
 </head>
 <body>
   <a class="skip-link" href="#upload-panel">Перейти к форме анализа</a>
@@ -50,11 +50,6 @@
           <label class="visually-hidden" for="login-password">Пароль</label>
           <input type="password" id="login-password" size="20" autocomplete="current-password"
             placeholder="Пароль">
-          <span id="otp-row" hidden>
-            <label class="visually-hidden" for="login-otp">Код из приложения-аутентификатора</label>
-            <input type="text" id="login-otp" size="18" maxlength="16" inputmode="numeric"
-              autocomplete="one-time-code" placeholder="Код из приложения">
-          </span>
           <button id="login-btn" class="primary">Войти</button>
         </div>
         <div id="login-error" class="error" role="alert" aria-live="assertive" hidden></div>
@@ -66,38 +61,6 @@
           <button id="history-btn" class="secondary">Обновить историю дел</button>
           <button id="history-clear-btn" class="secondary danger">Очистить всё</button>
           <button id="logout-btn" class="secondary">Выйти</button>
-        </div>
-        <div id="mfa-box" class="card">
-          <div id="mfa-status" class="hint"></div>
-          <div class="controls">
-            <button id="mfa-setup-btn" class="secondary">Включить второй фактор</button>
-          </div>
-          <div id="mfa-setup" hidden>
-            <p class="hint">
-              Добавьте секрет в приложение-аутентификатор (ввод вручную или импорт по
-              адресу ниже), затем введите шесть цифр из приложения.
-            </p>
-            <p>Секрет: <code id="mfa-secret"></code></p>
-            <p class="hint">Адрес для импорта: <code id="mfa-uri"></code></p>
-            <div class="controls">
-              <label class="visually-hidden" for="mfa-code">Код из приложения</label>
-              <input type="text" id="mfa-code" size="18" maxlength="16" inputmode="numeric"
-                autocomplete="one-time-code" placeholder="Код из приложения">
-              <button id="mfa-enable-btn" class="primary">Подтвердить</button>
-            </div>
-          </div>
-          <div id="mfa-disable" hidden>
-            <div class="controls">
-              <label class="visually-hidden" for="mfa-disable-password">Пароль</label>
-              <input type="password" id="mfa-disable-password" size="20"
-                autocomplete="current-password" placeholder="Пароль">
-              <label class="visually-hidden" for="mfa-disable-code">Код из приложения</label>
-              <input type="text" id="mfa-disable-code" size="18" maxlength="16" inputmode="numeric"
-                autocomplete="one-time-code" placeholder="Код из приложения">
-              <button id="mfa-disable-btn" class="secondary danger">Отключить</button>
-            </div>
-          </div>
-          <div id="mfa-error" class="error" role="alert" aria-live="assertive" hidden></div>
         </div>
         <p class="hint" id="history-hint">
           История — анализы, выполненные под этой учётной записью. Нажмите
@@ -137,6 +100,11 @@
         <button id="analyze-btn" class="primary">Проанализировать</button>
         <button id="demo-btn" class="secondary">Демо-образец</button>
       </div>
+      <p class="hint">
+        Дата деяния нужна, чтобы взять нормы в той редакции, что действовала в тот день.
+        Можно оставить пустой: тогда берётся дата деяния из текста документа, а если её там
+        нет, то сегодняшняя, и отчёт помечает её «предположительно».
+      </p>
       <div id="upload-error" class="error" role="alert" aria-live="assertive" hidden></div>
     </section>
 
@@ -254,7 +222,8 @@
       <p class="hint">
         На чём система основывает проверки и что ещё требует юридической
         сверки. Раздел открытый намеренно: неназванная слабость данных
-        опаснее названной.
+        опаснее названной. Править корпус (сверка истории, новые редакции)
+        может только администратор.
       </p>
       <div class="controls">
         <button id="corpus-btn" class="secondary">Показать состояние корпуса</button>
@@ -271,6 +240,6 @@
     </section>
   </main>
 
-  <script src="/static/app.js?v=0.73"></script>
+  <script src="/static/app.js?v=0.81"></script>
 </body>
 </html>

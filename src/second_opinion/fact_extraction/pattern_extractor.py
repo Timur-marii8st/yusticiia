@@ -81,6 +81,25 @@ def _extract_term_months(window: str) -> tuple[float, int, int] | None:
     return months, first_start, last_end
 
 
+_CODE_SUFFIX = re.compile(r"\s{1,3}РФ\b")
+
+
+def _complete_span(text: str, start: int, end: int) -> int:
+    """Конец цитаты, доведённый до конца слова и до «РФ» после «УК» или «УПК».
+
+    Шаблоны останавливаются на основе слова («возраст 34 год», «ст. 73 УК»), и в
+    заключении цитата выглядела оборванной. Начало и смысл цитаты не меняются,
+    она только дочитывается до границы слова.
+    """
+    while 0 < end < len(text) and text[end - 1].isalpha() and text[end].isalpha():
+        end += 1
+    if text[start:end].endswith(("УК", "УПК")):
+        tail = _CODE_SUFFIX.match(text, end)
+        if tail:
+            end = tail.end()
+    return end
+
+
 class PatternFactExtractor:
     """Детерминированное извлечение фактов по паттернам.
 
@@ -101,6 +120,7 @@ class PatternFactExtractor:
             page: int | None = None,
         ) -> None:
             key = (fact_type.value, _value_key(value))
+            end = _complete_span(text, start, end)
             evidence = Evidence(
                 document_id=document.document_id,
                 quote=text[start:end],
@@ -228,6 +248,9 @@ class PatternFactExtractor:
         re.IGNORECASE,
     )
 
+    _DOCUMENT_DATE = re.compile(r"\bот\s*$")
+    _OFFENSE_ANCHORS = ("соверш", "преступлен", "при следующих обстоятельствах")
+
     def _extract_dates(self, text: str, emit: Callable[..., None]) -> None:
         search_from = self._narrative_start(text)
         if self._emit_offense_date(text, search_from, len(text), search_from, emit):
@@ -242,7 +265,9 @@ class PatternFactExtractor:
         for match in self._DATE.finditer(text, pos, endpos):
             window_start = max(floor, match.start() - 160)
             context = text[window_start:match.start()].lower()
-            if "соверш" not in context and "преступлен" not in context:
+            if not any(anchor in context for anchor in self._OFFENSE_ANCHORS):
+                continue
+            if self._DOCUMENT_DATE.search(context):
                 continue
             day, month, year = int(match.group(1)), _MONTHS[match.group(2).lower()], int(match.group(3))
             try:

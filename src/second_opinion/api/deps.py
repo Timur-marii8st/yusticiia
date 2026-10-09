@@ -37,7 +37,7 @@ def load_cases(fixtures_dir: Path) -> list[ComparableCase]:
 
 def build_legal_rag(norm_store: NormStore):
     """Собрать поисковик по конфигурации: лексический, гибридный или
-    гибридный c pgvector (ADR-003, ADR-006)."""
+    гибридный c pgvector."""
     from ..config import load_config
     from ..legal_rag import (
         HashingTfidfEmbedder,
@@ -104,7 +104,15 @@ def build_norm_store(config: AppConfig):
         from ..legal_sources.postgres_store import PostgresNormStore
 
         return PostgresNormStore(config.database_url)
-    return NormStore.from_directory(config.fixtures_dir / "norms")
+    store = NormStore.from_directory(config.fixtures_dir / "norms")
+    if not store.list_norms():
+        logger.warning(
+            "каталог норм пуст или не найден: %s (SO_FIXTURES_DIR): проверки будут отвечать "
+            "«норма не найдена». В Docker смонтируйте каталог с fixtures/ или пустой том: "
+            "образ скопирует нормы сам.",
+            config.fixtures_dir / "norms",
+        )
+    return store
 
 
 def build_pipeline(config: AppConfig | None = None) -> AnalysisPipeline:

@@ -85,17 +85,9 @@ def edit_setup(tmp_path, monkeypatch):
 
 
 def _judge_headers(client: TestClient, admin_headers: dict[str, str]) -> dict[str, str]:
-    created = client.post(
-        "/auth/users",
-        json={
-            "email": "judge@example.com",
-            "full_name": "Судья",
-            "password": "judge-password-123",
-            "role": "judge",
-        },
-        headers=admin_headers,
-    )
-    assert created.status_code == 201, created.text
+    from second_opinion.auth.service import get_auth_service
+
+    get_auth_service().create_user("judge@example.com", "judge-password-123", "Судья")
     login = client.post(
         "/auth/login", json={"email": "judge@example.com", "password": "judge-password-123"}
     )

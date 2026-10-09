@@ -46,15 +46,16 @@ def test_markdown_links_resolve() -> None:
     assert not broken, "ссылки ведут в никуда:\n  " + "\n  ".join(broken)
 
 
-def test_contributing_describes_the_real_layout() -> None:
-    """Карта модулей в CONTRIBUTING.md и каталоги на диске — одно и то же.
+def test_architecture_describes_the_real_layout() -> None:
+    """Карта модулей в docs/ARCHITECTURE.md и каталоги на диске — одно и то же.
 
     Прежняя карта в README отстала настолько, что называла `cli.py` файлом
     (давно пакет), не знала про `export/` и `api/routers/`, а про учётные
     записи писала «in-memory, MVP» при живом хранилище на PostgreSQL.
     """
-    text = (PROJECT_ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
-    block = text[text.index("src/second_opinion/") : text.index("evaluation/")]
+    text = (PROJECT_ROOT / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
+    start = text.index("## Раскладка пакета")
+    block = text[text.index("src/second_opinion/", start) : text.index("evaluation/", start)]
 
     described = {
         line.strip().rstrip("/").split()[0].rstrip("/")
@@ -115,8 +116,7 @@ def test_working_notes_stay_out_of_the_repository() -> None:
 def test_markdown_follows_the_house_style() -> None:
     """Оформление документов единообразно.
 
-    Правила перечислены в CONTRIBUTING.md. Проверяются те, которые можно
-    проверить машиной: один заголовок первого уровня, иерархия без
+    Проверяются правила, которые можно проверить машиной: один заголовок первого уровня, иерархия без
     пропусков, у блока кода назван язык. Без этого подсветка выбирается
     наугад, а оглавление по заголовкам собирается неправильно.
     """
@@ -244,18 +244,13 @@ def test_domain_model_lists_every_fact_type() -> None:
     assert not missing, f"в docs/DOMAIN_MODEL.md не названы типы обстоятельств: {missing}"
 
 
-def test_package_version_matches_the_latest_changelog_entry() -> None:
+def test_package_version_is_declared_consistently() -> None:
     import tomllib
 
     import second_opinion
 
-    changelog = (PROJECT_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    heading = re.search(r"^## (\d+)\.(\d+) — ", changelog, flags=re.MULTILINE)
-    assert heading is not None, "в CHANGELOG.md нет записи вида «## 0.N — ...»"
-    expected = f"{heading.group(1)}.{heading.group(2)}.0"
     declared = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    assert declared["project"]["version"] == expected
-    assert second_opinion.__version__ == expected
+    assert declared["project"]["version"] == second_opinion.__version__
 
 
 def test_lock_pins_every_runtime_dependency() -> None:

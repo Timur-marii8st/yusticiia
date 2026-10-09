@@ -49,8 +49,6 @@ def test_served_endpoints_are_documented(pipeline) -> None:
     assert not undocumented, f"сервер отдаёт, но docs/API.md молчит: {undocumented}"
 
 
-_HISTORICAL = {"CHANGELOG.md"}
-
 _ANY_PATH = re.compile(r"/api/[^\s`\"'()\[\]{},;]*(?:\{[^}]+\}[^\s`\"'()\[\]{},;]*)*")
 
 
@@ -75,8 +73,6 @@ def test_paths_in_other_docs_are_real_routes(pipeline) -> None:
 
     stale: list[str] = []
     for doc in [root / "README.md", *sorted((root / "docs").rglob("*.md"))]:
-        if doc.name in _HISTORICAL:
-            continue
         text = doc.read_text(encoding="utf-8")
         for match in _ANY_PATH.finditer(text):
             path = match.group(0).split("?", 1)[0].rstrip(".,:;")

@@ -315,3 +315,5 @@ table.stats th { background: #f2f5f8; font-weight: 600; }
 
 .fact-input-article { width: 7em; }
 .fact-input-part { width: 12em; }
+
+.print-frame { position: fixed; right: 0; bottom: 0; width: 0; height: 0; border: 0; }

@@ -1,6 +1,6 @@
 [project]
 name = "second-opinion"
-version = "0.99.0"
+version = "0.101.0"
 description = "Верифицируемая система юридического аудита и поддержки принятия судебных решений (конкурс ВС РФ «Алгоритм правосудия. Второе мнение»)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -22,19 +22,9 @@ dependencies = [
 dev = [
     "pytest>=9.1.1",
     "ruff>=0.5",
-    # Генерация PDF-скана для интеграционного теста OCR
-    # (tests/unit/test_ocr.py::test_real_ocr_on_scanned_image_pdf).
-    # Без неё тест пропускается даже там, где tesseract установлен.
     "reportlab>=4.0",
-    # Измерение покрытия с порогом (НТ-09): без него регрессия в
-    # тестируемости остаётся незаметной до разбора после сдачи.
     "pytest-cov>=5.0",
-    # Статическая проверка типов (НТ-10). Ловит то, что тесты ловят
-    # только случайным прогоном ветки: например, .group() у результата
-    # поиска, который может быть None.
     "mypy>=1.11",
-    # Клиент для starlette.testclient: с httpx он объявлен устаревшим
-    # (StarletteDeprecationWarning). В коде системы остаётся httpx.
     "httpx2>=2.13",
 ]
 pg = [
@@ -61,17 +51,8 @@ packages = ["src/second_opinion"]
 testpaths = ["tests"]
 addopts = "-ra"
 filterwarnings = [
-    # Устаревание в нашем коде остаётся ошибкой.
     "error::DeprecationWarning",
-    # anyio 4.15 объявил устаревшими псевдонимы anyio.abc.*, а импортирует их
-    # starlette.testclient. Предупреждение целиком из зависимостей: `anyio` в
-    # коде проекта не упоминается ни разу. Привязка к модулю-источнику взята
-    # из upstream-ветки fix/ci-upstream-deprecation-warning — она точнее, чем
-    # фильтр по одному тексту сообщения. Снять, когда starlette перейдёт на
-    # anyio.from_thread.
     'ignore:The anyio\.abc\..* alias is deprecated.*:DeprecationWarning:starlette\.testclient',
-    # Фильтр upstream про устаревание stdlib-модуля crypt здесь не нужен:
-    # его тянул passlib, а passlib из зависимостей удалён.
 ]
 
 [tool.ruff]
@@ -88,11 +69,6 @@ source = ["src/second_opinion"]
 branch = true
 
 [tool.coverage.report]
-# Порог, а не цель. Измерено 19.09.2026 при включённом branch-покрытии:
-# 85.7% с поднятой базой и OCR (в CI так и есть). Порог 85 оставлял бы
-# запас в семь десятых пункта — одна новая непокрытая ветка роняла бы
-# сборку, и порог начали бы двигать вместо того, чтобы писать тесты.
-# 80 ловит настоящую просадку и не мешает работе.
 fail_under = 80
 show_missing = true
 skip_covered = true
@@ -110,11 +86,5 @@ warn_unused_ignores = true
 warn_redundant_casts = true
 
 [[tool.mypy.overrides]]
-# Обработчики FastAPI объявляют модель ответа и возвращают словарь —
-# фреймворк валидирует его по той же модели на выходе. Формально это
-# несовпадение типов, по существу — идиома, на которой стоит весь слой.
-# Переписывать три десятка обработчиков ради формальности значит
-# рисковать поведением там, где ошибку и так ловит валидация ответа и
-# тест test_openapi_schemas. Остальные проверки для слоя работают.
 module = "second_opinion.api.*"
 disable_error_code = ["return-value", "misc"]

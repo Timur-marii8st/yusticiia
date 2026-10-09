@@ -175,7 +175,7 @@ class LegalRag:
         self, hits: list[SearchHit], query: str, limit: int
     ) -> list[SearchHit]:
         """Гибридный реранкинг: Reciprocal Rank Fusion лексического и
-        семантического ранжирований (ADR-003).
+        семантического ранжирований.
 
         Если подключён pgvector-store, семантические близости берутся из БД
         (ANN-поиск), иначе — in-memory косинус.

@@ -1,4 +1,4 @@
-"""ADR-008: /api/* принимает SO_AUTH_TOKEN ИЛИ JWT access-токен."""
+"""/api/* принимает SO_AUTH_TOKEN ИЛИ JWT access-токен."""
 
 from __future__ import annotations
 

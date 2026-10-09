@@ -1091,7 +1091,7 @@ function corpusRow(norm) {
       ? `Редакция источника: ${norm.source_editions.join(", ")}`
       : "Редакция источника не записана — устаревание не отследить.")
   );
-  li.appendChild(normEditBox(norm));
+  if (accountRole === "admin") li.appendChild(normEditBox(norm));
   return li;
 }
 
@@ -1132,7 +1132,29 @@ async function loadCorpusState() {
   }
 }
 
-$("print-btn").addEventListener("click", () => window.print());
+async function printReport() {
+  const analysisId = $("download-json").dataset.analysisId;
+  if (!analysisId) return;
+  clearError();
+  const mask = $("mask-personal").checked ? "?mask=true" : "";
+  const response = await apiFetch(`/api/v1/analyses/${analysisId}/print${mask}`);
+  if (!response.ok) {
+    showError(`Не удалось подготовить печатную форму: HTTP ${response.status}`);
+    return;
+  }
+  const frame = document.createElement("iframe");
+  frame.className = "print-frame";
+  frame.setAttribute("title", "Печатная форма заключения");
+  frame.srcdoc = await response.text();
+  frame.addEventListener("load", () => {
+    frame.contentWindow.focus();
+    frame.contentWindow.print();
+  });
+  document.body.appendChild(frame);
+  window.setTimeout(() => frame.remove(), 120000);
+}
+
+$("print-btn").addEventListener("click", printReport);
 
 $("download-docx").addEventListener("click", async (event) => {
   const analysisId = $("download-json").dataset.analysisId;
@@ -1218,8 +1240,13 @@ function showLoginError(message) {
   box.hidden = false;
 }
 
+let accountRole = null;
+
 function setAccountView(user) {
   const authorized = Boolean(user);
+  const previousRole = accountRole;
+  accountRole = authorized ? user.role : null;
+  if (previousRole !== accountRole && !$("corpus-list").hidden) loadCorpusState();
   $("account-login").hidden = authorized;
   $("account-profile").hidden = !authorized;
   if (!authorized) return;
@@ -1236,73 +1263,6 @@ function setAccountView(user) {
     row.appendChild(div("v", value));
     card.appendChild(row);
   });
-}
-
-function showMfaError(message) {
-  const box = $("mfa-error");
-  box.textContent = message;
-  box.hidden = !message;
-}
-
-function renderMfa(enabled) {
-  showMfaError("");
-  $("mfa-setup").hidden = true;
-  $("mfa-status").textContent = enabled
-    ? "Второй фактор включён: при входе нужен код из приложения-аутентификатора."
-    : "Второй фактор выключен. Рекомендуется для администраторов.";
-  $("mfa-setup-btn").hidden = enabled;
-  $("mfa-disable").hidden = !enabled;
-}
-
-async function mfaPost(path, body) {
-  const response = await apiFetch(path, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (response.ok) return null;
-  const detail = (await response.json().catch(() => ({}))).detail;
-  return detail || `HTTP ${response.status}`;
-}
-
-async function startMfaSetup() {
-  showMfaError("");
-  const response = await apiFetch("/auth/mfa/setup", { method: "POST" });
-  if (!response.ok) {
-    showMfaError((await response.json().catch(() => ({}))).detail || `HTTP ${response.status}`);
-    return;
-  }
-  const body = await response.json();
-  $("mfa-secret").textContent = body.secret;
-  $("mfa-uri").textContent = body.otpauth_uri;
-  $("mfa-code").value = "";
-  $("mfa-setup").hidden = false;
-  $("mfa-code").focus();
-}
-
-async function enableMfa() {
-  const problem = await mfaPost("/auth/mfa/enable", { code: $("mfa-code").value.trim() });
-  if (problem) {
-    showMfaError(problem);
-    return;
-  }
-  $("mfa-secret").textContent = "";
-  $("mfa-uri").textContent = "";
-  renderMfa(true);
-}
-
-async function disableMfa() {
-  const problem = await mfaPost("/auth/mfa/disable", {
-    password: $("mfa-disable-password").value,
-    code: $("mfa-disable-code").value.trim(),
-  });
-  if (problem) {
-    showMfaError(problem);
-    return;
-  }
-  $("mfa-disable-password").value = "";
-  $("mfa-disable-code").value = "";
-  renderMfa(false);
 }
 
 async function loadProfile() {
@@ -1322,7 +1282,6 @@ async function loadProfile() {
   }
   const profile = await response.json();
   setAccountView(profile);
-  renderMfa(Boolean(profile.mfa_enabled));
   await loadHistory();
 }
 
@@ -1465,14 +1424,10 @@ async function login() {
   const response = await fetch("/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password, cookie: true, otp: $("login-otp").value.trim() || null }),
+    body: JSON.stringify({ email, password, cookie: true }),
   });
   if (!response.ok) {
     const detail = (await response.json().catch(() => ({}))).detail;
-    if (response.headers.get("X-MFA-Required")) {
-      $("otp-row").hidden = false;
-      $("login-otp").focus();
-    }
     showLoginError(detail || `Вход не выполнен: HTTP ${response.status}`);
     return;
   }
@@ -1480,8 +1435,6 @@ async function login() {
   sessionStorage.setItem("so-access", body.tokens.access_token);
   setSessionHint(true);
   $("login-password").value = "";
-  $("login-otp").value = "";
-  $("otp-row").hidden = true;
   $("auth-box").hidden = true;
   await loadProfile();
 }
@@ -1496,12 +1449,6 @@ async function logout() {
   setAccountView(null);
 }
 
-$("mfa-setup-btn").addEventListener("click", startMfaSetup);
-$("mfa-enable-btn").addEventListener("click", enableMfa);
-$("mfa-disable-btn").addEventListener("click", disableMfa);
-$("login-otp").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") login();
-});
 $("login-btn").addEventListener("click", login);
 $("login-password").addEventListener("keydown", (e) => {
   if (e.key === "Enter") login();

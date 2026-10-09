@@ -26,6 +26,9 @@ services:
       - "127.0.0.1:8000:8000"
     volumes:
       - ./data:/app/data
+    env_file:
+      - path: .env
+        required: false
     environment:
       SO_LLM_PROVIDER: ${SO_LLM_PROVIDER:-mock}
       SO_OPENAI_BASE_URL: ${SO_OPENAI_BASE_URL:-}
@@ -41,14 +44,6 @@ services:
         condition: service_healthy
         required: false
 
-  # Закрытый контур для языковой модели (НТ-02, docs/TZ.md § 2.10): модель
-  # работает на той же машине, что и система, наружу не ходит — порт
-  # публикуется только на loopback, `app` обращается к ней по имени `vllm`
-  # во внутренней сети compose.
-  #
-  # Установка на Ubuntu, переменные и проверка: docs/DEPLOYMENT_VLLM.md.
-  # Ключ SO_OPENAI_API_KEY общий: им vLLM закрывает адреса /v1, им же
-  # подписывает запросы `app`.
   vllm:
     image: vllm/vllm-openai:${VLLM_IMAGE_TAG:-v0.31.0-cu129}
     profiles: ["vllm"]
@@ -96,9 +91,6 @@ services:
       retries: 120
       start_period: 120s
 
-  # Без GPU — только для проверки контракта и формата запросов (на малой
-  # модели), не для работы: на CPU один документ занимает минуты.
-  # Образ — готовый arm64 (Docker Desktop на Apple Silicon) или x86_64.
   vllm-cpu:
     image: vllm/vllm-openai-cpu:${VLLM_CPU_TAG:-v0.31.0-arm64}
     profiles: ["vllm-cpu"]

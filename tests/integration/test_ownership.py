@@ -28,12 +28,9 @@ def _login(client: TestClient, email: str, password: str) -> dict[str, str]:
 
 
 def _judge(client: TestClient, admin: dict[str, str], email: str) -> dict[str, str]:
-    created = client.post(
-        "/auth/users",
-        json={"email": email, "password": "judgepass1", "full_name": "Судья"},
-        headers=admin,
-    )
-    assert created.status_code == 201, created.text
+    from second_opinion.auth.service import get_auth_service
+
+    get_auth_service().create_user(email, "judgepass1", "Судья")
     return _login(client, email, "judgepass1")
 
 

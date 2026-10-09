@@ -51,12 +51,13 @@
    нельзя. Каталог `data/fixtures/` в репозитории и копируется вместе с ним.
 2. **Шифровать до того, как копия покинет сервер.** Незашифрованный архив на
    внешнем диске или в общей папке раскрывает все загруженные приговоры. Например,
-   с утилитой `age` (ключ шифрования хранится отдельно от копий):
+   с утилитой `age` (ключ шифрования хранится отдельно от копий; `BACKUP_PUBLIC_KEY` и
+   `BACKUP_KEY_FILE` — переменные оболочки оператора, приложение их не читает):
 
    ```bash
-   tar czf - -C data store | age -r "$SO_BACKUP_PUBLIC_KEY" > "so-store-$(date +%F).tar.gz.age"
+   tar czf - -C data store | age -r "$BACKUP_PUBLIC_KEY" > "so-store-$(date +%F).tar.gz.age"
    docker compose --profile postgres exec -T db pg_dump -U second_opinion -Fc second_opinion \
-     | age -r "$SO_BACKUP_PUBLIC_KEY" > "so-db-$(date +%F).dump.age"
+     | age -r "$BACKUP_PUBLIC_KEY" > "so-db-$(date +%F).dump.age"
    ```
 
    Подойдёт и `gpg --encrypt`, и шифрование всего тома на уровне ОС (LUKS, FileVault);
@@ -66,8 +67,8 @@
    запустить сервис на этой копии и открыть любое заключение (раскрывается ли цитата).
 
    ```bash
-   age -d -i "$SO_BACKUP_KEY_FILE" so-store-2026-10-07.tar.gz.age | tar xz -C /tmp/restore
-   age -d -i "$SO_BACKUP_KEY_FILE" so-db-2026-10-07.dump.age | pg_restore -U second_opinion -d second_opinion_restore
+   age -d -i "$BACKUP_KEY_FILE" so-store-2026-10-07.tar.gz.age | tar xz -C /tmp/restore
+   age -d -i "$BACKUP_KEY_FILE" so-db-2026-10-07.dump.age | pg_restore -U second_opinion -d second_opinion_restore
    ```
 4. **Сроки хранения и удаление.** Удаление документа через API копий не затрагивает:
    удалённый документ остаётся в старых копиях до их ротации. Срок хранения копий

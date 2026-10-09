@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from ...ingestion.parser import ParseError
 from ...pipeline import AnalysisPipeline, DocumentNotFound
@@ -30,6 +31,16 @@ class TextDocumentPayload(BaseModel):
 
 class AnalyzePayload(BaseModel):
     applicable_at: str | None = None
+
+    @field_validator("applicable_at")
+    @classmethod
+    def _iso_date(cls, value: str | None) -> str | None:
+        if value is None or not value.strip():
+            return None
+        try:
+            return date.fromisoformat(value.strip()).isoformat()
+        except ValueError as exc:
+            raise ValueError("ожидается дата в формате ГГГГ-ММ-ДД") from exc
 
 
 @contextmanager
