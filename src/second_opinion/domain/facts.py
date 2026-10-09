@@ -85,6 +85,8 @@ class SentenceFacts(BaseModel):
     punishment_type: str | None = None
     term_months: float | None = Field(default=None, ge=0)
     final_term_months: float | None = Field(default=None, ge=0)
+    hours: float | None = Field(default=None, ge=0)
+    fine_rubles: float | None = Field(default=None, ge=0)
     suspended: bool | None = None
 
 

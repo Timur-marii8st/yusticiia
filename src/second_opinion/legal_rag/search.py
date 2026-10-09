@@ -7,6 +7,7 @@ from datetime import date
 
 from pydantic import BaseModel, Field
 
+from ..domain.enums import VerificationStatus
 from ..domain.norms import LegalNorm, NormVersion
 from ..legal_sources.store import NoApplicableVersionError, NormStore
 from .embeddings import EmbeddingProvider, cosine
@@ -14,6 +15,9 @@ from .embeddings import EmbeddingProvider, cosine
 _TOKEN = re.compile(r"[a-zа-яё0-9]+")
 
 RRF_K = 60
+BM25_K1 = 1.2
+BM25_B = 0.75
+DRAFT_WEIGHT = 0.85
 
 _STOPWORDS = {
     "и", "в", "во", "не", "на", "по", "для", "при", "это", "как", "или",
@@ -44,6 +48,20 @@ def tokenize(text: str) -> list[str]:
 
 def _prefix(token: str) -> str:
     return token[:_PREFIX_LEN] if len(token) > _PREFIX_LEN else token
+
+
+def _length_factor(length: int, average: float) -> float:
+    """Поправка на длину текста по BM25 (k1 = 1,2, b = 0,75).
+
+    Без неё длинный текст выигрывает потому, что длинный: в пункте Пленума на
+    две тысячи знаков слова запроса встречаются чаще, чем в выверенной записи
+    статьи на триста. Черновики к тому же получают вес ``DRAFT_WEIGHT``: при
+    близкой релевантности судья сначала видит сверенный источник, черновик
+    остаётся в выдаче со своим статусом.
+    """
+    if average <= 0:
+        return 1.0
+    return (BM25_K1 + 1) / (1 + BM25_K1 * (1 - BM25_B + BM25_B * length / average))
 
 
 def _haystack(norm: LegalNorm, version: NormVersion) -> str:
@@ -120,8 +138,11 @@ class LegalRag:
 
         term_df: dict[str, int] = {}
         hay_token_sets: dict[str, set[str]] = {}
+        doc_lengths: dict[str, int] = {}
         for norm, version in selected:
-            tokens = set(tokenize(_haystack(norm, version)))
+            all_tokens = tokenize(_haystack(norm, version))
+            doc_lengths[norm.norm_id] = len(all_tokens)
+            tokens = set(all_tokens)
             hay_token_sets[norm.norm_id] = tokens
             for token in tokens:
                 term_df[token] = term_df.get(token, 0) + 1
@@ -139,6 +160,7 @@ class LegalRag:
             return math.log((corpus_size + 1) / (df + 1)) + 1.0
 
         query_weight = sum(idf(token) for token in query_tokens)
+        average_length = sum(doc_lengths.values()) / len(doc_lengths)
 
         hits: list[SearchHit] = []
         for norm, version in selected:
@@ -147,6 +169,9 @@ class LegalRag:
             )
             if score <= 0:
                 continue
+            score *= _length_factor(doc_lengths[norm.norm_id], average_length)
+            if version.verification_status is VerificationStatus.DRAFT:
+                score *= DRAFT_WEIGHT
             hits.append(
                 SearchHit(
                     norm_id=norm.norm_id,
@@ -200,8 +225,12 @@ class LegalRag:
         lexical_ranking = sorted(
             range(len(hits)), key=lambda i: (-hits[i].score, hits[i].norm_id)
         )
+        weighted = [
+            similarity * (DRAFT_WEIGHT if hits[i].verification_status == "draft" else 1.0)
+            for i, similarity in enumerate(similarities)
+        ]
         semantic_ranking = sorted(
-            range(len(hits)), key=lambda i: (-similarities[i], hits[i].norm_id)
+            range(len(hits)), key=lambda i: (-weighted[i], hits[i].norm_id)
         )
 
         fused: dict[int, float] = {}
@@ -250,12 +279,16 @@ class LegalRag:
 
         score = 0.0
         matched: list[str] = []
+        exact = 0
         for token in query_tokens:
             weight = idf(token)
             if token in hay_exact:
                 score += weight * (1.25 if token in title_exact else 1.0)
                 matched.append(token)
+                exact += 1
             elif _prefix(token) in hay_prefixes:
                 score += weight * 0.75
                 matched.append(token)
+        if exact == 0 and len(matched) == 1 and len(query_tokens) > 1:
+            return 0.0, []
         return score / query_weight, matched

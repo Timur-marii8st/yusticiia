@@ -180,3 +180,15 @@ def test_schema_error_message_does_not_repeat_the_model_output() -> None:
     message = str(caught.value)
     assert "СЕКРЕТНЫЙ-ФРАГМЕНТ" not in message
     assert "facts.0.confidence" in message
+
+
+def test_key_is_sent_as_bearer(monkeypatch) -> None:
+    sent: list[dict] = []
+    monkeypatch.setattr(
+        openai_compatible.httpx,
+        "post",
+        lambda url, **kw: (sent.append(kw["headers"]), _Response(VALID))[1],
+    )
+    _call(_provider())
+
+    assert sent[0]["Authorization"] == "Bearer test-key"

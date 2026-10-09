@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
+
 from second_opinion.domain.documents import Document
 from second_opinion.domain.enums import FactStatus, FactType
 from second_opinion.fact_extraction.pattern_extractor import PatternFactExtractor
@@ -797,3 +801,86 @@ def test_quotes_are_completed_to_the_end_of_the_word_and_of_the_code_name() -> N
         for evidence in fact.evidence:
             assert text[evidence.start_offset : evidence.end_offset] == evidence.quote
             assert not evidence.quote.endswith(("год", "УК"))
+
+
+def _articles(text: str) -> list[tuple[int, str | None, int]]:
+    return [
+        (f.value["article"], f.value["article_suffix"], f.value["part"])
+        for f in _by_type(_facts(text), FactType.QUALIFICATION)
+    ]
+
+
+def test_general_part_citations_are_not_qualifications() -> None:
+    text = (
+        "У С Т А Н О В И Л: ФИО1 совершил преступление. "
+        "П Р И Г О В О Р И Л: признать виновным в совершении преступления, "
+        "предусмотренного ч. 2 ст. 158 УК РФ, и назначить наказание в виде лишения свободы "
+        "на срок 2 года. В соответствии с ч. 2 ст. 69 УК РФ, п. «в» ч. 1 ст. 58 УК РФ "
+        "отбывать в колонии общего режима, на основании ч. 3.1 ст. 72 УК РФ зачесть срок."
+    )
+    assert _articles(text) == [(158, None, 2)]
+
+
+def test_qualification_is_taken_from_the_conviction_formula() -> None:
+    text = (
+        "У С Т А Н О В И Л: ФИО1 ранее судим по приговору от 2020 года по ч. 1 ст. 264.1 УК РФ. "
+        "П Р И Г О В О Р И Л: признать ФИО1 виновным в совершении преступлений, "
+        "предусмотренных ч. 1 ст. 158, ч. 2 ст. 159 УК РФ, и назначить наказание "
+        "в виде лишения свободы на срок 2 года. На основании ч. 5 ст. 74 УК РФ отменить условное осуждение."
+    )
+    assert _articles(text) == [(158, None, 1), (159, None, 2)]
+
+
+def test_attempt_article_of_the_general_part_is_not_a_qualification() -> None:
+    text = (
+        "У С Т А Н О В И Л: суд переквалифицирует действия на ч. 1 ст. 159 УК РФ. "
+        "П Р И Г О В О Р И Л: признать виновным в совершении преступления, предусмотренного "
+        "ч. 3 ст. 30, ч. 1 ст. 159 УК РФ и назначить наказание в виде обязательных работ."
+    )
+    assert _articles(text) == [(159, None, 1)]
+
+
+REAL_SOURCES = {
+    "real-006": (264, "1", 2),
+    "real-007": (111, None, 4),
+    "real-008": (111, None, 2),
+    "real-009": (159, None, 2),
+    "real-010": (159, None, 1),
+}
+
+
+@pytest.mark.parametrize("case_id", sorted(REAL_SOURCES))
+def test_real_sentence_yields_exactly_the_convicted_article(case_id: str) -> None:
+    path = Path(__file__).resolve().parents[2] / "data/drafts/cases" / f"{case_id}.source.txt"
+    if not path.exists():
+        pytest.skip(f"нет исходного текста {path.name}")
+    assert _articles(path.read_text(encoding="utf-8")) == [REAL_SOURCES[case_id]]
+
+
+def test_article_with_a_dot_keeps_its_suffix_in_the_case() -> None:
+    """Регрессия: «ч. 2 ст. 264.1» превращалась в «ч. 2 ст. 264», и предел санкции
+    искался у другой статьи."""
+    from second_opinion.fact_extraction.builder import build_case_facts
+
+    text = (
+        "У С Т А Н О В И Л: ... П Р И Г О В О Р И Л: признать виновным в совершении "
+        "преступления, предусмотренного ч. 2 ст. 264.1 УК РФ, и назначить наказание в виде "
+        "лишения свободы на срок 1 год 2 месяца."
+    )
+    primary = build_case_facts(_facts(text)).primary_qualification
+    assert primary is not None
+    assert (primary.article, primary.article_suffix, primary.part) == (264, "1", 2)
+    assert primary.ref == "ст. 264.1 ч. 2 УК РФ"
+
+
+def test_fine_for_the_crime_is_taken_before_the_final_fine_by_aggregate() -> None:
+    text = (
+        "У С Т А Н О В И Л: ... П Р И Г О В О Р И Л: признать виновным в совершении "
+        "преступлений, предусмотренных ч.2 ст.159, ч.2 ст.159 УК РФ и назначить ему наказание: "
+        "-по ч.2 ст.159 УК РФ в виде штрафа в размере 80000 (восемьдесят тысяч) рублей; "
+        "-по ч.2 ст.159 УК РФ в виде штрафа в размере 70000 (семьдесят тысяч) рублей, "
+        "в соответствии с ч.2 ст.69 УК РФ окончательно назначить наказание в виде штрафа "
+        "в размере 100000 (сто тысяч) рублей."
+    )
+    fines = _by_type(_facts(text), FactType.FINE_AMOUNT)
+    assert [f.value for f in fines] == [80000.0]

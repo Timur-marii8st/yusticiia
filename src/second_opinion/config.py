@@ -41,10 +41,7 @@ class AppConfig:
     garant_base_url: str = ""
     garant_token: str = ""
     garant_stub_dir: str = ""
-    llm_auth_scheme: str = "Bearer"
-    gigachat_auth_key: str = ""
-    gigachat_scope: str = "GIGACHAT_API_PERS"
-    gigachat_ca_bundle: str = ""
+    llm_contour_hosts: tuple[str, ...] = ()
     login_rate_limit: int = 20
     login_rate_window_seconds: int = 60
     llm_max_tokens: int = 3000
@@ -115,11 +112,11 @@ def load_config() -> AppConfig:
         garant_base_url=_env("SO_GARANT_BASE_URL"),
         garant_token=_env("SO_GARANT_TOKEN"),
         garant_stub_dir=_env("SO_GARANT_STUB_DIR"),
-        llm_auth_scheme=_env("SO_LLM_AUTH_SCHEME", "Bearer") or "Bearer",
-        gigachat_auth_key=_env("SO_GIGACHAT_AUTH_KEY"),
-        gigachat_scope=_env("SO_GIGACHAT_SCOPE", "GIGACHAT_API_PERS")
-        or "GIGACHAT_API_PERS",
-        gigachat_ca_bundle=_env("SO_GIGACHAT_CA_BUNDLE"),
+        llm_contour_hosts=tuple(
+            host.strip().lower()
+            for host in (_env("SO_LLM_CONTOUR_HOSTS") or "").split(",")
+            if host.strip()
+        ),
         login_rate_limit=int(_env("SO_LOGIN_RATE_LIMIT") or 20),
         login_rate_window_seconds=int(_env("SO_LOGIN_RATE_WINDOW_SECONDS") or 60),
         llm_max_tokens=int(_env("SO_LLM_MAX_TOKENS") or 3000),

@@ -57,6 +57,11 @@ def _check_term(value: object) -> None:
         raise FactValidationError("punishment_term: ожидается число месяцев ≥ 0")
 
 
+def _check_amount(fact_type: FactType, value: object, unit: str) -> None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
+        raise FactValidationError(f"{fact_type.value}: ожидается число {unit} ≥ 0")
+
+
 def _check_qualification(value: object) -> None:
     if (
         not isinstance(value, dict)
@@ -99,6 +104,10 @@ def validate_fact_value(fact_type: FactType, value: object) -> None:
         _check_age(value)
     elif fact_type in (FactType.PUNISHMENT_TERM, FactType.FINAL_PUNISHMENT_TERM):
         _check_term(value)
+    elif fact_type is FactType.PUNISHMENT_HOURS:
+        _check_amount(fact_type, value, "часов")
+    elif fact_type is FactType.FINE_AMOUNT:
+        _check_amount(fact_type, value, "рублей")
     elif fact_type is FactType.QUALIFICATION:
         _check_qualification(value)
     elif fact_type is FactType.DATE_OF_OFFENSE:

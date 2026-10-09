@@ -236,7 +236,8 @@ second-opinion analyze data/fixtures/sample_documents/sample_228_attempt_violati
 |---|---|---|
 | `SO_DATA_DIR` | каталог хранения документов/отчётов/аудита | `./data` |
 | `SO_FIXTURES_DIR` | каталог нормативных фикстур | `./data/fixtures` |
-| `SO_LLM_PROVIDER` | `mock` \| `gigachat` \| `openai_compatible` | `mock` |
+| `SO_LLM_PROVIDER` | `mock` \| `openai_compatible` (модель в закрытом контуре: vLLM, Ollama) | `mock` |
+| `SO_LLM_CONTOUR_HOSTS` | внутренние серверы суда с обычным доменным именем, которым разрешено обращение к модели (через запятую); localhost, частные адреса, имя сервиса Docker и зоны `.local`, `.internal`, `.lan` разрешены без списка | пусто |
 | `SO_MAX_UPLOAD_BYTES` | лимит размера документа | 5242880 (5 МБ) |
 | `SO_RAG_MODE` | `lexical` \| `hybrid` \| `hybrid_pgvector` | `lexical` |
 | `SO_AUTH_TOKEN` | Bearer-токен для `/api/*` (loopback-MVP) | пусто |

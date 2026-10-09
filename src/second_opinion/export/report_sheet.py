@@ -352,7 +352,8 @@ def build_sheet(
         blocks.append(_paragraph("Сопоставимые дела в базе практики не найдены."))
 
     blocks.append(_heading("7. Описательная статистика"))
-    blocks += _analytics_blocks(report.analytics)
+    synthetic = sum(1 for match in report.comparable_cases if match.case.synthetic)
+    blocks += _analytics_blocks(report.analytics, synthetic)
 
     if report.norms_applied:
         blocks.append(_heading("8. Применённые нормы"))
@@ -374,7 +375,7 @@ def build_sheet(
     return Sheet(TITLE, blocks)
 
 
-def _analytics_blocks(analytics: AnalyticsSummary | None) -> list[Block]:
+def _analytics_blocks(analytics: AnalyticsSummary | None, synthetic: int) -> list[Block]:
     if analytics is None:
         return [_paragraph("Недостаточно сопоставимых дел для статистики.")]
     blocks: list[Block] = []
@@ -397,6 +398,7 @@ def _analytics_blocks(analytics: AnalyticsSummary | None) -> list[Block]:
         )
     stats = [
         ["Дел в выборке", str(analytics.n_cases)],
+        ["Из них синтетических (учебные примеры)", str(synthetic)],
         ["Дел с назначенным сроком лишения свободы", str(analytics.n_with_term)],
         ["Медиана срока, мес.", _number(analytics.median_months)],
         ["Средний срок, мес.", _number(analytics.mean_months)],

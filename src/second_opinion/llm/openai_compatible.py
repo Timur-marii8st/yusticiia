@@ -19,10 +19,12 @@ SYSTEM_INSTRUCTION = (
 
 
 class OpenAICompatibleProvider:
-    """Адаптер для любого OpenAI-совместимого контура.
+    """Адаптер для модели, развёрнутой в закрытом контуре (vLLM, Ollama).
 
-    Включается только явно (``SO_LLM_PROVIDER=openai_compatible``) и требует
-    ключ из окружения; по умолчанию система работает офлайн на мок-провайдере.
+    Протокол OpenAI-совместимый, но адрес обязан указывать внутрь сети суда:
+    это проверяет ``llm.contour`` при сборке конвейера. Включается только явно
+    (``SO_LLM_PROVIDER=openai_compatible``) и требует ключ из окружения; по
+    умолчанию система работает офлайн на мок-провайдере.
     """
 
     name = "openai_compatible"
@@ -33,7 +35,6 @@ class OpenAICompatibleProvider:
         api_key: str,
         model: str,
         timeout: float = 60.0,
-        auth_scheme: str = "Bearer",
         max_tokens: int = 3000,
     ) -> None:
         missing = [
@@ -47,14 +48,12 @@ class OpenAICompatibleProvider:
         ]
         if missing:
             raise ValueError(
-                f"не задано: {', '.join(missing)}. Внешний контур включается только "
-                "полной явной настройкой: умолчаний нет намеренно, иначе забытый "
-                "адрес увёл бы документы к провайдеру, которого никто не выбирал "
-                "(НТ-02 — приоритет отечественных решений). См. .env.example"
+                f"не задано: {', '.join(missing)}. Модель включается только полной "
+                "явной настройкой: умолчаний нет намеренно, иначе забытый адрес увёл "
+                "бы документы туда, куда их никто не отправлял. См. .env.example"
             )
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
-        self._auth_scheme = auth_scheme.strip() or "Bearer"
         self._model = model
         self._timeout = timeout
         self._max_tokens = max_tokens
@@ -90,7 +89,7 @@ class OpenAICompatibleProvider:
                 {"role": "user", "content": user_content},
             ],
         }
-        headers = {"Authorization": f"{self._auth_scheme} {self._api_key}"}
+        headers = {"Authorization": f"Bearer {self._api_key}"}
         for attempt in range(1, max_attempts + 1):
             result.attempts = attempt
             try:

@@ -17,7 +17,7 @@ from .schemas import LLMExtractionResult
 MAX_DOCUMENT_CHARS = 20000
 RESOLUTIVE_TAIL_CHARS = 8000
 OMISSION_MARK = "\n[... часть текста пропущена ...]\n"
-PROMPT_VERSION = "v2"
+PROMPT_VERSION = "v3"
 
 _STAGE_ANCHORS = {
     "attempt": re.compile(r"покуш", re.IGNORECASE),
@@ -58,6 +58,8 @@ SCALAR_FACT_TYPES = frozenset(
         FactType.PUNISHMENT_TYPE,
         FactType.PUNISHMENT_TERM,
         FactType.FINAL_PUNISHMENT_TERM,
+        FactType.PUNISHMENT_HOURS,
+        FactType.FINE_AMOUNT,
         FactType.SUSPENDED_SENTENCE,
         FactType.DATE_OF_OFFENSE,
     }

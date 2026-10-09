@@ -390,10 +390,15 @@ def test_qualification_without_special_procedure_flag_stays_unknown(norm_store: 
     assert evaluations["R-007"].status.value == "UNKNOWN"
 
 
-def test_fine_is_not_applicable_for_limit_rules_and_completeness(norm_store: NormStore) -> None:
-    """Штраф: пределы лишения свободы, условность и пара «вид и срок» не относятся к делу."""
+def test_fine_without_amount_is_unknown_for_the_sanction_and_not_applicable_elsewhere(
+    norm_store: NormStore,
+) -> None:
+    """Штраф без суммы в рублях: предел санкции проверить нечем (UNKNOWN с названной
+    причиной), а условность и пара «вид и срок» к делу не относятся."""
     evaluations = run(norm_store, make_case(term=None, punishment_type="fine"))
-    for rule_id in ("R-001", "R-006", "R-009"):
+    assert evaluations["R-001"].status.value == "UNKNOWN"
+    assert evaluations["R-001"].missing == ["размер штрафа в рублях"]
+    for rule_id in ("R-006", "R-009"):
         assert evaluations[rule_id].status.value == "NOT_APPLICABLE", rule_id
 
 

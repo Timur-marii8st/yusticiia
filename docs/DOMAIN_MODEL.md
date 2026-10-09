@@ -56,14 +56,17 @@ SHA-256 текста. Все цитирования ссылаются на `tex
 | `status` | `VERIFIED / LIKELY / UNCERTAIN / NOT_FOUND / CONFLICT` |
 | `rejection_reason` | причина исключения (`status: NOT_FOUND`); `None`, пока факт не исключён |
 
-`FactType` (19 значений): `qualification`, `defendant_age`,
+`FactType` (21 значение): `qualification`, `defendant_age`,
 `prior_convictions`, `minor_dependents`, `health_factor`, `offense_stage`,
 `group_offense`, `guilty_plea`, `surrender_or_confession`, `restitution`,
 `aggravating_recidivism`, `special_procedure`, `jury_trial`, `punishment_type`,
-`punishment_term`, `final_punishment_term`, `suspended_sentence`,
-`date_of_offense`, `exceptional_circumstances`. `punishment_term` - срок за
-преступление, `final_punishment_term` - окончательный срок по совокупности
-преступлений или приговоров (ст. 69, 70), если приговор называет его отдельно.
+`punishment_term`, `final_punishment_term`, `punishment_hours`, `fine_amount`,
+`suspended_sentence`, `date_of_offense`, `exceptional_circumstances`.
+`punishment_term` - срок за преступление в месяцах, `final_punishment_term` -
+окончательный срок по совокупности преступлений или приговоров (ст. 69, 70), если
+приговор называет его отдельно, `punishment_hours` - срок обязательных работ в
+часах, `fine_amount` - основной штраф в рублях (дополнительный штраф к лишению
+свободы и штраф в размере дохода за период не извлекаются).
 
 ### CaseFacts
 Агрегат обстоятельств дела, собранный из реестра `LegalFact`:

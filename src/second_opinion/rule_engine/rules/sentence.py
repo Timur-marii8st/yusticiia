@@ -120,12 +120,20 @@ class SentenceCompletenessRule(LegalRule):
 
     def evaluate(self, context) -> RuleEvaluation:
         case: CaseFacts = context.case_facts
-        has_type = case.sentence.punishment_type is not None
-        has_term = case.sentence.term_months is not None
+        sentence = case.sentence
+        has_type = sentence.punishment_type is not None
+        if sentence.punishment_type == PunishmentType.FINE.value:
+            has_term = sentence.fine_rubles is not None
+        elif sentence.punishment_type == PunishmentType.COMPULSORY_LABOR.value:
+            has_term = sentence.hours is not None or sentence.term_months is not None
+        else:
+            has_term = sentence.term_months is not None
         facts_used = [
             f.id
             for f in _facts_of_type(case, FactType.PUNISHMENT_TYPE)
             + _facts_of_type(case, FactType.PUNISHMENT_TERM)
+            + _facts_of_type(case, FactType.PUNISHMENT_HOURS)
+            + _facts_of_type(case, FactType.FINE_AMOUNT)
         ]
         if has_type and has_term:
             return self._evaluation(
@@ -159,9 +167,10 @@ class SentenceCompletenessRule(LegalRule):
                 status=RuleStatus.NOT_APPLICABLE,
                 headline=f"{self.title}: не применимо",
                 explanation=(
-                    "Размер этого вида наказания (сумма штрафа, срок ограничения свободы) "
-                    "система не извлекает: пара «вид и срок» относится к лишению свободы, "
-                    "исправительным и обязательным работам."
+                    "Размер этого вида наказания не извлечён: срок ограничения свободы "
+                    "система не извлекает, а штраф в размере дохода за период рублями "
+                    "не выражается. Пара «вид и размер» проверяется для лишения свободы, "
+                    "исправительных и обязательных работ и штрафа в рублях."
                 ),
                 facts_used=facts_used,
             )

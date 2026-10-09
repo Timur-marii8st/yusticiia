@@ -23,6 +23,7 @@ def build_case_facts(facts: list[LegalFact]) -> CaseFacts:
                 Qualification(
                     code=value.get("code", "УК РФ"),
                     article=int(value["article"]),
+                    article_suffix=value.get("article_suffix"),
                     part=value.get("part"),
                 )
             )
@@ -90,6 +91,10 @@ def build_case_facts(facts: list[LegalFact]) -> CaseFacts:
             case.sentence.term_months = float(value)
         elif fact.type is FactType.FINAL_PUNISHMENT_TERM:
             case.sentence.final_term_months = float(value)
+        elif fact.type is FactType.PUNISHMENT_HOURS:
+            case.sentence.hours = float(value)
+        elif fact.type is FactType.FINE_AMOUNT:
+            case.sentence.fine_rubles = float(value)
         elif fact.type is FactType.SUSPENDED_SENTENCE:
             case.sentence.suspended = bool(value)
         elif fact.type is FactType.DATE_OF_OFFENSE:

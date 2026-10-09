@@ -49,7 +49,7 @@ def test_llm_fact_gets_likely_status_and_offsets() -> None:
     assert fact.type is FactType.HEALTH_FACTOR
     evidence = fact.evidence[0]
     assert TEXT[evidence.start_offset:evidence.end_offset] == evidence.quote
-    assert fact.prompt_version == "v2"
+    assert fact.prompt_version == "v3"
 
 
 def test_llm_fact_with_absent_quote_is_dropped() -> None:

@@ -10,6 +10,7 @@ from ..domain.evidence import Evidence
 from ..domain.facts import LegalFact
 
 PATTERN_CONFIDENCE = 0.95
+SPECIAL_PART_FIRST_ARTICLE = 105
 
 _MONTHS = {
     "января": 1, "февраля": 2, "марта": 3, "апреля": 4, "мая": 5, "июня": 6,
@@ -192,10 +193,21 @@ class PatternFactExtractor:
 
     _ACCUSED = re.compile(r"обвиняем\w*", re.IGNORECASE)
 
+    _CONVICTION_CLAUSE = re.compile(
+        r"виновн\w*\s+в\s+совершении\s+[^.;]{0,80}?предусмотренн\w+", re.IGNORECASE
+    )
+    _CLAUSE_END = re.compile(r"\bназначить\b", re.IGNORECASE)
+    _CLAUSE_ARTICLE = re.compile(
+        rf"{_CH}\s*(\d)\s*{_ST}\s*(\d{{1,3}}(?:\.\d+)?)", re.IGNORECASE
+    )
+    _CLAUSE_MAX_CHARS = 400
+
     def _extract_qualifications(self, text: str, emit: Callable[..., None]) -> None:
         search_from = self._narrative_start(text)
         resolutive = self._RESOLUTIVE_MARKER.search(text, search_from)
         split = resolutive.end() if resolutive else len(text)
+        if resolutive and self._emit_conviction_clause(text, split, emit):
+            return
         found = self._emit_qualifications(text, split, len(text), emit)
         if self._emit_qualifications(text, search_from, split, emit) or found:
             return
@@ -203,13 +215,48 @@ class PatternFactExtractor:
         if accused:
             self._emit_qualifications(text, accused[-1].start(), search_from, emit)
 
+    def _emit_conviction_clause(
+        self, text: str, pos: int, emit: Callable[..., None]
+    ) -> bool:
+        """Статьи из формулы осуждения («признать виновным … предусмотренного …»).
+
+        Только они квалифицируют деяние: остальные статьи в тексте (прежние
+        приговоры, зачёт, режим колонии) к квалификации не относятся.
+        """
+        clause = self._CONVICTION_CLAUSE.search(text, pos)
+        if clause is None:
+            return False
+        stop = self._CLAUSE_END.search(
+            text, clause.end(), clause.end() + self._CLAUSE_MAX_CHARS
+        )
+        end = stop.start() if stop else clause.end() + self._CLAUSE_MAX_CHARS // 2
+        found = False
+        for match in self._CLAUSE_ARTICLE.finditer(text, clause.end(), end):
+            parsed = _article_number(match.group(2))
+            if parsed is None or parsed[0] < SPECIAL_PART_FIRST_ARTICLE:
+                continue
+            article, suffix = parsed
+            emit(
+                FactType.QUALIFICATION,
+                {
+                    "code": "УК РФ",
+                    "article": article,
+                    "article_suffix": suffix,
+                    "part": int(match.group(1)),
+                },
+                match.start(),
+                match.end(),
+            )
+            found = True
+        return found
+
     def _emit_qualifications(
         self, text: str, pos: int, endpos: int, emit: Callable[..., None]
     ) -> bool:
         found = False
         for match in self._QUAL_PART_FIRST.finditer(text, pos, endpos):
             parsed = _article_number(match.group(2))
-            if parsed is None:
+            if parsed is None or parsed[0] < SPECIAL_PART_FIRST_ARTICLE:
                 continue
             article, suffix = parsed
             emit(
@@ -226,7 +273,7 @@ class PatternFactExtractor:
             found = True
         for match in self._QUAL_ARTICLE_FIRST.finditer(text, pos, endpos):
             parsed = _article_number(match.group(1))
-            if parsed is None:
+            if parsed is None or parsed[0] < SPECIAL_PART_FIRST_ARTICLE:
                 continue
             article, suffix = parsed
             emit(
@@ -456,7 +503,7 @@ class PatternFactExtractor:
     _TERMLESS_PUNISHMENTS: tuple[tuple[PunishmentType, re.Pattern[str]], ...] = (
         (
             PunishmentType.FINE,
-            re.compile(r"наказани[ея]\s+в\s+виде\s+штраф\w*", re.IGNORECASE),
+            re.compile(r"(?:наказани[ея]\s+)?в\s+виде\s+штраф\w*", re.IGNORECASE),
         ),
         (
             PunishmentType.RESTRICTION_OF_LIBERTY,
@@ -489,6 +536,44 @@ class PatternFactExtractor:
                 )
                 return
 
+    _HOURS = re.compile(
+        r"(?<![\w.])(\d{1,4})\s*(?:\([^)]*\)\s*)?час(?:ов|а)?(?!\w)", re.IGNORECASE
+    )
+    _HOURS_WINDOW = 120
+    _FINE_AMOUNT = re.compile(
+        r"в\s+размере\s+(?P<num>\d{1,3}(?:[ \u00a0]\d{3})+|\d+)"
+        r"\s*(?P<mult>тыс\w*\.?|млн\.?|миллион\w*)?\s*(?:\([^)]*\)\s*)?руб",
+        re.IGNORECASE,
+    )
+    _FINE_WINDOW = 160
+
+    def _emit_hours(self, text: str, start: int, end: int, emit: Callable[..., None]) -> None:
+        """Срок обязательных работ в часах: «300 часов обязательных работ» или
+        «обязательных работ на срок 280 (двести восемьдесят) часов»."""
+        lead_start = max(0, start - 45)
+        lead = list(self._HOURS.finditer(text, lead_start, start))
+        match: re.Match[str] | None
+        if lead and start - lead[-1].end() <= 10:
+            match = lead[-1]
+        else:
+            match = self._HOURS.search(text, end, end + self._HOURS_WINDOW)
+        if match is not None:
+            emit(FactType.PUNISHMENT_HOURS, float(match.group(1)), match.start(), match.end())
+
+    def _emit_fine_amount(self, text: str, end: int, emit: Callable[..., None]) -> None:
+        """Размер основного штрафа в рублях. Штраф в размере заработной платы
+        за период рублями не выражен и не извлекается."""
+        match = self._FINE_AMOUNT.search(text, end, end + self._FINE_WINDOW)
+        if match is None:
+            return
+        amount = float(re.sub(r"[ \u00a0]", "", match.group("num")))
+        mult = (match.group("mult") or "").lower()
+        if mult.startswith("тыс"):
+            amount *= 1_000
+        elif mult.startswith(("млн", "миллион")):
+            amount *= 1_000_000
+        emit(FactType.FINE_AMOUNT, amount, match.start(), match.end())
+
     def _extract_sentence(self, document: Document, emit: Callable[..., None]) -> None:
         text = document.text
         narrative_start = self._narrative_start(text)
@@ -509,6 +594,8 @@ class PatternFactExtractor:
             if stated:
                 first_start, first_end, kind = min(stated, key=lambda item: item[0])
                 emit(FactType.PUNISHMENT_TYPE, kind.value, first_start, first_end)
+                if kind is PunishmentType.FINE:
+                    self._emit_fine_amount(text, first_end, emit)
                 return
         if not matches:
             return
@@ -524,7 +611,9 @@ class PatternFactExtractor:
         window = text[start:start + 300]
         lead_start = max(0, start - 45)
         lead_term = _extract_term_months(text[lead_start:start])
-        if lead_term is not None and start - lead_start - lead_term[2] <= 10:
+        if punishment_type is PunishmentType.COMPULSORY_LABOR:
+            self._emit_hours(text, start, end, emit)
+        elif lead_term is not None and start - lead_start - lead_term[2] <= 10:
             months, rel_start, rel_end = lead_term
             emit(
                 FactType.PUNISHMENT_TERM,

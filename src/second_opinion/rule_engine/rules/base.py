@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from ...domain.enums import FactType, PunishmentType, RuleStatus
 from ...domain.facts import CaseFacts, LegalFact
-from ...domain.norms import NormRef, NormVersion
+from ...domain.norms import NormRef, NormVersion, sanction_for
 from ...domain.rules import LegalRule, RuleEvaluation
 from ...legal_sources.store import NoApplicableVersionError, NormNotFoundError
 
@@ -126,10 +126,7 @@ class _BaseSanctionRule(LegalRule):
                 ),
                 {},
             )
-        sanction = next(
-            (s for s in version.sanctions if s.punishment_type.value == IMPRISONMENT),
-            None,
-        )
+        sanction = sanction_for(version.sanctions, IMPRISONMENT, context.applicable_at)
         if sanction is None or sanction.max_months is None:
             return (
                 self._unknown(
@@ -144,6 +141,7 @@ class _BaseSanctionRule(LegalRule):
             "norm": norm,
             "version": version,
             "max_months": sanction.max_months,
+            "sanction": sanction,
             "qualification": qualification,
         }
 

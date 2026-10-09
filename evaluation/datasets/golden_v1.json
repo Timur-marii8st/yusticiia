@@ -120,7 +120,8 @@
         "restitution",
         "group_offense",
         "minor_dependents",
-        "punishment_type"
+        "punishment_type",
+        "punishment_hours"
       ]
     },
     {

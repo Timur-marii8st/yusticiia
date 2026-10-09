@@ -51,6 +51,11 @@ def build_legal_rag(norm_store: NormStore):
 
     embedder: EmbeddingProvider
     if config.embeddings_provider == "openai_compatible":
+        from ..llm.contour import ensure_inside_contour
+
+        ensure_inside_contour(
+            config.openai_base_url, config.llm_contour_hosts, setting="SO_OPENAI_BASE_URL"
+        )
         embedder = OpenAICompatibleEmbeddingProvider(
             config.openai_base_url, config.openai_api_key, config.embedding_model
         )
@@ -151,28 +156,27 @@ def build_pipeline(config: AppConfig | None = None) -> AnalysisPipeline:
     retriever = CaseRetriever(load_cases(config.fixtures_dir))
 
     provider: LLMProvider
-    if config.llm_provider == "gigachat":
-        from ..llm.gigachat import DEFAULT_BASE_URL, GigaChatProvider
-
-        provider = GigaChatProvider(
-            config.gigachat_auth_key,
-            config.llm_model or "GigaChat",
-            base_url=config.openai_base_url or DEFAULT_BASE_URL,
-            scope=config.gigachat_scope,
-            verify=config.gigachat_ca_bundle or True,
-        )
-    elif config.llm_provider == "openai_compatible":
+    if config.llm_provider == "openai_compatible":
+        from ..llm.contour import ensure_inside_contour
         from ..llm.openai_compatible import OpenAICompatibleProvider
 
+        ensure_inside_contour(
+            config.openai_base_url, config.llm_contour_hosts, setting="SO_OPENAI_BASE_URL"
+        )
         provider = OpenAICompatibleProvider(
             config.openai_base_url,
             config.openai_api_key,
             config.llm_model,
-            auth_scheme=config.llm_auth_scheme,
             max_tokens=config.llm_max_tokens,
         )
-    else:
+    elif config.llm_provider == "mock":
         provider = MockLLMProvider()
+    else:
+        raise ValueError(
+            f"SO_LLM_PROVIDER={config.llm_provider!r}: допустимы mock (по умолчанию) и "
+            "openai_compatible (модель в закрытом контуре). Облачные адаптеры удалены: "
+            "Концепция ВС РФ по ИИ запрещает передачу текстов в публичные облака."
+        )
 
     return AnalysisPipeline(
         documents=documents,

@@ -193,7 +193,7 @@ def test_project_corpus_is_sealed() -> None:
 
     report = check(PROJECT_ROOT / "data" / "fixtures" / "norms")
     assert report.ok, report.describe()
-    assert report.checked == 38
+    assert report.checked == 74
 
 
 def test_duplicate_version_ids_are_rejected(tmp_path) -> None:

@@ -58,6 +58,8 @@ FACT_TYPE_LABELS = {
     FactType.PUNISHMENT_TYPE: "Вид наказания",
     FactType.PUNISHMENT_TERM: "Размер наказания (мес.)",
     FactType.FINAL_PUNISHMENT_TERM: "Окончательный срок по совокупности (мес.)",
+    FactType.PUNISHMENT_HOURS: "Срок обязательных работ (ч.)",
+    FactType.FINE_AMOUNT: "Размер штрафа (руб.)",
     FactType.SUSPENDED_SENTENCE: "Условное осуждение",
     FactType.DATE_OF_OFFENSE: "Дата совершения",
     FactType.EXCEPTIONAL_CIRCUMSTANCES: "Ст. 64 УК РФ упомянута в тексте",
@@ -108,6 +110,11 @@ def _months(value: float) -> str:
     if isinstance(months, int) and months >= 12 and months % 12 == 0:
         return f"{months} мес. ({months // 12} г.)"
     return f"{months} мес."
+
+
+def _rubles(value: float) -> str:
+    """Сумма в рублях с разрядами: 100000 -> «100 000 руб.»."""
+    return f"{value:,.0f}".replace(",", " ") + " руб."
 
 
 def build_summary(case_facts: CaseFacts, facts: list[LegalFact]) -> CaseSummary:
@@ -194,6 +201,10 @@ def build_summary(case_facts: CaseFacts, facts: list[LegalFact]) -> CaseSummary:
         text = f"Назначено: {kind}"
         if sentence.term_months is not None:
             text += f" на срок {_months(sentence.term_months)}"
+        if sentence.hours is not None:
+            text += f" на срок {sentence.hours:g} ч."
+        if sentence.fine_rubles is not None:
+            text += f" в размере {_rubles(sentence.fine_rubles)}"
         if sentence.final_term_months is not None:
             text += f", окончательно по совокупности {_months(sentence.final_term_months)}"
         if sentence.suspended:
@@ -205,6 +216,8 @@ def build_summary(case_facts: CaseFacts, facts: list[LegalFact]) -> CaseSummary:
                     facts,
                     "punishment_type",
                     "punishment_term",
+                    "punishment_hours",
+                    "fine_amount",
                     "final_punishment_term",
                     "suspended_sentence",
                 ),

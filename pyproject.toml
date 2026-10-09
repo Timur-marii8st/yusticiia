@@ -1,6 +1,6 @@
 [project]
 name = "second-opinion"
-version = "0.101.0"
+version = "0.102.0"
 description = "Верифицируемая система юридического аудита и поддержки принятия судебных решений (конкурс ВС РФ «Алгоритм правосудия. Второе мнение»)"
 readme = "README.md"
 requires-python = ">=3.11"

@@ -204,6 +204,7 @@ def test_docx_carries_all_the_analytics_of_the_page(pipeline, sample_violation_t
 
     for label in (
         "Дел в выборке",
+        "Из них синтетических (учебные примеры)",
         "Дел с назначенным сроком лишения свободы",
         "Медиана срока, мес.",
         "Средний срок, мес.",

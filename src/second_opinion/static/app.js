@@ -19,6 +19,8 @@ const FACT_LABELS = {
   punishment_type: "Вид наказания",
   punishment_term: "Размер наказания (мес.)",
   final_punishment_term: "Окончательный срок по совокупности (мес.)",
+  punishment_hours: "Срок обязательных работ (ч.)",
+  fine_amount: "Размер штрафа (руб.)",
   suspended_sentence: "Условное осуждение",
   date_of_offense: "Дата совершения",
   exceptional_circumstances: "Ст. 64 УК РФ упомянута в тексте",
@@ -35,6 +37,8 @@ const FACT_VALUE_KINDS = {
   defendant_age: "number",
   punishment_term: "number",
   final_punishment_term: "number",
+  punishment_hours: "number",
+  fine_amount: "number",
   punishment_type: {
     imprisonment: "лишение свободы",
     fine: "штраф",

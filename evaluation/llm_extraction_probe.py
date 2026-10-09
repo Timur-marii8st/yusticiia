@@ -59,7 +59,6 @@ def main() -> int:
         config.openai_base_url,
         config.openai_api_key,
         config.llm_model,
-        auth_scheme=config.llm_auth_scheme,
         timeout=120.0,
     )
     pattern_extractor = PatternFactExtractor()
