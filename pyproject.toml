@@ -28,7 +28,7 @@ dev = [
     "httpx2>=2.13",
 ]
 pg = [
-    "psycopg[binary]>=3.3.5",
+    "psycopg[binary]>=3.3.6",
     "pgvector>=0.3",
 ]
 ocr = [
