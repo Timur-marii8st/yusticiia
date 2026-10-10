@@ -151,7 +151,7 @@ def build_sheet(
     card: list[list[str]] = []
     if document is not None:
         card += [
-            ["Файл", document.filename],
+            ["Файл", visible(document.filename)],
             ["Контрольная сумма документа (SHA-256)", document.sha256],
         ]
     card += [
@@ -309,7 +309,7 @@ def build_sheet(
         rows.append(
             [
                 FACT_TYPE_LABELS.get(fact.type, fact.type),
-                format_fact_value(fact),
+                visible(format_fact_value(fact)),
                 "\n".join(status),
                 "\n".join(quotes) if quotes else "—",
                 "\n".join(checks) if checks else "ни одна проверка не использует",

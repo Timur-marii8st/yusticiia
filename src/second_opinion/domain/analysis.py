@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -112,6 +113,10 @@ class AnalysisReport(BaseModel):
     )
     applicable_at: str | None = None
     applicable_at_assumed: bool = False
+    # В старых отчётах не различались явная дата и дата из обстоятельств.
+    # Не угадываем происхождение: legacy сохраняет прежнюю дату при правках,
+    # кроме явно помеченного допущения (applicable_at_assumed=True).
+    applicable_at_source: Literal["explicit", "fact", "assumed", "legacy"] = "legacy"
     facts: list[LegalFact] = Field(default_factory=list)
     case_facts: CaseFacts = Field(default_factory=CaseFacts)
     summary: CaseSummary = Field(default_factory=CaseSummary)

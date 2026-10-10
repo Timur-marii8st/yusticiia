@@ -23,6 +23,7 @@ from ..domain.documents import Document
 from ..domain.enums import ExtractionMethod, FactStatus, FactType
 from ..domain.evidence import Evidence
 from ..domain.facts import LegalFact
+from ..fact_extraction.builder import build_case_facts
 from ..fact_values import USER_ALLOWED_STATUSES, FactValidationError, validate_fact_value
 from ..legal_sources.store import NormStore
 from ..llm.provider import LLMProvider
@@ -139,6 +140,9 @@ class AnalysisPipeline:
                     owner=actor,
                     applicable_at=resolved_date.isoformat(),
                     applicable_at_assumed=assumed,
+                    applicable_at_source=(
+                        "assumed" if assumed else "explicit" if applicable_at else "fact"
+                    ),
                     facts=facts,
                     disclaimers=list(DEFAULT_DISCLAIMERS),
                 )
@@ -269,6 +273,8 @@ class AnalysisPipeline:
 
         value_changed = value is not UNSET_VALUE
         if value_changed:
+            if fact.type is FactType.DATE_OF_OFFENSE:
+                validate_fact_value(fact.type, value)
             fact.value = value
             fact.extraction_method = ExtractionMethod.USER
             if not fact.evidence:
@@ -280,7 +286,12 @@ class AnalysisPipeline:
             status_changed = True
 
         request_id = uuid.uuid4().hex
-        resolved_date = self._date_from_report(report)
+        resolved_date = self._date_from_report(
+            report,
+            refresh_from_facts=(
+                fact.type is FactType.DATE_OF_OFFENSE and (status_changed or value_changed)
+            ),
+        )
         derived = self._derivation.derive(
             active_facts(report.facts), resolved_date, request_id
         )
@@ -365,7 +376,9 @@ class AnalysisPipeline:
         )
 
         request_id = uuid.uuid4().hex
-        resolved_date = self._date_from_report(report)
+        resolved_date = self._date_from_report(
+            report, refresh_from_facts=typed is FactType.DATE_OF_OFFENSE
+        )
         derived = self._derivation.derive(
             active_facts(report.facts), resolved_date, request_id
         )
@@ -431,14 +444,36 @@ class AnalysisPipeline:
             },
         )
 
-    def _date_from_report(self, report: AnalysisReport) -> date:
-        """Восстановить дату из уже сохранённого отчёта (для пересчёта)."""
+    def _date_from_report(
+        self, report: AnalysisReport, *, refresh_from_facts: bool = False
+    ) -> date:
+        """Дата пересчёта с учётом её происхождения.
+
+        Правки даты деяния обновляют вычисленную дату применения норм. Явный
+        выбор пользователя и старые даты неизвестного происхождения остаются
+        приоритетными. Правка другого обстоятельства не сдвигает сохранённое
+        допущение на новый календарный день.
+        """
+        derived_date = report.applicable_at_source in ("fact", "assumed") or (
+            report.applicable_at_source == "legacy" and report.applicable_at_assumed
+        )
         if report.applicable_at:
             try:
-                return date.fromisoformat(report.applicable_at)
+                saved_date = date.fromisoformat(report.applicable_at)
             except ValueError:
                 pass
-        return date.today()
+            else:
+                if not (refresh_from_facts and derived_date):
+                    return saved_date
+
+        case_facts = build_case_facts(active_facts(report.facts))
+        resolved_date, assumed = self._derivation.resolve_applicable_at(
+            None, case_facts.applicable_at
+        )
+        report.applicable_at = resolved_date.isoformat()
+        report.applicable_at_assumed = assumed
+        report.applicable_at_source = "assumed" if assumed else "fact"
+        return resolved_date
 
 
 def _hash_report(report: AnalysisReport) -> str:

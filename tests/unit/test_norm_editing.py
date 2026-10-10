@@ -9,7 +9,7 @@ import pytest
 
 from second_opinion.legal_sources.coverage import analyze_store, needs_legal_review
 from second_opinion.legal_sources.editing import NormEditError, add_version, confirm_history
-from second_opinion.legal_sources.sealing import UNSEALED, seal
+from second_opinion.legal_sources.sealing import UNSEALED, check, seal
 from second_opinion.legal_sources.store import NormStore
 
 TODAY = date(2026, 9, 11)
@@ -148,6 +148,75 @@ def test_empty_text_is_refused(tmp_path) -> None:
             text="   ",
             effective_from=date(2003, 12, 16),
         )
+
+
+def test_reversed_interval_leaves_corpus_and_manifest_unchanged(tmp_path) -> None:
+    directory = _corpus(tmp_path)
+    before = {p.name: p.read_bytes() for p in directory.glob("*.json")}
+
+    with pytest.raises(NormEditError, match="effective_to раньше effective_from"):
+        add_version(
+            directory,
+            "uk-rf:art-158-part-1",
+            version_id="v-invalid",
+            text="новый текст",
+            effective_from=date(2027, 1, 1),
+            effective_to=date(2026, 1, 1),
+        )
+
+    assert {p.name: p.read_bytes() for p in directory.glob("*.json")} == before
+    assert check(directory).ok
+    current = NormStore.from_directory(directory).get_norm(
+        "uk-rf:art-158-part-1", date(2027, 1, 1)
+    )
+    assert current.version_id == "v-1996"
+    assert current.effective_to is None
+
+
+def test_overlap_with_closed_history_is_refused_before_writing(tmp_path) -> None:
+    directory = _corpus(tmp_path)
+    add_version(
+        directory,
+        "uk-rf:art-158-part-1",
+        version_id="v-2003",
+        text="текст 2003 года",
+        effective_from=date(2003, 1, 1),
+        effective_to=date(2010, 12, 31),
+    )
+    seal(directory)
+    before = {p.name: p.read_bytes() for p in directory.glob("*.json")}
+
+    with pytest.raises(NormEditError, match="пересекаются"):
+        add_version(
+            directory,
+            "uk-rf:art-158-part-1",
+            version_id="v-overlap",
+            text="пересекающийся текст",
+            effective_from=date(2009, 1, 1),
+            effective_to=date(2011, 12, 31),
+        )
+
+    assert {p.name: p.read_bytes() for p in directory.glob("*.json")} == before
+    assert check(directory).ok
+
+
+def test_multiple_edits_can_be_validated_before_sealing(tmp_path) -> None:
+    """Проверка candidate не требует преждевременно опечатывать черновики."""
+    directory = _corpus(tmp_path)
+    for year in (2003, 2011):
+        add_version(
+            directory,
+            "uk-rf:art-158-part-1",
+            version_id=f"v-{year}",
+            text=f"текст {year} года",
+            effective_from=date(year, 1, 1),
+        )
+
+    assert not check(directory).ok
+    seal(directory)
+    store = NormStore.from_directory(directory)
+    assert store.get_norm("uk-rf:art-158-part-1", date(2004, 1, 1)).version_id == "v-2003"
+    assert store.get_norm("uk-rf:art-158-part-1", date(2012, 1, 1)).version_id == "v-2011"
 
 
 def test_cli_explains_missing_text_file(tmp_path, monkeypatch, capsys) -> None:

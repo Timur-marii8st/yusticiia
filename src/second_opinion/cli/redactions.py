@@ -35,7 +35,7 @@ def pravo_source():
 def norms_check_updates() -> int:
     """Сверить действующие редакции корпуса с последними у источника."""
     from ..api.deps import build_norm_store
-    from ..legal_sources.freshness import CURRENT, check_updates
+    from ..legal_sources.freshness import CURRENT, UNRECORDED, check_updates
     from ..legal_sources.redaction_source import RedactionSourceError
 
     source, failure = pravo_source()
@@ -58,12 +58,15 @@ def norms_check_updates() -> int:
     print()
 
     if report.outdated:
-        print("УСТАРЕЛИ — источник знает более новую редакцию:")
+        print("ТРЕБУЮТ СВЕРКИ — редакция документа отличается от записанной:")
         for item in report.outdated:
             print(
                 f"  {item.ref} ({item.version_id}): у нас {item.recorded}, "
                 f"у источника {item.latest}"
             )
+            if item.note:
+                print(f"    {item.note}")
+        print("Изменение конкретной статьи этим сравнением не установлено.")
         print()
 
     current = report.by_status(CURRENT)
@@ -76,6 +79,8 @@ def norms_check_updates() -> int:
         for item in report.unverifiable:
             print(f"  {item.ref} ({item.version_id}) — {item.note or item.status}")
         print()
+
+    if report.by_status(UNRECORDED):
         print(
             "Редакция источника записывается двумя способами:\n"
             "  сверили текст действующей редакции —\n"

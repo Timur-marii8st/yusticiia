@@ -11,6 +11,7 @@ from __future__ import annotations
 import html
 import io
 
+import pytest
 from docx import Document as DocxDocument
 from docx.oxml.ns import qn
 from fastapi.testclient import TestClient
@@ -141,6 +142,50 @@ def test_masked_export_hides_personal_data(pipeline, sample_clean_text) -> None:
 
     stored = client.get(f"/api/v1/documents/{document_id}").json()["text"]
     assert "Смирнова А.В." in stored
+
+
+@pytest.mark.parametrize("endpoint", ["document", "print"])
+def test_masked_exports_hide_fact_values_and_filenames(
+    pipeline, sample_clean_text, endpoint: str
+) -> None:
+    """Свободный текст факта и имя файла обезличиваются так же, как цитата."""
+    client = TestClient(create_app(pipeline))
+    filename = "Иванов Иван Иванович.txt"
+    value = "Смирнов Алексей Викторович имеет заболевание."
+    source = sample_clean_text + "\n" + value
+    created = client.post(
+        "/api/v1/documents", json={"filename": filename, "text": source}
+    )
+    document_id = created.json()["document_id"]
+    analysis_id = client.post(f"/api/v1/documents/{document_id}/analyze", json={}).json()[
+        "analysis_id"
+    ]
+    added = client.post(
+        f"/api/v1/analyses/{analysis_id}/facts",
+        json={"type": "health_factor", "value": value, "quote": value},
+    )
+    assert added.status_code == 200, added.text
+    fact_id = added.json()["facts"][-1]["id"]
+
+    plain = client.get(f"/api/v1/analyses/{analysis_id}/{endpoint}")
+    masked = client.get(f"/api/v1/analyses/{analysis_id}/{endpoint}?mask=true")
+    assert plain.status_code == masked.status_code == 200
+    plain_text = _text_of(plain.content) if endpoint == "document" else html.unescape(plain.text)
+    masked_text = _text_of(masked.content) if endpoint == "document" else html.unescape(masked.text)
+
+    assert filename in plain_text
+    assert value in plain_text
+    assert "Иванов Иван Иванович" not in masked_text
+    assert "Смирнов Алексей Викторович" not in masked_text
+    assert "[Ф. И.].txt" in masked_text
+    assert "[Ф. С.] имеет заболевание." in masked_text
+    stored_document = client.get(f"/api/v1/documents/{document_id}").json()
+    stored_report = client.get(f"/api/v1/analyses/{analysis_id}").json()
+    stored_fact = next(fact for fact in stored_report["facts"] if fact["id"] == fact_id)
+    assert stored_document["text"] == source
+    assert stored_document["filename"] == filename
+    assert stored_fact["value"] == value
+    assert stored_fact["evidence"][0]["quote"] == value
 
 
 def _analysis(client: TestClient, text: str) -> str:

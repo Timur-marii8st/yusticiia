@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 from second_opinion.api.app import create_app
 from second_opinion.api.deps import build_pipeline
 from second_opinion.config import AppConfig, reset_config_cache
-from second_opinion.legal_sources.sealing import UNSEALED, seal
+from second_opinion.legal_sources.sealing import UNSEALED, check, seal
 
 
 def _corpus(fixtures_dir) -> None:
@@ -318,6 +318,32 @@ def test_add_version_rejects_overlapping_interval(edit_setup) -> None:
 
     assert response.status_code == 400
     assert "действует с" in response.json()["detail"]
+
+
+def test_add_version_rejects_reversed_dates_without_damaging_corpus(edit_setup) -> None:
+    client, admin_headers, norms_dir = edit_setup
+    before = {p.name: p.read_bytes() for p in norms_dir.glob("*.json")}
+
+    response = client.post(
+        "/api/v1/norms/uk-rf:art-158-part-1/add-version",
+        json={
+            "text": "текст с ошибочными датами",
+            "effective_from": "2027-01-01",
+            "effective_to": "2026-01-01",
+            "version_id": "v-invalid",
+        },
+        headers=admin_headers,
+    )
+
+    assert response.status_code == 400, response.text
+    assert "effective_to раньше effective_from" in response.json()["detail"]
+    assert {p.name: p.read_bytes() for p in norms_dir.glob("*.json")} == before
+    assert check(norms_dir).ok
+    current = client.get(
+        "/api/v1/norms/uk-rf:art-158-part-1", params={"applicable_at": "2027-01-01"}
+    )
+    assert current.status_code == 200
+    assert current.json()["version"]["version_id"] == "v-1996"
 
 
 

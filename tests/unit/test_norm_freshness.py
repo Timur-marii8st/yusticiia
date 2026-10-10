@@ -5,11 +5,14 @@ from __future__ import annotations
 import hashlib
 from datetime import date
 
+import pytest
+
 from second_opinion.domain.norms import LegalNorm, NormVersion
 from second_opinion.legal_sources.freshness import (
     CURRENT,
     FOREIGN,
     OUTDATED,
+    UNCERTAIN,
     UNKNOWN,
     UNRECORDED,
     check_updates,
@@ -94,6 +97,56 @@ def test_matching_edition_is_current() -> None:
     assert report.ok
 
 
+@pytest.mark.parametrize(
+    "pending",
+    [
+        Edition(number=None, act_date=date(2026, 10, 9), label="366 - новый акт (не готова)"),
+        # Дата акта может быть раньше, хотя номер редакции больше.
+        Edition(number=None, act_date=date(2025, 1, 1), label="366 - ранний акт (не готова)"),
+        Edition(number=None, label="366 - дата неизвестна (не готова)"),
+        Edition(number=None, label="365 - тот же номер, текст не готов"),
+        # Если порядок неизвестен, даже старая дата не доказывает полноту текста.
+        Edition(number=None, act_date=date(2010, 1, 1), label="не готова"),
+        Edition(number=None, label="не готова, дата неизвестна"),
+    ],
+)
+def test_unprepared_new_or_unordered_edition_prevents_current(pending) -> None:
+    source = _source()
+    source._editions.append(pending)
+    items = [(_norm(), [_version(source_edition="pravo:102041891:365")])]
+
+    report = check_updates(source, items)
+
+    assert report.results[0].status == UNCERTAIN
+    assert report.results[0].latest == "365"
+    assert report.unverifiable == report.uncertain
+    assert not report.by_status(CURRENT)
+    assert not report.outdated, "неподготовленный текст не доказывает изменение статьи"
+    assert not report.ok, "мониторинг должен уведомить о непроверенной актуальности"
+    assert pending.label in report.results[0].note
+
+
+def test_old_unprepared_gap_does_not_hide_verified_current_edition() -> None:
+    source = _FakeSource(
+        [
+            Edition(number=355, act_date=date(2025, 10, 27), label="355"),
+            # Старая по номеру редакция имеет более позднюю дату акта.
+            Edition(number=None, act_date=date(2025, 11, 18), label="354 - акт (не готова)"),
+            Edition(number=353, act_date=date(2025, 11, 17), label="353"),
+            Edition(number=None, label="80 - дата неизвестна (не готова)"),
+            Edition(number=0, label="Исходная редакция"),
+        ]
+    )
+    items = [(_norm(), [_version(source_edition="pravo:102041891:355")])]
+
+    report = check_updates(source, items)
+
+    assert report.results[0].status == CURRENT
+    assert report.results[0].latest == "355"
+    assert report.ok
+    assert not report.unverifiable
+
+
 def test_older_edition_is_outdated() -> None:
     source = _source()
     items = [(_norm(), [_version(source_edition="pravo:102041891:31")])]
@@ -128,11 +181,29 @@ def test_other_source_is_not_compared() -> None:
 
 def test_source_without_prepared_editions() -> None:
     source = _FakeSource([Edition(number=None, label="не готова")])
-    items = [(_norm(), [_version(source_edition="pravo:102041891:365")])]
+    items = [
+        (
+            _norm(f"uk-rf:art-{article}", article),
+            [_version(f"uk-rf:art-{article}", source_edition="pravo:102041891:365")],
+        )
+        for article in (66, 73)
+    ]
 
     report = check_updates(source, items)
 
+    assert [result.status for result in report.results] == [UNCERTAIN, UNCERTAIN]
+    assert not report.ok
+    assert all("не подготовлен" in result.note for result in report.results)
+    assert source.calls == ["102041891"]
+
+
+def test_empty_source_result_keeps_unknown_status() -> None:
+    items = [(_norm(), [_version(source_edition="pravo:102041891:365")])]
+
+    report = check_updates(_FakeSource([]), items)
+
     assert report.results[0].status == UNKNOWN
+    assert report.ok
 
 
 def test_closed_versions_are_not_checked() -> None:
@@ -167,6 +238,32 @@ def test_document_is_requested_once_for_many_norms() -> None:
 
     assert report.checked == 3
     assert source.calls == ["102041891"]
+
+
+@pytest.mark.parametrize("recorded, expected_code", [("pravo:102041891:365", 1), ("", 0)])
+def test_cli_notifies_about_new_unprepared_editions_without_changing_unrecorded_policy(
+    monkeypatch, capsys, recorded, expected_code
+) -> None:
+    from second_opinion.cli import redactions
+    from second_opinion.legal_sources.store import NormStore
+
+    source = _source()
+    source._editions.append(Edition(number=None, label="366 - акт (не готова)"))
+    store = NormStore()
+    store.add_norm(_norm(), [_version(source_edition=recorded)])
+    monkeypatch.setattr(redactions, "pravo_source", lambda: (source, None))
+    monkeypatch.setattr("second_opinion.api.deps.build_norm_store", lambda _: store)
+
+    assert redactions.norms_check_updates() == expected_code
+    output = capsys.readouterr().out
+    assert "Актуальны:" not in output
+    if recorded:
+        assert "Актуальность не подтверждена" in output
+        assert "366 - акт (не готова)" in output
+        assert "УСТАРЕЛИ" not in output
+    else:
+        assert "не записано" in output
+        assert source.calls == []
 
 
 def test_add_version_records_source_edition(tmp_path) -> None:

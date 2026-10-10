@@ -67,16 +67,21 @@ def _position(
 
 
 def compute_analytics(
-    cases: list[ComparableCase], term_months: float | None = None
+    cases: list[ComparableCase],
+    term_months: float | None = None,
+    *,
+    punishment_type: str | None = PunishmentType.IMPRISONMENT.value,
 ) -> AnalyticsSummary:
     """Описательная статистика по выборке сопоставимых дел.
 
     Статистика носит ТОЛЬКО описательный характер и не является
     основанием или рекомендацией по наказанию.
 
-    ``term_months`` — срок из проверяемого проекта акта. Если он передан
-    и в выборке есть с чем сравнивать, считается положение срока в
-    распределении (ФТ-27).
+    Распределение сроков относится только к лишению свободы. Положение
+    ``term_months`` считается лишь для того же вида наказания: месяцы
+    исправительных работ и ограничения свободы с ним не сравниваются.
+    Для прежних прямых вызовов без ``punishment_type`` переданный срок
+    по-прежнему трактуется как срок лишения свободы.
     """
     terms = [
         float(case.term_months)
@@ -111,7 +116,13 @@ def compute_analytics(
     p75 = percentile(sorted_terms, 0.75) if terms else None
     position = (
         _position(float(term_months), sorted_terms, p25, p75)
-        if term_months is not None and terms and p25 is not None and p75 is not None
+        if (
+            punishment_type == PunishmentType.IMPRISONMENT.value
+            and term_months is not None
+            and terms
+            and p25 is not None
+            and p75 is not None
+        )
         else None
     )
     return AnalyticsSummary(

@@ -18,7 +18,9 @@ import json
 from datetime import date
 from pathlib import Path
 
+from ..domain.norms import LegalNorm, NormVersion
 from .sealing import MANIFEST_NAME, UNSEALED
+from .store import NormStore
 
 
 class NormEditError(ValueError):
@@ -45,6 +47,33 @@ def _write(path: Path, payload: dict) -> None:
     path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
+
+
+def _validate_candidate(payload: dict, norm: dict) -> None:
+    """Проверить новую запись теми же моделями, которыми её загрузит сервис.
+
+    Правки существуют только в памяти до успешной проверки. Временная
+    сумма позволяет проверить и ещё не опечатанные редакции, не меняя
+    их ``AUTOFILL`` в файле: опечатывание остаётся отдельным действием.
+    """
+    try:
+        meta = LegalNorm.model_validate(
+            {
+                **norm,
+                "code": norm.get("code", payload.get("code", "")),
+                "title": norm.get("title", ""),
+            }
+        )
+        versions = []
+        for raw in norm["versions"]:
+            candidate = dict(raw)
+            candidate.setdefault("source_document", payload.get("source_document", ""))
+            if candidate.get("sha256") in (None, "", UNSEALED):
+                candidate["sha256"] = NormVersion.compute_sha256(candidate["text"])
+            versions.append(NormVersion.model_validate(candidate))
+        NormStore().add_norm(meta, versions)
+    except (ValueError, TypeError, KeyError) as exc:
+        raise NormEditError(f"редакция не сохранена: {exc}") from exc
 
 
 def confirm_history(
@@ -144,6 +173,7 @@ def add_version(
             "verification_status": "draft",
         }
     )
+    _validate_candidate(payload, norm)
     _write(path, payload)
     return path
 

@@ -59,6 +59,7 @@ _ACT = re.compile(r"от\s+(?P<day>\d{2})\.(?P<month>\d{2})\.(?P<year>\d{4})\s+�
 _ARTICLE = re.compile(r"\n[ \t\r]*Статья\s+(\d+)(?:(?:[.\-]|\s+)(\d+))?\s*\.(?=\s)")
 
 _COMPLETED = re.compile(r"textCompleted\s*=\s*'(?P<value>\w+)'")
+_EDITION_LABEL_NUMBER = re.compile(r"^\s*(\d+)\s*[-–—]\s*")
 
 
 
@@ -77,6 +78,20 @@ class Edition(BaseModel):
     @property
     def prepared(self) -> bool:
         return self.number is not None
+
+    @property
+    def listed_number(self) -> int | None:
+        """Номер в списке, в том числе у ещё неподготовленной редакции.
+
+        ``number`` — доступный для запроса ``rdk``. У неподготовленного
+        текста он отсутствует, но подпись «80 - от ... (не готова)»
+        сохраняет место редакции в истории. Даты актов эту очерёдность
+        не определяют: они могут идти не по порядку.
+        """
+        if self.number is not None:
+            return self.number
+        found = _EDITION_LABEL_NUMBER.match(self.label)
+        return int(found.group(1)) if found else None
 
 
 class ArticleVerdict(BaseModel):

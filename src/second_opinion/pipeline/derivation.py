@@ -129,7 +129,7 @@ class AnalysisDerivation:
         )
 
         preliminary = build_case_facts(active_facts(facts))
-        resolved_date, assumed = self._resolve_applicable_at(
+        resolved_date, assumed = self.resolve_applicable_at(
             applicable_at, preliminary.applicable_at
         )
         log_stage(
@@ -187,7 +187,9 @@ class AnalysisDerivation:
             matched=len(matches),
         )
         analytics = compute_analytics(
-            [match.case for match in matches], case_facts.sentence.term_months
+            [match.case for match in matches],
+            case_facts.sentence.term_months,
+            punishment_type=case_facts.sentence.punishment_type,
         )
         return DerivedAnalysis(
             case_facts=case_facts,
@@ -295,8 +297,9 @@ class AnalysisDerivation:
                     unverified.append(norm_ref.ref)
         return unverified
 
-    def _resolve_applicable_at(
-        self, explicit: str | None, extracted: str | None
+    @staticmethod
+    def resolve_applicable_at(
+        explicit: str | None, extracted: str | None
     ) -> tuple[date, bool]:
         raw = explicit or extracted
         if raw:

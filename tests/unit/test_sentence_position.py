@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from datetime import date
 
+import pytest
+
 from second_opinion.analytics.descriptive import compute_analytics
 from second_opinion.domain.cases import ComparableCase
 
@@ -42,6 +44,15 @@ def test_position_is_none_without_a_term() -> None:
 
 def test_position_is_none_without_comparable_terms() -> None:
     assert compute_analytics([], 24).sentence_position is None
+
+
+@pytest.mark.parametrize("kind", ["correctional_labor", "restriction_of_liberty", "other", None])
+def test_other_sentence_kinds_do_not_get_an_imprisonment_position(kind) -> None:
+    analytics = compute_analytics(CASES, 6, punishment_type=kind)
+
+    assert analytics.sentence_position is None
+    assert analytics.n_with_term == 5
+    assert analytics.median_months == 24
 
 
 def test_term_in_the_middle_is_typical() -> None:

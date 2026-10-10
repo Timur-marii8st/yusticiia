@@ -96,6 +96,8 @@ def test_unprepared_edition_has_no_number() -> None:
 
     assert len(unprepared) == 1
     assert unprepared[0].act_date == date(2010, 5, 19)
+    assert unprepared[0].listed_number == 80
+    assert unprepared[0].number is None, "номер из подписи нельзя использовать как доступный rdk"
 
 
 def test_page_without_editions_is_an_error() -> None:

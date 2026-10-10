@@ -2,17 +2,20 @@
 
 В ``NormVersion.source_edition`` записано, какой редакции источника
 соответствует наш текст (``pravo:102041891:365``). Источник спрашивается,
-какая редакция у него последняя; различие означает, что норму изменили
-после выгрузки. Даты выгрузки (``retrieved_at``) для этого мало: она
+какая редакция у него последняя. Различие — повод сверить текст, а не
+подтверждение изменения конкретной статьи: могли измениться другие
+статьи того же документа.
+Даты выгрузки (``retrieved_at``) для этого мало: она
 говорит, когда текст скачали, а не совпадает ли он с действующим.
 
 Проверяются только **действующие** редакции (``effective_to is None``):
 для закрытого интервала вопрос свежести смысла не имеет — он описывает
 прошлое, которое не меняется.
 
-Детектор говорит «норму изменили», а не «что именно изменилось». Разбор
-изменения — работа юриста, и ``norms-check-amendments`` показывает ему,
-какие статьи затронуты.
+Неподготовленная новая редакция или неизвестное место редакции в истории
+не позволяют подтвердить актуальность. Старые неподготовленные редакции,
+предшествующие последней подготовленной по номеру источника, не означают
+нового изменения. Даты актов для определения порядка не используются.
 """
 
 from __future__ import annotations
@@ -23,7 +26,7 @@ from datetime import date
 from pydantic import BaseModel
 
 from ..domain.norms import LegalNorm, NormVersion
-from .pravo_gov import prepared_editions
+from .pravo_gov import Edition, prepared_editions
 
 SEPARATOR = ":"
 
@@ -32,6 +35,7 @@ OUTDATED = "устарела"
 UNRECORDED = "редакция источника не записана"
 FOREIGN = "другой источник"
 UNKNOWN = "источник не знает такой редакции"
+UNCERTAIN = "актуальность не подтверждена"
 
 
 class SourceEdition(BaseModel):
@@ -111,17 +115,38 @@ class FreshnessReport(BaseModel):
         return self.by_status(OUTDATED)
 
     @property
+    def uncertain(self) -> list[NormFreshness]:
+        return self.by_status(UNCERTAIN)
+
+    @property
     def unverifiable(self) -> list[NormFreshness]:
         """Нормы, о свежести которых сказать нечего."""
-        return [r for r in self.results if r.status in (UNRECORDED, FOREIGN, UNKNOWN)]
+        return [
+            r for r in self.results
+            if r.status in (UNRECORDED, FOREIGN, UNKNOWN, UNCERTAIN)
+        ]
 
     @property
     def ok(self) -> bool:
-        return not self.outdated
+        return not (self.outdated or self.uncertain)
 
 
 def _current_versions(versions: Iterable[NormVersion]) -> list[NormVersion]:
     return [v for v in versions if v.effective_to is None]
+
+
+def _pending_editions(editions: list[Edition], latest_number: int) -> list[Edition]:
+    """Редакции, которые нельзя считать покрытыми подготовленным текстом.
+
+    Номер в подписи ИПС позволяет отличить старые пробелы от новых даже
+    при неизвестных или немонотонных датах актов. Без номера порядок
+    неизвестен: дата сама по себе не доказывает, что акт уже учтён.
+    """
+    return [
+        edition for edition in editions
+        if not edition.prepared
+        and (edition.listed_number is None or edition.listed_number >= latest_number)
+    ]
 
 
 def check_updates(
@@ -134,7 +159,7 @@ def check_updates(
     каждую статью значило бы бить по чужому серверу без нужды.
     """
     report = FreshnessReport(source=getattr(source, "name", "?"))
-    latest_by_document: dict[str, str | None] = {}
+    latest_by_document: dict[str, tuple[str | None, list[Edition]]] = {}
 
     for norm, versions in items:
         for version in _current_versions(versions):
@@ -170,11 +195,24 @@ def check_updates(
                 continue
 
             if recorded.document not in latest_by_document:
-                editions = prepared_editions(source.editions(recorded.document))
+                editions = source.editions(recorded.document)
+                prepared = prepared_editions(editions)
+                latest_number = prepared[-1].number if prepared else None
                 latest_by_document[recorded.document] = (
-                    str(editions[-1].number) if editions else None
+                    str(latest_number) if latest_number is not None else None,
+                    _pending_editions(editions, latest_number)
+                    if latest_number is not None else list(editions),
                 )
-            latest = latest_by_document[recorded.document]
+            latest, pending = latest_by_document[recorded.document]
+            note = ""
+            if pending:
+                labels = "; ".join(e.label or "редакция без подписи" for e in pending)
+                note = (
+                    "консолидированный текст не подготовлен для новых редакций "
+                    "или редакций с неизвестным порядком: "
+                    f"{labels}. Актуальность не подтверждена; затронута ли "
+                    "эта статья, требуется сверить по изменяющим актам"
+                )
 
             if latest is None:
                 report.results.append(
@@ -182,14 +220,16 @@ def check_updates(
                         norm_id=norm.norm_id,
                         ref=norm.ref,
                         version_id=version.version_id,
-                        status=UNKNOWN,
+                        status=UNCERTAIN if pending else UNKNOWN,
                         recorded=str(recorded),
-                        note="у источника нет ни одной подготовленной редакции",
+                        note=note or "у источника нет ни одной подготовленной редакции",
                     )
                 )
                 continue
 
             status = CURRENT if recorded.edition == latest else OUTDATED
+            if pending and status == CURRENT:
+                status = UNCERTAIN
             report.results.append(
                 NormFreshness(
                     norm_id=norm.norm_id,
@@ -198,6 +238,7 @@ def check_updates(
                     status=status,
                     recorded=str(recorded),
                     latest=latest,
+                    note=note,
                 )
             )
 
