@@ -12,7 +12,7 @@ SCRIPT = Path(__file__).resolve().parents[2] / "deploy" / "docker-entrypoint.sh"
 def _run(data: Path, image: Path, *command: str) -> subprocess.CompletedProcess[str]:
     env = {**os.environ, "SO_DATA_DIR": str(data), "SO_IMAGE_FIXTURES": str(image)}
     return subprocess.run(
-        ["sh", str(SCRIPT), *command], env=env, capture_output=True, text=True, check=False
+        ["sh", str(SCRIPT), *command], env=env, capture_output=True, text=True, encoding="utf-8", check=False
     )
 
 

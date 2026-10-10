@@ -123,7 +123,7 @@ def create_app(pipeline: AnalysisPipeline, auth_token: str = "") -> FastAPI:
         build_analyses_router(pipeline),
         build_norms_router(pipeline),
         build_cases_router(pipeline),
-        build_search_router(rag),
+        build_search_router(rag, pipeline.norm_acquisition),
     ]
     for router in api_routers:
         app.include_router(router, prefix=API_PREFIX)

@@ -50,6 +50,9 @@ class AppConfig:
     analyze_max_concurrency: int = 4
     analyze_queue_seconds: float = 30.0
     api_docs: str = ""
+    dynamic_norm_source: str = "none"
+    source_cache_ttl_seconds: float = 86400.0
+    source_request_timeout_seconds: float = 15.0
 
     @property
     def store_dir(self) -> Path:
@@ -112,6 +115,9 @@ def load_config() -> AppConfig:
         garant_base_url=_env("SO_GARANT_BASE_URL"),
         garant_token=_env("SO_GARANT_TOKEN"),
         garant_stub_dir=_env("SO_GARANT_STUB_DIR"),
+        dynamic_norm_source=_env("SO_DYNAMIC_NORM_SOURCE", "none") or "none",
+        source_cache_ttl_seconds=float(_env("SO_SOURCE_CACHE_TTL") or 86400),
+        source_request_timeout_seconds=float(_env("SO_SOURCE_REQUEST_TIMEOUT") or 15),
         llm_contour_hosts=tuple(
             host.strip().lower()
             for host in (_env("SO_LLM_CONTOUR_HOSTS") or "").split(",")

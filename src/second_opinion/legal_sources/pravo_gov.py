@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import html as html_module
 import logging
+import math
 import re
 import time
 from datetime import date
@@ -60,6 +61,15 @@ _ARTICLE = re.compile(r"\n[ \t\r]*Статья\s+(\d+)(?:(?:[.\-]|\s+)(\d+))?\s*
 
 _COMPLETED = re.compile(r"textCompleted\s*=\s*'(?P<value>\w+)'")
 _EDITION_LABEL_NUMBER = re.compile(r"^\s*(\d+)\s*[-–—]\s*")
+
+
+class PravoResponseError(RedactionSourceError):
+    """Машиночитаемая ошибка, не равная отсутствию статьи."""
+
+    def __init__(self, message: str, kind: str, retry_after: float = 60.0) -> None:
+        super().__init__(message)
+        self.kind = kind
+        self.retry_after = retry_after
 
 
 
@@ -244,31 +254,58 @@ class PravoGovSource:
                 follow_redirects=True,
             )
         except httpx.TimeoutException as exc:
-            raise RedactionSourceError(
+            if attempt < self._retries:
+                time.sleep(self._backoff * (attempt + 1))
+                return self._get(params, attempt + 1)
+            raise PravoResponseError(
                 f"ИПС не ответил за {self._timeout:.0f} с ({self._base_url}). "
                 "Сервер отвечает медленно, особенно на полный текст кодекса. "
-                "Увеличьте таймаут: SO_PRAVO_TIMEOUT=600"
+                "Проверьте SO_PRAVO_TIMEOUT (CLI) или SO_SOURCE_REQUEST_TIMEOUT (API).", "unavailable",
             ) from exc
         except httpx.TransportError as exc:
             if attempt < self._retries:
                 time.sleep(self._backoff * (attempt + 1))
                 return self._get(params, attempt + 1)
-            raise RedactionSourceError(
-                f"ИПС недоступен ({self._base_url}): {exc}"
+            raise PravoResponseError(
+                f"ИПС недоступен ({self._base_url}): {exc}", "unavailable",
             ) from exc
         except httpx.HTTPError as exc:
-            raise RedactionSourceError(
-                f"ИПС недоступен ({self._base_url}): {exc}"
+            raise PravoResponseError(
+                f"ИПС недоступен ({self._base_url}): {exc}", "unavailable",
             ) from exc
 
+        if response.status_code == 429:
+            # Не повторять запросы в пределах Retry-After. Сервис ставит cooldown.
+            from datetime import UTC, datetime
+            from email.utils import parsedate_to_datetime
+
+            header = response.headers.get("Retry-After", "60")
+            try:
+                retry_after = float(header)
+            except ValueError:
+                try:
+                    retry_after = (parsedate_to_datetime(header) - datetime.now(UTC)).total_seconds()
+                except (TypeError, ValueError):
+                    retry_after = 60.0
+            if not math.isfinite(retry_after) or retry_after > 365 * 86400:
+                retry_after = 60.0
+            raise PravoResponseError("ИПС: превышен лимит запросов (HTTP 429)", "rate_limited", max(1, retry_after))
         if response.status_code in _RETRYABLE_STATUSES and attempt < self._retries:
             time.sleep(self._backoff * (attempt + 1))
             return self._get(params, attempt + 1)
         if response.status_code != 200:
-            raise RedactionSourceError(
-                f"ИПС: HTTP {response.status_code} при запросе {params}"
+            raise PravoResponseError(
+                f"ИПС: HTTP {response.status_code} при запросе {params}", "unavailable",
             )
         return response.content.decode(ENCODING, errors="replace")
+
+    def edition_url(self, topic: str, rdk: int) -> str:
+        """Тот же адрес и параметры, которыми получен снимок."""
+        import httpx
+
+        return str(httpx.URL(self._base_url, params={
+            "doc_itself": "", "nd": topic, "page": 1, "rdk": rdk, "fulltext": 1,
+        }))
 
     def editions(self, topic: str) -> list[Edition]:
         """Список редакций документа ``topic`` (идентификатор ``nd``)."""
@@ -292,11 +329,14 @@ class PravoGovSource:
             {"doc_itself": "", "nd": topic, "page": 1, "rdk": rdk, "fulltext": 1}
         )
         if not is_complete(payload):
-            raise RedactionSourceError(
+            raise PravoResponseError(
                 f"ИПС вернул неполный текст документа {topic} в редакции {rdk}: "
-                "сравнивать статьи по обрывку нельзя"
+                "сравнивать статьи по обрывку нельзя", "incomplete",
             )
-        return extract_articles(payload)
+        articles = extract_articles(payload)
+        if not articles:
+            raise PravoResponseError("ИПС: в полном документе не найдены статьи", "invalid_response")
+        return articles
 
     def redactions(self, topic: str) -> DocumentRedactions:
         """История редакций в общем для источников виде."""

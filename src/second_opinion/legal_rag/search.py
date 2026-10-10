@@ -99,6 +99,8 @@ class SearchHit(BaseModel):
     matched_terms: list[str] = Field(default_factory=list)
     lexical_score: float | None = None
     semantic_score: float | None = None
+    applicability: str = "unassessed"
+    freshness: str = "unknown"
 
 
 class LegalRag:

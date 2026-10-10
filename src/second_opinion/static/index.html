@@ -192,10 +192,18 @@
           <label class="visually-hidden" for="search-query">Поиск по базе норм</label>
           <input type="search" id="search-query"
             placeholder="Например: предел наказания при покушении" size="42">
+          <label for="search-article">Статья УК РФ</label>
+          <input id="search-article" type="text" inputmode="decimal" placeholder="15 или 228.1" size="10">
+          <label for="search-part">Часть</label>
+          <input id="search-part" type="number" min="1" size="3">
+          <label for="search-date">Дата применения</label>
+          <input id="search-date" type="date">
           <button id="search-btn" class="secondary">Найти</button>
         </div>
         <div id="search-error" class="error" role="alert" aria-live="assertive" hidden></div>
         <ul id="search-results" class="items" aria-live="polite"></ul>
+        <h4>Нормативные источники анализа</h4>
+        <ul id="norm-sources" class="items" aria-live="polite"></ul>
       </section>
 
       <section aria-labelledby="section-title-11" class="panel">
