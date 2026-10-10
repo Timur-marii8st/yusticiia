@@ -18,7 +18,6 @@ import argparse
 import re
 import sys
 from dataclasses import dataclass, field
-from datetime import date
 from html import escape
 from pathlib import Path
 
@@ -56,8 +55,6 @@ SPECS = {
     ),
 }
 
-_MONTHS = ("января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа",
-           "сентября", "октября", "ноября", "декабря")
 
 
 @dataclass
@@ -159,10 +156,6 @@ def plain(text: str) -> str:
     return "".join(chunk for _, chunk in segments(text))
 
 
-def _ru_date(day: date) -> str:
-    return f"{day.day} {_MONTHS[day.month - 1]} {day.year} г."
-
-
 def _body_without_title(blocks: list[Block]) -> list[Block]:
     """Заголовок и подзаголовок из Markdown уходят на титульный лист."""
     body = list(blocks)
@@ -185,7 +178,7 @@ def _column_widths(rows: list[list[str]], total: float) -> list[float]:
     return [m + spare * w / sum(weights) for m, w in zip(minimum, weights, strict=True)]
 
 
-def build_docx(blocks: list[Block], target: Path, built: date, spec: Spec) -> Path:
+def build_docx(blocks: list[Block], target: Path, spec: Spec) -> Path:
     from docx import Document
     from docx.enum.table import WD_TABLE_ALIGNMENT
     from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -246,11 +239,6 @@ def build_docx(blocks: list[Block], target: Path, built: date, spec: Spec) -> Pa
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p.add_run(line).font.size = Pt(13)
-    for _ in range(8):
-        doc.add_paragraph()
-    p = doc.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p.add_run(f"Редакция от {_ru_date(built)}").font.size = Pt(12)
 
     body = _body_without_title(blocks)
     heading = doc.add_paragraph("Содержание", style="Heading 1")
@@ -356,7 +344,7 @@ def build_docx(blocks: list[Block], target: Path, built: date, spec: Spec) -> Pa
     return target
 
 
-def build_pdf(blocks: list[Block], target: Path, built: date, spec: Spec) -> Path:
+def build_pdf(blocks: list[Block], target: Path, spec: Spec) -> Path:
     from reportlab.lib import colors
     from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
     from reportlab.lib.pagesizes import A4
@@ -414,8 +402,6 @@ def build_pdf(blocks: list[Block], target: Path, built: date, spec: Spec) -> Pat
     story.append(Spacer(1, 2.5 * cm))
     for line in spec.cover.split("\n"):
         story.append(Paragraph(escape(line), ParagraphStyle("c", parent=center, fontSize=13, leading=17)))
-    story.append(Spacer(1, 7 * cm))
-    story.append(Paragraph(f"Редакция от {_ru_date(built)}", center))
     story.append(PageBreak())
 
     body = _body_without_title(blocks)
@@ -490,9 +476,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", required=True, help="каталог для DOCX и PDF")
     parser.add_argument("--doc", choices=sorted(SPECS), default="concept", help="что собирать (по умолчанию concept)")
-    parser.add_argument("--date", default=None, help="дата редакции ГГГГ-ММ-ДД (по умолчанию сегодня)")
     args = parser.parse_args(argv)
-    built = date.fromisoformat(args.date) if args.date else date.today()
     spec = SPECS[args.doc]
     blocks = parse(spec.source.read_text(encoding="utf-8"), spec.source.parent)
     missing = [b.path for b in blocks if b.kind == "img" and b.path is not None and not b.path.exists()]
@@ -501,8 +485,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     out = Path(args.out)
     for path in (
-        build_docx(blocks, out / f"{spec.basename}.docx", built, spec),
-        build_pdf(blocks, out / f"{spec.basename}.pdf", built, spec),
+        build_docx(blocks, out / f"{spec.basename}.docx", spec),
+        build_pdf(blocks, out / f"{spec.basename}.pdf", spec),
     ):
         print(path)
     return 0
