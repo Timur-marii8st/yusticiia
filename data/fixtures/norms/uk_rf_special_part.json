@@ -1,7 +1,7 @@
 {
   "code": "УК РФ",
   "source_document": "Уголовный кодекс Российской Федерации от 13.06.1996 № 63-ФЗ",
-  "note": "Сверено юристом по КонсультантПлюс 03.09.2026 (редакция УК от 04.08.2026): максимумы лишения свободы — verification_status: verified. Исторические границы максимумов — по отчёту сверки. Промежуточные diffs альтернативных видов (ФЗ № 26-ФЗ) и дореформенная конструкция ст. 228 сознательно не реконструированы.",
+  "note": "Сверено юристом по КонсультантПлюс 03.09.2026 (редакция УК от 04.08.2026): максимумы лишения свободы — verification_status: verified. Исторические границы максимумов — по отчёту сверки. Промежуточные diffs альтернативных видов (ФЗ № 26-ФЗ) и дореформенная конструкция ст. 228 сознательно не реконструированы. Пределы штрафа, обязательных и исправительных работ, ограничения свободы добавлены 2026-10-10 по тексту ИПС (scripts/build_sanction_corpus.py) с пометкой pending_review: не сверены юристом. Даты периодов — даты актов из подписи редакции ИПС, кроме дат вступления в силу, известных из сверенных редакций; на промежутки, пришедшиеся на неподготовленные редакции ИПС, пределы не внесены.",
   "norms": [
     {
       "norm_id": "uk-rf:art-158-part-1",
@@ -18,6 +18,42 @@
               "punishment_type": "imprisonment",
               "min_months": null,
               "max_months": 36
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": 180.0,
+              "max_hours": 240.0,
+              "effective_from": "1997-01-01",
+              "effective_to": "2002-10-30",
+              "source_edition": "pravo:102041891:0",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": null,
+              "max_hours": 180.0,
+              "effective_from": "2002-10-31",
+              "effective_to": "2003-12-15",
+              "source_edition": "pravo:102041891:25",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": 12.0,
+              "max_months": 24.0,
+              "effective_from": "1997-01-01",
+              "effective_to": "2002-10-30",
+              "source_edition": "pravo:102041891:0",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": 6.0,
+              "max_months": 12.0,
+              "effective_from": "2002-10-31",
+              "effective_to": "2003-12-15",
+              "source_edition": "pravo:102041891:25",
+              "pending_review": true
             }
           ],
           "effective_from": "1997-01-01",
@@ -36,6 +72,56 @@
               "punishment_type": "imprisonment",
               "min_months": null,
               "max_months": 24
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": null,
+              "max_hours": 180.0,
+              "effective_from": "2003-12-16",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": null,
+              "max_hours": 360.0,
+              "effective_from": "2011-12-07",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": 6.0,
+              "max_months": 12.0,
+              "effective_from": "2003-12-16",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": null,
+              "max_months": 12.0,
+              "effective_from": "2011-12-07",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "fine",
+              "min_rubles": null,
+              "max_rubles": 80000.0,
+              "effective_from": "2003-12-16",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "restriction_of_liberty",
+              "min_months": null,
+              "max_months": 24.0,
+              "effective_from": "2009-12-27",
+              "source_edition": "pravo:102041891:73",
+              "pending_review": true
             }
           ],
           "effective_from": "2003-12-16",
@@ -45,7 +131,8 @@
           "sha256": "73a7778a23920ed4260589d36437fd7e3a3ee395084ca23dd679eb9b8413ee2c",
           "verification_status": "verified"
         }
-      ]
+      ],
+      "search_text": "Кража. Кража, то есть тайное хищение чужого имущества"
     },
     {
       "norm_id": "uk-rf:art-158-part-2",
@@ -62,6 +149,24 @@
               "punishment_type": "imprisonment",
               "min_months": 24,
               "max_months": 72
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": 180.0,
+              "max_hours": 240.0,
+              "effective_from": "2002-10-31",
+              "effective_to": "2003-12-15",
+              "source_edition": "pravo:102041891:25",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": 12.0,
+              "max_months": 24.0,
+              "effective_from": "2002-10-31",
+              "effective_to": "2003-12-15",
+              "source_edition": "pravo:102041891:25",
+              "pending_review": true
             }
           ],
           "effective_from": "1997-01-01",
@@ -80,6 +185,48 @@
               "punishment_type": "imprisonment",
               "min_months": null,
               "max_months": 60
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": 180.0,
+              "max_hours": 240.0,
+              "effective_from": "2003-12-16",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": null,
+              "max_hours": 480.0,
+              "effective_from": "2011-12-07",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": 12.0,
+              "max_months": 24.0,
+              "effective_from": "2003-12-16",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": null,
+              "max_months": 24.0,
+              "effective_from": "2011-12-07",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "fine",
+              "min_rubles": null,
+              "max_rubles": 200000.0,
+              "effective_from": "2003-12-16",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
             }
           ],
           "effective_from": "2003-12-16",
@@ -89,7 +236,8 @@
           "sha256": "6ed1c6d8fb9fdf13f738108a2cac2c9f8e07decaeedf5c2775062ca98e7847a5",
           "verification_status": "verified"
         }
-      ]
+      ],
+      "search_text": "Кража. Кража, совершенная: а) группой лиц по предварительному сговору; б) с незаконным проникновением в помещение либо иное хранилище; в) с причинением значительного ущерба гражданину; г) из одежды, сумки или другой ручной клади, находившихся при потерпевшем"
     },
     {
       "norm_id": "uk-rf:art-159-part-1",
@@ -106,6 +254,24 @@
               "punishment_type": "imprisonment",
               "min_months": null,
               "max_months": 36
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": 180.0,
+              "max_hours": 240.0,
+              "effective_from": "1997-01-01",
+              "effective_to": "2003-12-15",
+              "source_edition": "pravo:102041891:0",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": 12.0,
+              "max_months": 24.0,
+              "effective_from": "1997-01-01",
+              "effective_to": "2003-12-15",
+              "source_edition": "pravo:102041891:0",
+              "pending_review": true
             }
           ],
           "effective_from": "1997-01-01",
@@ -124,6 +290,56 @@
               "punishment_type": "imprisonment",
               "min_months": null,
               "max_months": 24
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": null,
+              "max_hours": 180.0,
+              "effective_from": "2003-12-16",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": null,
+              "max_hours": 360.0,
+              "effective_from": "2011-12-07",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": 6.0,
+              "max_months": 12.0,
+              "effective_from": "2003-12-16",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": null,
+              "max_months": 12.0,
+              "effective_from": "2011-12-07",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "fine",
+              "min_rubles": null,
+              "max_rubles": 120000.0,
+              "effective_from": "2003-12-16",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "restriction_of_liberty",
+              "min_months": null,
+              "max_months": 24.0,
+              "effective_from": "2009-12-27",
+              "source_edition": "pravo:102041891:73",
+              "pending_review": true
             }
           ],
           "effective_from": "2003-12-16",
@@ -133,7 +349,8 @@
           "sha256": "37cd26174c82402c985893869440f1174607ab15da16c8f78ee4fb62f62b686d",
           "verification_status": "verified"
         }
-      ]
+      ],
+      "search_text": "Мошенничество. Мошенничество, то есть хищение чужого имущества или приобретение права на чужое имущество путем обмана или злоупотребления доверием"
     },
     {
       "norm_id": "uk-rf:art-159-part-2",
@@ -168,6 +385,48 @@
               "punishment_type": "imprisonment",
               "min_months": null,
               "max_months": 60
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": 180.0,
+              "max_hours": 240.0,
+              "effective_from": "2003-12-16",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": null,
+              "max_hours": 480.0,
+              "effective_from": "2011-12-07",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": 12.0,
+              "max_months": 24.0,
+              "effective_from": "2003-12-16",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": null,
+              "max_months": 24.0,
+              "effective_from": "2011-12-07",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "fine",
+              "min_rubles": null,
+              "max_rubles": 300000.0,
+              "effective_from": "2003-12-16",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
             }
           ],
           "effective_from": "2003-12-16",
@@ -177,7 +436,8 @@
           "sha256": "78beef9c317646b5b1d21051a61cde3093e3775c8afb4a3bc9cbff3f423c034f",
           "verification_status": "verified"
         }
-      ]
+      ],
+      "search_text": "Мошенничество. Мошенничество, совершенное группой лиц по предварительному сговору, а равно с причинением значительного ущерба гражданину"
     },
     {
       "norm_id": "uk-rf:art-228-part-1",
@@ -194,6 +454,74 @@
               "punishment_type": "imprisonment",
               "min_months": null,
               "max_months": 36
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": 180.0,
+              "max_hours": 240.0,
+              "effective_from": "2010-05-06",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:79",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": null,
+              "max_hours": 480.0,
+              "effective_from": "2012-03-01",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": null,
+              "max_months": 24.0,
+              "effective_from": "2003-12-16",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": null,
+              "max_months": 24.0,
+              "effective_from": "2012-03-01",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "fine",
+              "min_rubles": null,
+              "max_rubles": 40000.0,
+              "effective_from": "2003-12-16",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "fine",
+              "min_rubles": null,
+              "max_rubles": 40000.0,
+              "effective_from": "2012-03-01",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "restriction_of_liberty",
+              "min_months": null,
+              "max_months": 36.0,
+              "effective_from": "2009-12-27",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:73",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "restriction_of_liberty",
+              "min_months": null,
+              "max_months": 36.0,
+              "effective_from": "2012-03-01",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
             }
           ],
           "effective_from": "1997-01-01",
@@ -203,7 +531,8 @@
           "sha256": "5dc69f97ded779536120f151697612cee2015f0a432c0e88e14e758b6ec307be",
           "verification_status": "verified"
         }
-      ]
+      ],
+      "search_text": "Незаконные приобретение, хранение, перевозка, изготовление, переработка наркотических средств, психотропных веществ или их аналогов, а также незаконные приобретение, хранение, перевозка растений, содержащих наркотические средства или психотропные вещества, либо их частей, содержащих наркотические средства или психотропные вещества (Наименование в редакции Федерального закона от 19.05.2010 № 87-ФЗ ). Незаконные приобретение, хранение, перевозка, изготовление, переработка без цели сбыта наркотических средств, психотропных веществ или их аналогов в значительном размере, а также незаконные приобретение, хранение, перевозка без цели сбыта растений, содержащих наркотические средства или психотропные вещества, либо их частей, содержащих наркотические средства или психотропные вещества, в значительном размере"
     },
     {
       "norm_id": "uk-rf:art-228-part-2",
@@ -229,7 +558,8 @@
           "sha256": "542d3775ca6ede69adc2e615fb2f9e798465f49c2cb13ce28de51a2355acc68e",
           "verification_status": "verified"
         }
-      ]
+      ],
+      "search_text": "Незаконные приобретение, хранение, перевозка, изготовление, переработка наркотических средств, психотропных веществ или их аналогов, а также незаконные приобретение, хранение, перевозка растений, содержащих наркотические средства или психотропные вещества, либо их частей, содержащих наркотические средства или психотропные вещества (Наименование в редакции Федерального закона от 19.05.2010 № 87-ФЗ ). Те же деяния, совершенные в крупном размере"
     },
     {
       "norm_id": "uk-rf:art-161-part-1",
@@ -246,6 +576,48 @@
               "punishment_type": "imprisonment",
               "min_months": null,
               "max_months": 48
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": 180.0,
+              "max_hours": 240.0,
+              "effective_from": "2010-05-06",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:79",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": null,
+              "max_hours": 480.0,
+              "effective_from": "2011-12-07",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": 12.0,
+              "max_months": 24.0,
+              "effective_from": "1997-01-01",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:0",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": null,
+              "max_months": 24.0,
+              "effective_from": "2011-12-07",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "restriction_of_liberty",
+              "min_months": 24.0,
+              "max_months": 48.0,
+              "effective_from": "2009-12-27",
+              "source_edition": "pravo:102041891:73",
+              "pending_review": true
             }
           ],
           "effective_from": "1997-01-01",
@@ -255,7 +627,8 @@
           "sha256": "e19a3eb2bda73263529e025b2b4efc5462b885a8a3277e26733618e52ef74649",
           "verification_status": "verified"
         }
-      ]
+      ],
+      "search_text": "Грабеж. Грабеж, то есть открытое хищение чужого имущества"
     },
     {
       "norm_id": "uk-rf:art-161-part-2",
@@ -281,7 +654,8 @@
           "sha256": "55b36cca511371be7a9afc75bd835019760ecb904334feec5187c7deeca90260",
           "verification_status": "verified"
         }
-      ]
+      ],
+      "search_text": "Грабеж. Грабеж, совершенный: а) группой лиц по предварительному сговору; б) в) с незаконным проникновением в жилище, помещение либо иное хранилище; г) с применением насилия, не опасного для жизни или здоровья, либо с угрозой применения такого насилия; д) в крупном размере"
     },
     {
       "norm_id": "uk-rf:art-111-part-1",
@@ -325,7 +699,8 @@
           "sha256": "20f8c96c928f3cbb2fe8ecb41c4a2fee9393708ae119deb422fbe88ad1d745ec",
           "verification_status": "verified"
         }
-      ]
+      ],
+      "search_text": "Умышленное причинение тяжкого вреда здоровью. Умышленное причинение тяжкого вреда здоровью, опасного для жизни человека, или повлекшего за собой потерю зрения, речи, слуха либо какого-либо органа или утрату органом его функций, прерывание беременности, психическое расстройство, заболевание наркоманией либо токсикоманией, или выразившегося в неизгладимом обезображивании лица, или вызвавшего значительную стойкую утрату общей трудоспособности не менее чем на одну треть или заведомо для виновного полную утрату профессиональной трудоспособности"
     },
     {
       "norm_id": "uk-rf:art-112-part-1",
@@ -342,6 +717,23 @@
               "punishment_type": "imprisonment",
               "min_months": null,
               "max_months": 36
+            },
+            {
+              "punishment_type": "restriction_of_liberty",
+              "min_months": null,
+              "max_months": 36.0,
+              "effective_from": "2009-12-27",
+              "effective_to": "2011-03-10",
+              "source_edition": "pravo:102041891:73",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "restriction_of_liberty",
+              "min_months": null,
+              "max_months": 36.0,
+              "effective_from": "2011-12-07",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
             }
           ],
           "effective_from": "1997-01-01",
@@ -351,7 +743,8 @@
           "sha256": "8ec328a7d0e53ec82789c3bebdbae0790a92d0ba80fd9b95f7563a9628a40500",
           "verification_status": "verified"
         }
-      ]
+      ],
+      "search_text": "Умышленное причинение средней тяжести вреда здоровью. Умышленное причинение средней тяжести вреда здоровью, не опасного для жизни человека и не повлекшего последствий, указанных в статье 111 настоящего Кодекса, но вызвавшего длительное расстройство здоровья или значительную стойкую утрату общей трудоспособности менее чем на одну треть"
     },
     {
       "norm_id": "uk-rf:art-163-part-1",
@@ -368,6 +761,23 @@
               "punishment_type": "imprisonment",
               "min_months": null,
               "max_months": 48
+            },
+            {
+              "punishment_type": "restriction_of_liberty",
+              "min_months": null,
+              "max_months": 36.0,
+              "effective_from": "1997-01-01",
+              "effective_to": "2009-12-26",
+              "source_edition": "pravo:102041891:0",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "restriction_of_liberty",
+              "min_months": null,
+              "max_months": 48.0,
+              "effective_from": "2009-12-27",
+              "source_edition": "pravo:102041891:73",
+              "pending_review": true
             }
           ],
           "effective_from": "1997-01-01",
@@ -377,7 +787,8 @@
           "sha256": "8e95cef93bb907000d80d79afdbc54ec056c1833632b7ea88471ffbc88004043",
           "verification_status": "verified"
         }
-      ]
+      ],
+      "search_text": "Вымогательство. Вымогательство, то есть требование передачи чужого имущества или права на имущество или совершения других действий имущественного характера под угрозой применения насилия либо уничтожения или повреждения чужого имущества, а равно под угрозой распространения сведений, позорящих потерпевшего или его близких, либо иных сведений, которые могут причинить существенный вред правам или законным интересам потерпевшего или его близких"
     }
   ]
 }

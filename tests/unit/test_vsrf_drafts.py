@@ -117,3 +117,8 @@ def test_long_text_does_not_win_only_by_being_long() -> None:
 def test_single_approximate_word_match_is_not_a_finding() -> None:
     store = _store(("uk-rf:art-105", "Учёт государственных наград виновного.", VerificationStatus.VERIFIED))
     assert LegalRag(store).search("шпионаж государственная измена") == []
+
+
+def test_letter_yo_in_the_query_matches_e_in_the_norm() -> None:
+    store = _store(("uk-rf:art-161", "Грабеж, то есть открытое хищение чужого имущества.", VerificationStatus.VERIFIED))
+    assert [h.norm_id for h in LegalRag(store).search("грабёж открытое хищение")] == ["uk-rf:art-161"]

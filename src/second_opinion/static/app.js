@@ -443,7 +443,7 @@ function renderFact(fact, analysisId, usedIn) {
   return li;
 }
 
-function renderEvaluation(ev, factsById) {
+function renderEvaluation(ev, factsById, positions = []) {
   const li = document.createElement("li");
   const title = div("eval-title");
   title.appendChild(badge(ev.status));
@@ -474,6 +474,16 @@ function renderEvaluation(ev, factsById) {
       normsBlock.appendChild(div("step", `- ${norm.ref}${versionLabel}`));
     });
     detail.appendChild(normsBlock);
+  }
+
+  if (positions.length) {
+    const practiceBlock = div("chain");
+    practiceBlock.appendChild(div("step", "Разъяснения и практика Верховного Суда:"));
+    positions.forEach((position) => {
+      const status = position.verification_status === "verified" ? "сверено юристом" : "черновик, не сверен юристом";
+      practiceBlock.appendChild(div("step", `- ${position.ref} (${status}): ${position.excerpt}`));
+    });
+    detail.appendChild(practiceBlock);
   }
 
   if (ev.missing.length) {
@@ -744,7 +754,13 @@ function renderReport(report) {
 
   const evalsList = $("evaluations-list");
   evalsList.innerHTML = "";
-  report.evaluations.forEach((ev) => evalsList.appendChild(renderEvaluation(ev, factsById)));
+  const positionsByRule = {};
+  (report.practice_positions || []).forEach((position) => {
+    (positionsByRule[position.rule_id] = positionsByRule[position.rule_id] || []).push(position);
+  });
+  report.evaluations.forEach((ev) =>
+    evalsList.appendChild(renderEvaluation(ev, factsById, positionsByRule[ev.rule_id] || []))
+  );
 
   const casesList = $("cases-list");
   casesList.innerHTML = "";
@@ -1075,7 +1091,11 @@ function corpusRow(norm) {
   const parts = [
     `редакций: ${norm.version_count}`,
     `покрытие: ${norm.covered_from} -> ${to}`,
-    norm.rule_relevant ? "читается движком правил" : "справочная",
+    norm.draft_rule_only
+      ? "упомянута в черновике правила, не активна"
+      : norm.rule_relevant
+        ? "читается движком правил"
+        : "справочная",
   ];
   if (norm.history_verified) parts.push("история сверена юристом");
   li.appendChild(div("detail", parts.join("; ")));

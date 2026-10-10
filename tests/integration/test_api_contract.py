@@ -56,9 +56,10 @@ def test_error_response_carries_the_request_id(pipeline) -> None:
 def test_norms_list_is_paginated(pipeline) -> None:
     client = TestClient(create_app(pipeline))
 
-    full = client.get("/api/v1/norms").json()
+    full = client.get("/api/v1/norms?limit=500").json()
     assert full["page"]["total"] == len(full["norms"])
     assert full["page"]["has_more"] is False
+    assert len(client.get("/api/v1/norms").json()["norms"]) == min(100, full["page"]["total"])
 
     window = client.get("/api/v1/norms?limit=5&offset=0").json()
     assert len(window["norms"]) == 5

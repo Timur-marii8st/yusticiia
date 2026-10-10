@@ -115,6 +115,7 @@ def build_router(pipeline: AnalysisPipeline) -> APIRouter:
                     covered_from=coverage.covered_from,
                     covered_to=coverage.covered_to,
                     rule_relevant=coverage.rule_relevant,
+                    draft_rule_only=coverage.draft_rule_only,
                     history_verified=coverage.history_verified,
                     history_unrecorded=coverage.history_unrecorded(),
                     needs_review=coverage.norm_id in flagged,

@@ -104,3 +104,21 @@ def test_tokenize_drops_stopwords_and_short_tokens() -> None:
 def test_limit_is_respected(norm_store: NormStore) -> None:
     hits = LegalRag(norm_store).search("наказание", limit=2)
     assert len(hits) <= 2
+
+
+def test_undated_search_skips_parts_absent_from_the_current_code(norm_store: NormStore) -> None:
+    hits = LegalRag(norm_store).search("незаконное хранение наркотических средств в крупном размере")
+    ids = [hit.norm_id for hit in hits]
+    assert "uk-rf:art-228-part-4" not in ids
+    assert "uk-rf:art-228-part-2" in ids[:2]
+    old = LegalRag(norm_store).search(
+        "незаконное хранение наркотических средств в крупном размере", applicable_at=date(2000, 1, 1)
+    )
+    assert "uk-rf:art-228-part-4" in [hit.norm_id for hit in old]
+
+
+def test_verified_sanction_record_is_found_by_the_description_of_the_deed(norm_store: NormStore) -> None:
+    hits = LegalRag(norm_store).search("грабёж открытое хищение имущества наказание")
+    assert hits[0].norm_id == "uk-rf:art-161-part-1"
+    assert hits[0].verification_status == "verified"
+    assert "открытое" not in hits[0].fragment

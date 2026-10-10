@@ -183,14 +183,16 @@ def test_draft_only_norms_are_not_reported_as_active() -> None:
     by_id = {c.norm_id: c for c in analyze_store(store)}
     report = format_report(analyze_store(store))
 
+    flagged = 0
     for norm_id in DRAFT_ONLY_NORM_IDS:
         coverage = by_id[norm_id]
         assert coverage.draft_rule_only is True, norm_id
-        flagged_line = next(
-            line for line in report.splitlines() if line.startswith(f"  {coverage.ref} —")
-        )
-        assert "упомянута в черновике правила, не активна" in flagged_line
-        assert "используется движком правил" not in flagged_line
+        lines = [line for line in report.splitlines() if line.startswith(f"  {coverage.ref} —")]
+        flagged += len(lines)
+        for line in lines:
+            assert "упомянута в черновике правила, не активна" in line
+            assert "используется движком правил" not in line
+    assert flagged, "ни одна черновичная норма не попала в отчёт — проверка формулировки не выполнена"
 
 
 

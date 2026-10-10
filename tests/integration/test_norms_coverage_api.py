@@ -68,3 +68,11 @@ def test_source_edition_absence_is_not_hidden(client) -> None:
     body = client.get("/api/v1/norms/coverage").json()
 
     assert all(isinstance(n["source_editions"], list) for n in body["norms"])
+
+
+def test_norm_of_an_unregistered_draft_rule_is_not_shown_as_read_by_the_engine(client) -> None:
+    body = client.get("/api/v1/norms/coverage").json()
+    by_id = {n["norm_id"]: n for n in body["norms"]}
+
+    assert by_id["uk-rf:art-10"]["draft_rule_only"] is True
+    assert by_id["uk-rf:art-66"]["draft_rule_only"] is False

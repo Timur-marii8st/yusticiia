@@ -596,6 +596,11 @@ class PatternFactExtractor:
                 emit(FactType.PUNISHMENT_TYPE, kind.value, first_start, first_end)
                 if kind is PunishmentType.FINE:
                     self._emit_fine_amount(text, first_end, emit)
+                elif kind is PunishmentType.RESTRICTION_OF_LIBERTY:
+                    term = _extract_term_months(text[first_end:first_end + 80])
+                    if term is not None and term[1] <= 20:
+                        months, rel_start, rel_end = term
+                        emit(FactType.PUNISHMENT_TERM, months, first_end + rel_start, first_end + rel_end)
                 return
         if not matches:
             return

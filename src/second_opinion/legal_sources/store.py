@@ -60,6 +60,8 @@ class NormStore:
                 part=norm_payload.get("part"),
                 article_suffix=norm_payload.get("article_suffix"),
                 part_suffix=norm_payload.get("part_suffix"),
+                applies_to=list(norm_payload.get("applies_to", [])),
+                search_text=norm_payload.get("search_text", ""),
                 title=norm_payload.get("title", ""),
                 amendments_checked_through=norm_payload.get("amendments_checked_through"),
                 amendments_checked_source=norm_payload.get(

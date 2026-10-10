@@ -216,7 +216,7 @@ def test_docx_carries_all_the_analytics_of_the_page(pipeline, sample_violation_t
         assert label in text, label
     if analytics.sentence_position is not None:
         assert analytics.sentence_position.note in text
-    assert "7. Описательная статистика" in text
+    assert "8. Описательная статистика" in text
 
 
 def test_docx_summary_names_the_facts_behind_each_line(pipeline, sample_violation_text) -> None:
@@ -268,7 +268,7 @@ def test_print_form_has_the_same_content_as_the_docx(pipeline, sample_violation_
     assert "<style" not in response.text and "style=" not in response.text
     assert "<script" not in response.text
     assert report["summary"]["headline"] in page
-    for heading in ("1. Дело и документ", "4. Проверка норм", "7. Описательная статистика"):
+    for heading in ("1. Дело и документ", "4. Проверка норм", "5. Разъяснения и практика Верховного Суда", "8. Описательная статистика"):
         assert heading in page and heading in docx_text
     assert "Оговорки" not in page
 
@@ -341,3 +341,22 @@ def test_exports_carry_the_cabinet_data_of_the_user_who_ran_the_analysis(
     expected = "Иванов Иван Иванович, Судья, judge@court.ru"
     assert expected in docx
     assert expected in page
+
+
+def test_conclusion_carries_supreme_court_positions_for_the_checks_made(pipeline, sample_violation_text) -> None:
+    """П. 2.5.1.д Положения: заключение показывает соответствие разъяснениям Пленума,
+    решениям Президиума и Обзорам; позиции берутся по связи `applies_to` в корпусе."""
+    document = pipeline.ingest("v.txt", sample_violation_text.encode("utf-8"))
+    report = pipeline.analyze(document.document_id)
+    applicable = {e.rule_id for e in report.evaluations if e.status.value != "NOT_APPLICABLE"}
+    assert report.practice_positions
+    assert {p.rule_id for p in report.practice_positions} <= applicable
+    refs = {p.ref for p in report.practice_positions if p.rule_id == "R-002"}
+    assert "п. 34 ППВС № 58" in refs
+    assert any(r.startswith("Обзор практики ВС РФ") for r in refs)
+    statuses = {p.verification_status for p in report.practice_positions}
+    assert statuses <= {"verified", "draft"}
+
+    text = _text_of(build_docx(report, document))
+    assert "5. Разъяснения и практика Верховного Суда" in text
+    assert "черновик, не сверен юристом" in text

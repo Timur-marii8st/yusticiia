@@ -645,7 +645,8 @@ def test_other_termless_punishments_in_resolutive_part() -> None:
         "restriction_of_liberty"
     ]
     assert [f.value for f in _by_type(arrest, FactType.PUNISHMENT_TYPE)] == ["other"]
-    assert _by_type(restriction, FactType.PUNISHMENT_TERM) == []
+    assert [f.value for f in _by_type(restriction, FactType.PUNISHMENT_TERM)] == [12.0]
+    assert _by_type(arrest, FactType.PUNISHMENT_TERM) == []
 
 
 def test_imprisonment_in_resolutive_part_still_wins_over_narrative() -> None:

@@ -87,3 +87,11 @@ def test_cache_with_missing_article_is_refetched(tmp_path) -> None:
     history = trace_article_history(second, "1", ["10", "11"], cache_path=cache)  # type: ignore[arg-type]
     assert second.fetched
     assert [(v.edition, v.text) for v in history["11"]] == [(0, "a"), (3, "b")]
+
+
+def test_full_scan_finds_a_change_reverted_between_bisection_points() -> None:
+    texts = _editions(16, {"10": {0: "v1", 5: "v2", 6: "v1"}})
+    halved = trace_article_history(FakeSource(texts), "1", ["10"])  # type: ignore[arg-type]
+    assert [v.edition for v in halved["10"]] == [0]
+    full = trace_article_history(FakeSource(texts), "1", ["10"], exhaustive=True)  # type: ignore[arg-type]
+    assert [(v.edition, v.text) for v in full["10"]] == [(0, "v1"), (5, "v2"), (6, "v1")]

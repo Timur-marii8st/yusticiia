@@ -62,7 +62,8 @@ SHA-256 текста. Все цитирования ссылаются на `tex
 `aggravating_recidivism`, `special_procedure`, `jury_trial`, `punishment_type`,
 `punishment_term`, `final_punishment_term`, `punishment_hours`, `fine_amount`,
 `suspended_sentence`, `date_of_offense`, `exceptional_circumstances`.
-`punishment_term` - срок за преступление в месяцах, `final_punishment_term` -
+`punishment_term` - срок за преступление в месяцах (лишение свободы, исправительные работы,
+ограничение свободы), `final_punishment_term` -
 окончательный срок по совокупности преступлений или приговоров (ст. 69, 70), если
 приговор называет его отдельно, `punishment_hours` - срок обязательных работ в
 часах, `fine_amount` - основной штраф в рублях (дополнительный штраф к лишению

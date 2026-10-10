@@ -73,7 +73,13 @@ def sanction_for(
 
 
 class LegalNorm(BaseModel):
-    """Норма права (статья/часть), без привязки к редакции."""
+    """Норма права (статья/часть), без привязки к редакции.
+
+    ``search_text`` — название статьи и диспозиция части по тексту источника. У
+    сверенных частей статей текст редакции — выверенная запись санкции, без
+    описания деяния, и без этого поля норма не находилась бы по словам из
+    диспозиции. Поле служит только поиску: в проверки и заключение не идёт.
+    """
 
     norm_id: str
     code: str
@@ -82,6 +88,8 @@ class LegalNorm(BaseModel):
     article_suffix: str | None = None
     part_suffix: str | None = None
     title: str
+    search_text: str = ""
+    applies_to: list[str] = Field(default_factory=list)
     amendments_checked_through: date | None = None
     amendments_checked_source: str = ""
 

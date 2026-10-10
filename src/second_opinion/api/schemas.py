@@ -105,6 +105,7 @@ class NormCoverageItem(BaseModel):
     covered_from: date
     covered_to: date | None = None
     rule_relevant: bool
+    draft_rule_only: bool = False
     history_verified: bool
     history_unrecorded: bool
     needs_review: bool

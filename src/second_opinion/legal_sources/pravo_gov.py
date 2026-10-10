@@ -56,7 +56,7 @@ _OPTION = re.compile(r"<option value='(?P<value>[^']*)'[^>]*>(?P<text>[^<]*)</op
 
 _ACT = re.compile(r"от\s+(?P<day>\d{2})\.(?P<month>\d{2})\.(?P<year>\d{4})\s+№\s+(?P<name>[^\s(]+)")
 
-_ARTICLE = re.compile(r"\nСтатья (\d+(?:\.\d+)?)\.")
+_ARTICLE = re.compile(r"\n[ \t\r]*Статья\s+(\d+)(?:(?:[.\-]|\s+)(\d+))?\s*\.(?=\s)")
 
 _COMPLETED = re.compile(r"textCompleted\s*=\s*'(?P<value>\w+)'")
 
@@ -167,15 +167,19 @@ def parse_editions(payload: str) -> list[Edition]:
 def extract_articles(payload: str) -> dict[str, str]:
     """Достать тексты статей из документа.
 
-    Ключ — номер статьи как он напечатан («66», «228.1»). Пробелы
-    нормализуются: различие в переносах не должно читаться как правка.
+    Ключ — номер статьи («66», «228.1»). ИПС печатает номер с надстрочной
+    цифрой по-разному: «Статья 228 1 .» в новых редакциях, «Статья 228-1.» в
+    редакциях до 2019 года, где перед словом «Статья» к тому же стоит пробел.
+    Без учёта этого статьи старых редакций сливались с соседними, и история
+    показывала изменения, которых не было. Пробелы нормализуются: различие в
+    переносах не должно читаться как правка.
     """
     text = _strip_tags(payload)
     parts = _ARTICLE.split(text)
     articles: dict[str, str] = {}
-    for index in range(1, len(parts) - 1, 2):
-        number = parts[index]
-        body = " ".join(parts[index + 1].split())
+    for index in range(1, len(parts) - 2, 3):
+        number = parts[index] + (f".{parts[index + 1]}" if parts[index + 1] else "")
+        body = " ".join(parts[index + 2].split())
         articles.setdefault(number, body)
     return articles
 

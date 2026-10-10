@@ -16,10 +16,10 @@ from datetime import date
 
 from ..analytics.descriptive import compute_analytics
 from ..audit.trail import AuditTrail
-from ..domain.analysis import AnalysisReport, AnalyticsSummary
+from ..domain.analysis import AnalysisReport, AnalyticsSummary, PracticePosition
 from ..domain.cases import CaseMatch
 from ..domain.documents import Document
-from ..domain.enums import FactStatus, VerificationStatus
+from ..domain.enums import FactStatus, RuleStatus, VerificationStatus
 from ..domain.facts import CaseFacts, LegalFact
 from ..domain.norms import NormRef
 from ..domain.rules import RuleEvaluation
@@ -27,7 +27,7 @@ from ..fact_extraction.builder import build_case_facts
 from ..fact_extraction.llm_extractor import LLMFactExtractor
 from ..fact_extraction.pattern_extractor import PatternFactExtractor, _value_key
 from ..legal_sources.coverage import HistoryCaveat, history_caveats
-from ..legal_sources.store import NormNotFoundError, NormStore
+from ..legal_sources.store import NoApplicableVersionError, NormNotFoundError, NormStore
 from ..llm.provider import LLMProvider
 from ..logging_utils import StageTimer, log_stage
 from ..metrics import (
@@ -77,6 +77,7 @@ class DerivedAnalysis:
     norms_applied: list[NormRef]
     comparable_cases: list[CaseMatch]
     analytics: AnalyticsSummary
+    practice_positions: list[PracticePosition]
 
 
 class AnalysisDerivation:
@@ -194,7 +195,43 @@ class AnalysisDerivation:
             norms_applied=norms_applied,
             comparable_cases=matches,
             analytics=analytics,
+            practice_positions=self.practice_positions(evaluations, date.today()),
         )
+
+    def practice_positions(
+        self, evaluations: list[RuleEvaluation], on: date
+    ) -> list[PracticePosition]:
+        """Разъяснения и позиции практики ВС РФ к выполненным проверкам.
+
+        Берутся нормы корпуса, у которых в ``applies_to`` названо правило; к
+        неприменимым проверкам позиции не выводятся. Дата — день проверки
+        проекта, а не дата деяния: разъяснения Пленума и Обзоры толкуют закон
+        для дел, которые суд рассматривает сейчас, поэтому для деяния 2023 года
+        применима и позиция Обзора 2024 года.
+        """
+        evaluated = [e.rule_id for e in evaluations if e.status is not RuleStatus.NOT_APPLICABLE]
+        positions: list[PracticePosition] = []
+        norms = sorted(self._norm_store.list_norms(), key=lambda n: (n.article, n.part or 0, n.part_suffix or ""))
+        for rule_id in evaluated:
+            for norm in norms:
+                if rule_id not in norm.applies_to:
+                    continue
+                try:
+                    version = self._norm_store.get_norm(norm.norm_id, on)
+                except (NoApplicableVersionError, NormNotFoundError):
+                    continue
+                positions.append(
+                    PracticePosition(
+                        rule_id=rule_id,
+                        norm_id=norm.norm_id,
+                        version_id=version.version_id,
+                        ref=norm.ref,
+                        excerpt=_excerpt(version.text),
+                        verification_status=version.verification_status.value,
+                        source_url=version.source_url,
+                    )
+                )
+        return positions
 
     def apply(self, report: AnalysisReport, derived: DerivedAnalysis) -> None:
         """Записать результат `derive` в существующий отчёт (in-place)."""
@@ -203,6 +240,7 @@ class AnalysisDerivation:
         report.norms_applied = derived.norms_applied
         report.comparable_cases = derived.comparable_cases
         report.analytics = derived.analytics
+        report.practice_positions = derived.practice_positions
         report.summary = build_summary(derived.case_facts, report.facts)
         report.concerns = build_concerns(
             report,
@@ -267,3 +305,17 @@ class AnalysisDerivation:
             except ValueError:
                 pass
         return date.today(), True
+
+
+EXCERPT_CHARS = 360
+
+
+def _excerpt(text: str) -> str:
+    """Начало позиции до границы предложения или слова, не длиннее EXCERPT_CHARS."""
+    if len(text) <= EXCERPT_CHARS:
+        return text
+    cut = text[:EXCERPT_CHARS]
+    sentence = cut.rfind(". ")
+    if sentence > EXCERPT_CHARS // 2:
+        return cut[: sentence + 1]
+    return cut.rsplit(" ", 1)[0] + "…"

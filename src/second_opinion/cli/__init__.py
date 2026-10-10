@@ -236,6 +236,16 @@ def _add_redaction_commands(sub: argparse._SubParsersAction) -> None:
     trace_p.add_argument(
         "--out", required=True, help="файл черновика, например data/drafts/norms/history.json"
     )
+    trace_p.add_argument(
+        "--all-editions",
+        action="store_true",
+        help="сравнить каждую пару соседних подготовленных редакций (скачает все)",
+    )
+    trace_p.add_argument(
+        "--cache",
+        default=None,
+        help="файл кэша текстов; по умолчанию рядом с --out (*.cache.json)",
+    )
 
     cross_p = sub.add_parser(
         "norms-crosscheck",
@@ -270,7 +280,9 @@ COMMANDS: dict[str, Callable[[argparse.Namespace], int]] = {
     "norms-check-updates": lambda _: norms_check_updates(),
     "norms-check-amendments": lambda a: norms_check_amendments(a.topic, a.article),
     "norms-crosscheck": lambda a: norms_crosscheck(a.topic),
-    "norms-trace-history": lambda a: norms_trace_history(a.topic, a.article, a.out),
+    "norms-trace-history": lambda a: norms_trace_history(
+        a.topic, a.article, a.out, a.all_editions, a.cache
+    ),
 }
 
 

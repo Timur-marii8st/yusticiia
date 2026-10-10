@@ -151,3 +151,26 @@ def test_store_crosscheck_reads_latest_prepared_edition() -> None:
 def test_same_term_without_preceding_term_is_unparsed() -> None:
     result = crosscheck_norm(_norm(part=1), _version(36), "Название 1. Наказывается лишением свободы на тот же срок.")
     assert result is not None and result.status == "unparsed"
+
+
+def test_numbered_notes_are_not_parts() -> None:
+    body = (
+        "Кража 1. Кража - наказывается лишением свободы на срок до двух лет. "
+        "2. Кража, совершенная группой лиц, - наказывается лишением свободы на срок до пяти лет. "
+        "Примечания. 1. Под хищением понимается изъятие. 2. Значительный ущерб определяется. "
+        "3. Помещение - строение. 4. Крупным размером признается стоимость."
+    )
+    assert sorted(split_parts(body)) == [1, 2]
+
+
+def test_part_number_printed_without_a_period() -> None:
+    body = (
+        "Грабеж 1. Грабеж - наказывается лишением свободы на срок до четырех лет. "
+        "2. Грабеж, совершенный группой лиц, - наказывается лишением свободы на срок до семи лет "
+        "(в ред. Федерального закона от 7 декабря 2011 г. N 420-ФЗ). 3 Грабеж, совершенный "
+        "организованной группой, - наказывается лишением свободы на срок от шести до двенадцати лет."
+    )
+    parts = split_parts(body)
+    assert sorted(parts) == [1, 2, 3]
+    assert parts[3].startswith("Грабеж, совершенный организованной")
+    assert "до 3 лет" not in parts[2]

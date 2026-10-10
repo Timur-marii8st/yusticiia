@@ -84,6 +84,23 @@ class Concern(BaseModel):
     fact_ids: list[str] = Field(default_factory=list)
 
 
+class PracticePosition(BaseModel):
+    """Разъяснение Пленума или позиция практики ВС РФ, относящаяся к проверке.
+
+    Связь задана в корпусе полем ``applies_to`` нормы, а не подобрана поиском:
+    позиция попадает в заключение потому, что юрист (или черновик импорта)
+    отнёс её к этому правилу. Статус сверки показывается рядом.
+    """
+
+    rule_id: str
+    norm_id: str
+    version_id: str
+    ref: str
+    excerpt: str
+    verification_status: str
+    source_url: str = ""
+
+
 class AnalysisReport(BaseModel):
     """Итог анализа: второе мнение с полной прослеживаемостью."""
 
@@ -102,6 +119,7 @@ class AnalysisReport(BaseModel):
     evaluations: list[RuleEvaluation] = Field(default_factory=list)
     norms_applied: list[NormRef] = Field(default_factory=list)
     comparable_cases: list[CaseMatch] = Field(default_factory=list)
+    practice_positions: list[PracticePosition] = Field(default_factory=list)
     analytics: AnalyticsSummary | None = None
     disclaimers: list[str] = Field(default_factory=list)
 

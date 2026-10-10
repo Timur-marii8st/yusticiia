@@ -269,7 +269,25 @@ def build_sheet(
     else:
         blocks.append(_paragraph("Проверки не выполнялись."))
 
-    blocks.append(_heading("5. Обстоятельства и доказательства"))
+    blocks.append(_heading("5. Разъяснения и практика Верховного Суда"))
+    titles = {evaluation.rule_id: evaluation.headline.split(":")[0] for evaluation in report.evaluations}
+    rows = [
+        [
+            titles.get(position.rule_id, position.rule_id),
+            position.ref,
+            visible(position.excerpt),
+            "сверено юристом" if position.verification_status == "verified" else "черновик, не сверен юристом",
+        ]
+        for position in report.practice_positions
+    ]
+    if rows:
+        blocks.append(
+            _table(Table(["Проверка", "Разъяснение или позиция", "Содержание", "Статус"], rows, [1.2, 1.3, 3.6, 0.9]))
+        )
+    else:
+        blocks.append(_paragraph("К выполненным проверкам разъяснений и позиций практики в корпусе нет."))
+
+    blocks.append(_heading("6. Обстоятельства и доказательства"))
     rows = []
     for fact in report.facts:
         quotes = []
@@ -311,7 +329,7 @@ def build_sheet(
     else:
         blocks.append(_paragraph("Обстоятельства не извлечены."))
 
-    blocks.append(_heading("6. Сопоставимая практика"))
+    blocks.append(_heading("7. Сопоставимая практика"))
     if report.comparable_cases:
         blocks.append(
             _paragraph(
@@ -351,12 +369,12 @@ def build_sheet(
     else:
         blocks.append(_paragraph("Сопоставимые дела в базе практики не найдены."))
 
-    blocks.append(_heading("7. Описательная статистика"))
+    blocks.append(_heading("8. Описательная статистика"))
     synthetic = sum(1 for match in report.comparable_cases if match.case.synthetic)
     blocks += _analytics_blocks(report.analytics, synthetic)
 
     if report.norms_applied:
-        blocks.append(_heading("8. Применённые нормы"))
+        blocks.append(_heading("9. Применённые нормы"))
         norm_rows = [
             [norm.ref, norm.version_id or "—"] for norm in report.norms_applied
         ]

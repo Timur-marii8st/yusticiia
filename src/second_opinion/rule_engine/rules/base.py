@@ -28,10 +28,15 @@ REFERENCED_NORM_IDS = frozenset(
         "uk-rf:art-75",
         "uk-rf:art-76",
         "uk-rf:art-76-2",
+        "uk-rf:art-10",
+        "uk-rf:art-68",
+        "uk-rf:art-88",
     }
 )
 
-DRAFT_ONLY_NORM_IDS = frozenset({"uk-rf:art-75", "uk-rf:art-76", "uk-rf:art-76-2"})
+DRAFT_ONLY_NORM_IDS = frozenset(
+    {"uk-rf:art-75", "uk-rf:art-76", "uk-rf:art-76-2", "uk-rf:art-10", "uk-rf:art-68", "uk-rf:art-88"}
+)
 
 IMPRISONMENT = PunishmentType.IMPRISONMENT.value
 MITIGATING_IK_CODES = {"61.1.и", "61.1.к"}

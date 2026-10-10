@@ -137,16 +137,15 @@ def test_r001_unknown_when_norm_absent(norm_store: NormStore) -> None:
     assert evaluation.missing
 
 
-def test_r001_not_applicable_for_correctional_labor(norm_store: NormStore) -> None:
-    """Предел санкции лишения свободы не применяется к иным видам наказания.
-
-    До 28.09.2026 этот путь был недостижим на реальных документах: экстрактор
-    распознавал только лишение свободы, поэтому ``punishment_type`` для
-    исправительных/обязательных работ никогда не заполнялся.
-    """
-    evaluation = run(norm_store, make_case(punishment_type="correctional_labor", term=10))["R-001"]
-    assert evaluation.status.value == "NOT_APPLICABLE"
-    assert "не применимо" in evaluation.headline
+def test_r001_checks_correctional_labor_against_its_own_limits(norm_store: NormStore) -> None:
+    """Исправительные работы сравниваются со своим пределом санкции (ч. 2 ст. 158: до двух лет),
+    а не с лишением свободы (до пяти лет); несверенный предел назван в объяснении."""
+    within = run(norm_store, make_case(punishment_type="correctional_labor", term=10))["R-001"]
+    assert within.status.value == "PASS"
+    assert within.numbers["max"] == 24
+    assert "не сверен юристом" in within.explanation
+    over = run(norm_store, make_case(punishment_type="correctional_labor", term=30))["R-001"]
+    assert over.status.value == "FAIL"
 
 
 

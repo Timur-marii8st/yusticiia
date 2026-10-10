@@ -64,7 +64,7 @@ class HashingTfidfEmbedder(EmbeddingProvider):
 
     def _embed_one(self, text: str) -> list[float]:
         counts: dict[int, float] = {}
-        normalized = " ".join(text.lower().split())
+        normalized = " ".join(text.lower().replace("ё", "е").split())
         for gram in self._ngrams(normalized):
             counts[_bucket(gram)] = counts.get(_bucket(gram), 0.0) + 1.0
         vector = [0.0] * HASH_DIM

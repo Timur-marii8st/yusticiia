@@ -206,7 +206,13 @@ def norms_crosscheck(topic: str) -> int:
     return 1 if any(r.status == "mismatch" for r in results) else 0
 
 
-def norms_trace_history(topic: str, articles: list[str], out: str) -> int:
+def norms_trace_history(
+    topic: str,
+    articles: list[str],
+    out: str,
+    exhaustive: bool = False,
+    cache: str | None = None,
+) -> int:
     """Найти по ИПС редакции, в которых менялся текст статей, и записать черновик для юриста."""
     import hashlib
     import json
@@ -230,19 +236,25 @@ def norms_trace_history(topic: str, articles: list[str], out: str) -> int:
             topic,
             articles,
             on_fetch=progress,
-            cache_path=Path(out).with_suffix(".cache.json"),
+            cache_path=Path(cache) if cache else Path(out).with_suffix(".cache.json"),
+            exhaustive=exhaustive,
         )
     except (RedactionSourceError, ValueError) as exc:
         print(f"ОШИБКА: {exc}", file=sys.stderr)
         return 2
 
+    method = (
+        "сравнены все соседние подготовленные редакции"
+        if exhaustive
+        else "редакции сравнивались делением пополам, возврат к прежней формулировке не виден"
+    )
     payload: dict = {
         "verification_status": "draft",
         "note": (
             "Черновик истории изменений статей по консолидированным редакциям ИПС. "
             "Не сверен юристом. Изменение локализовано между соседними подготовленными "
-            "редакциями; возврат к прежней формулировке и акты без подготовленного текста "
-            "не видны; дата в подписи редакции - дата акта, а не вступления в силу."
+            f"редакциями ({method}); акты без подготовленного текста не видны; дата в "
+            "подписи редакции - дата акта, а не вступления в силу."
         ),
         "source": {"system": "ИПС «Законодательство России»", "document_id": topic},
         "retrieved_at": date.today().isoformat(),

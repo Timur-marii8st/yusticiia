@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import threading
 
+from ..legal_rag.search import haystack
 from ..legal_sources.store import NormStore
 
 
@@ -72,8 +73,7 @@ class PgVectorNormStore:
         items: list[tuple[str, str, str]] = []
         for norm in norm_store.list_norms():
             for version in norm_store.versions(norm.norm_id):
-                haystack = f"{norm.title} {norm.ref} {version.text}"
-                items.append((norm.norm_id, version.version_id, haystack))
+                items.append((norm.norm_id, version.version_id, haystack(norm, version)))
         if not items:
             return 0
         texts = [hay for _, _, hay in items]

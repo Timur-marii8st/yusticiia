@@ -62,6 +62,8 @@ _SAME_TERM = re.compile(r"лишением\s+свободы\s+на\s+тот\s+ж
 _UP_TO = re.compile(rf"на\s+срок\s+до\s+(?P<high>{_NUMBER})\s+(?P<unit>{_UNITS})", re.IGNORECASE)
 _PART_STOP = re.compile(r"\sПримечани", re.IGNORECASE)
 
+_NOTES_HEADING = re.compile(r"\sПримечани[ея]\s*\.")
+
 
 @dataclass(frozen=True)
 class Term:
@@ -102,12 +104,22 @@ def _number(words: str) -> float:
 
 
 def split_parts(body: str) -> dict[int, str]:
-    """Разбить текст статьи на части по номерам «1.», «2.»; без номеров - часть 0."""
+    """Разбить текст статьи на части по номерам «1.», «2.»; без номеров - часть 0.
+
+    Номера ищутся только до заголовка «Примечание.» / «Примечания.»: нумерованные
+    примечания частями статьи не являются. Если номер напечатан без точки
+    («…ст. 7362). 3 Грабеж, совершенный:» в редакциях ИПС 233–234), он
+    принимается только после конца предложения и перед заглавной буквой.
+    """
     marks: list[tuple[int, int, int]] = []
     position = 0
     expected = 1
+    notes = _NOTES_HEADING.search(body)
+    limit = notes.start() if notes else len(body)
     while True:
-        found = re.compile(rf"(?:^|\s){expected}\.\s+(?=[А-ЯЁ«\"(])").search(body, position)
+        found = re.compile(rf"(?:^|\s){expected}\.\s+(?=[А-ЯЁ«\"(])").search(body, position, limit)
+        if found is None and expected > 1:
+            found = re.compile(rf"(?<=[.;)]\s){expected}\s+(?=[А-ЯЁ])").search(body, position, limit)
         if found is None:
             break
         marks.append((expected, found.start(), found.end()))

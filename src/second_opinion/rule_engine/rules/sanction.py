@@ -17,9 +17,10 @@ from .base import (
 
 @dataclass(frozen=True)
 class _Measure:
-    """Как измеряется вид наказания, не связанный со сроком в месяцах."""
+    """Как измеряется вид наказания, кроме лишения свободы: поле дела и поля санкции."""
 
     fact_type: FactType
+    attribute: str
     missing: str
     unit: str
     low: str
@@ -28,10 +29,26 @@ class _Measure:
 
 _MEASURES = {
     PunishmentType.COMPULSORY_LABOR.value: _Measure(
-        FactType.PUNISHMENT_HOURS, "срок обязательных работ в часах", "ч.", "min_hours", "max_hours"
+        FactType.PUNISHMENT_HOURS, "hours", "срок обязательных работ в часах", "ч.", "min_hours", "max_hours"
     ),
     PunishmentType.FINE.value: _Measure(
-        FactType.FINE_AMOUNT, "размер штрафа в рублях", "руб.", "min_rubles", "max_rubles"
+        FactType.FINE_AMOUNT, "fine_rubles", "размер штрафа в рублях", "руб.", "min_rubles", "max_rubles"
+    ),
+    PunishmentType.CORRECTIONAL_LABOR.value: _Measure(
+        FactType.PUNISHMENT_TERM,
+        "term_months",
+        "срок исправительных работ в месяцах",
+        "мес.",
+        "min_months",
+        "max_months",
+    ),
+    PunishmentType.RESTRICTION_OF_LIBERTY.value: _Measure(
+        FactType.PUNISHMENT_TERM,
+        "term_months",
+        "срок ограничения свободы в месяцах",
+        "мес.",
+        "min_months",
+        "max_months",
     ),
 }
 
@@ -73,6 +90,11 @@ class SanctionRangeRule(_BaseSanctionRule):
             + _facts_of_type(case, FactType.QUALIFICATION)
         ]
         numbers = {"term_months": term, "max_months": max_months}
+        pending = (
+            " Предел внесён по тексту ИПС и ещё не сверен юристом."
+            if data["sanction"].pending_review or version.verification_status.value != "verified"
+            else ""
+        )
         if term > max_months:
             return self._evaluation(
                 status=RuleStatus.FAIL,
@@ -80,7 +102,7 @@ class SanctionRangeRule(_BaseSanctionRule):
                 explanation=(
                     f"Назначено {term:.0f} мес. лишения свободы, максимум санкции "
                     f"{data['qualification'].ref} — {max_months:.0f} мес. "
-                    "Проверьте квалификацию и основания выхода за предел санкции."
+                    "Проверьте квалификацию и основания выхода за предел санкции." + pending
                 ),
                 facts_used=facts_used,
                 norms_used=norms_used,
@@ -100,7 +122,7 @@ class SanctionRangeRule(_BaseSanctionRule):
                 if cited
                 else "статья в тексте документа не упомянута ни разу, проверьте, "
                 "не пропущено ли основание."
-            )
+            ) + pending
             return self._evaluation(
                 status=RuleStatus.WARNING,
                 headline=f"{self.title}: срок ниже минимума санкции",
@@ -117,7 +139,7 @@ class SanctionRangeRule(_BaseSanctionRule):
             headline=f"{self.title}: в пределах санкции",
             explanation=(
                 f"Назначенный срок {term:.0f} мес. находится в пределах санкции "
-                f"{data['qualification'].ref} (максимум {max_months:.0f} мес.)."
+                f"{data['qualification'].ref} (максимум {max_months:.0f} мес.)." + pending
             ),
             facts_used=facts_used,
             norms_used=norms_used,
@@ -125,10 +147,10 @@ class SanctionRangeRule(_BaseSanctionRule):
         )
 
     def _evaluate_measured(self, context, measure: _Measure) -> RuleEvaluation:
-        """Штраф (рубли) и обязательные работы (часы) против пределов санкции."""
+        """Штраф (рубли), обязательные работы (часы), исправительные работы и ограничение свободы (месяцы) против санкции."""
         case: CaseFacts = context.case_facts
         kind = case.sentence.punishment_type or ""
-        value = case.sentence.fine_rubles if measure.unit == "руб." else case.sentence.hours
+        value = getattr(case.sentence, measure.attribute)
         qualification = case.primary_qualification
         missing = [m for m, absent in ((measure.missing, value is None),
                    ("квалификация (статья УК РФ)", qualification is None)) if absent]

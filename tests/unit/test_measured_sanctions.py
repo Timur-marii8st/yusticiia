@@ -127,3 +127,32 @@ def test_sanction_interval_must_be_ordered() -> None:
             effective_from=date(2020, 1, 1),
             effective_to=date(2019, 1, 1),
         )
+
+
+def test_correctional_labor_months_are_checked() -> None:
+    store = _store()
+    norm_id = "uk-rf:art-158-part-1"
+    version = store.get_norm(norm_id, date(2025, 1, 1))
+    version.sanctions.append(
+        SanctionSpec(punishment_type=PunishmentType.CORRECTIONAL_LABOR, max_months=12, pending_review=True)
+    )
+    case = _case("correctional_labor")
+    case.sentence.term_months = 18
+    evaluation = next(e for e in RuleEngine().evaluate(case, store, date(2025, 3, 1)) if e.rule_id == "R-001")
+    assert evaluation.status.value == "FAIL"
+    assert "18 мес." in evaluation.explanation
+
+
+def test_restriction_of_liberty_months_are_checked() -> None:
+    store = _store()
+    version = store.get_norm("uk-rf:art-158-part-1", date(2025, 1, 1))
+    version.sanctions.append(
+        SanctionSpec(punishment_type=PunishmentType.RESTRICTION_OF_LIBERTY, max_months=24, pending_review=True)
+    )
+    case = _case("restriction_of_liberty")
+    case.sentence.term_months = 18
+    evaluation = next(e for e in RuleEngine().evaluate(case, store, date(2025, 3, 1)) if e.rule_id == "R-001")
+    assert evaluation.status.value == "PASS"
+    case.sentence.term_months = 30
+    evaluation = next(e for e in RuleEngine().evaluate(case, store, date(2025, 3, 1)) if e.rule_id == "R-001")
+    assert evaluation.status.value == "FAIL"
