@@ -1,13 +1,15 @@
-"""Сборка концепции проекта в DOCX и PDF из docs/CONCEPT.md.
+"""Сборка концепции и описания архитектуры в DOCX и PDF из Markdown.
 
-Источник текста один — ``docs/CONCEPT.md``; рисунки — ``docs/concept/*.png``
-(их рисует ``scripts/concept_figures.py``). Документ для отправки на конкурс
-собирается из них, поэтому текст в репозитории и в отправленном файле не
+Источник текста — ``docs/CONCEPT.md`` (``--doc concept``, по умолчанию) или
+``docs/ARCHITECTURE.md`` (``--doc architecture``); рисунки — ``docs/concept/*.png``
+(их рисует ``scripts/concept_figures.py``). Документы для отправки на конкурс
+собираются из них, поэтому текст в репозитории и в отправленном файле не
 расходятся.
 
 Пример:
   python scripts/concept_figures.py
   python scripts/build_concept.py --out build/concept
+  python scripts/build_concept.py --doc architecture --out build/concept
 """
 
 from __future__ import annotations
@@ -21,15 +23,38 @@ from html import escape
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "docs" / "CONCEPT.md"
-BASENAME = "Концепция_Второе_мнение"
 TITLE = "«Второе мнение»"
-SUBTITLE = "Система проверки проекта приговора в части назначения наказания"
-CONTEST = (
-    "Концепция проекта (конкурсная работа отборочного этапа)\n"
-    "Всероссийский конкурс студенческих проектов\n«Алгоритм правосудия. Второе мнение»"
-)
+CONTEST = "Всероссийский конкурс студенческих проектов\n«Алгоритм правосудия. Второе мнение»"
 FONTS = Path("/System/Library/Fonts/Supplemental")
+
+
+@dataclass(frozen=True)
+class Spec:
+    """Что собирается: источник, имя файлов, подзаголовок и надпись титульного листа."""
+
+    source: Path
+    basename: str
+    subtitle: str
+    cover: str
+    pdf_title: str
+
+
+SPECS = {
+    "concept": Spec(
+        ROOT / "docs" / "CONCEPT.md",
+        "Концепция_Второе_мнение",
+        "Система проверки проекта приговора в части назначения наказания",
+        "Концепция проекта (конкурсная работа отборочного этапа)\n" + CONTEST,
+        f"Концепция проекта {TITLE}",
+    ),
+    "architecture": Spec(
+        ROOT / "docs" / "ARCHITECTURE.md",
+        "Архитектура_Второе_мнение",
+        "Архитектура решения",
+        "Описание архитектуры решения к концепции проекта\n" + CONTEST,
+        f"Архитектура решения {TITLE}",
+    ),
+}
 
 _MONTHS = ("января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа",
            "сентября", "октября", "ноября", "декабря")
@@ -44,8 +69,8 @@ class Block:
     path: Path | None = None
 
 
-def parse(markdown: str) -> list[Block]:
-    """Абзацы, заголовки, списки, таблицы и рисунки; другого в концепции нет."""
+def parse(markdown: str, base: Path) -> list[Block]:
+    """Абзацы, заголовки, списки, таблицы, рисунки и блоки кода; пути рисунков — от ``base``."""
     blocks: list[Block] = []
     lines = markdown.splitlines()
     i = 0
@@ -63,6 +88,16 @@ def parse(markdown: str) -> list[Block]:
             flush()
             i += 1
             continue
+        if stripped.startswith("```"):
+            flush()
+            code: list[str] = []
+            i += 1
+            while i < len(lines) and not lines[i].strip().startswith("```"):
+                code.append(lines[i].rstrip())
+                i += 1
+            blocks.append(Block("code", "\n".join(code)))
+            i += 1
+            continue
         heading = re.match(r"^(#{1,3})\s+(.*)$", stripped)
         image = re.match(r"^!\[([^\]]*)\]\(([^)]+)\)$", stripped)
         if heading:
@@ -70,7 +105,7 @@ def parse(markdown: str) -> list[Block]:
             blocks.append(Block("h", heading.group(2), level=len(heading.group(1))))
         elif image:
             flush()
-            blocks.append(Block("img", image.group(1), path=SOURCE.parent / image.group(2)))
+            blocks.append(Block("img", image.group(1), path=base / image.group(2)))
         elif stripped.startswith("|"):
             flush()
             rows = []
@@ -119,6 +154,11 @@ def segments(text: str) -> list[tuple[str, str]]:
     return result
 
 
+def plain(text: str) -> str:
+    """Текст без разметки: для оглавления и заголовков DOCX."""
+    return "".join(chunk for _, chunk in segments(text))
+
+
 def _ru_date(day: date) -> str:
     return f"{day.day} {_MONTHS[day.month - 1]} {day.year} г."
 
@@ -145,7 +185,7 @@ def _column_widths(rows: list[list[str]], total: float) -> list[float]:
     return [m + spare * w / sum(weights) for m, w in zip(minimum, weights, strict=True)]
 
 
-def build_docx(blocks: list[Block], target: Path, built: date) -> Path:
+def build_docx(blocks: list[Block], target: Path, built: date, spec: Spec) -> Path:
     from docx import Document
     from docx.enum.table import WD_TABLE_ALIGNMENT
     from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -195,14 +235,14 @@ def build_docx(blocks: list[Block], target: Path, built: date) -> Path:
 
     for _ in range(6):
         doc.add_paragraph()
-    for text, size, bold in ((TITLE, 26, True), (SUBTITLE, 15, False)):
+    for text, size, bold in ((TITLE, 26, True), (spec.subtitle, 15, False)):
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         r = p.add_run(text)
         r.font.size, r.bold = Pt(size), bold
     for _ in range(3):
         doc.add_paragraph()
-    for line in CONTEST.split("\n"):
+    for line in spec.cover.split("\n"):
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p.add_run(line).font.size = Pt(13)
@@ -220,16 +260,16 @@ def build_docx(blocks: list[Block], target: Path, built: date) -> Path:
         if block.kind == "h" and block.level == 2:
             p = doc.add_paragraph()
             p.paragraph_format.space_after = Pt(2)
-            p.add_run(block.text)
+            p.add_run(plain(block.text))
         elif block.kind == "h" and block.level == 3:
             p = doc.add_paragraph()
             p.paragraph_format.left_indent = Cm(0.8)
             p.paragraph_format.space_after = Pt(0)
-            p.add_run(block.text).font.size = Pt(11)
+            p.add_run(plain(block.text)).font.size = Pt(11)
     first = True
     for block in body:
         if block.kind == "h":
-            added = doc.add_heading(re.sub(r"\*\*", "", block.text), level=max(1, block.level - 1))
+            added = doc.add_heading(plain(block.text), level=max(1, block.level - 1))
             if first:
                 added.paragraph_format.page_break_before = True
                 first = False
@@ -251,6 +291,17 @@ def build_docx(blocks: list[Block], target: Path, built: date) -> Path:
             p.paragraph_format.first_line_indent = Cm(-0.6)
             p.add_run(f"{block.level}. ")
             runs(p, block.text)
+        elif block.kind == "code":
+            p = doc.add_paragraph()
+            p.paragraph_format.line_spacing = 1.0
+            p.paragraph_format.space_after = Pt(6)
+            code_lines = block.text.split("\n")
+            for index, line in enumerate(code_lines):
+                run = p.add_run(line)
+                run.font.name = "Courier New"
+                run.font.size = Pt(9)
+                if index < len(code_lines) - 1:
+                    run.add_break()
         elif block.kind == "img" and block.path is not None:
             p = doc.add_paragraph()
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -305,7 +356,7 @@ def build_docx(blocks: list[Block], target: Path, built: date) -> Path:
     return target
 
 
-def build_pdf(blocks: list[Block], target: Path, built: date) -> Path:
+def build_pdf(blocks: list[Block], target: Path, built: date, spec: Spec) -> Path:
     from reportlab.lib import colors
     from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
     from reportlab.lib.pagesizes import A4
@@ -318,6 +369,7 @@ def build_pdf(blocks: list[Block], target: Path, built: date) -> Path:
         KeepTogether,
         PageBreak,
         Paragraph,
+        Preformatted,
         SimpleDocTemplate,
         Spacer,
         Table,
@@ -358,9 +410,9 @@ def build_pdf(blocks: list[Block], target: Path, built: date) -> Path:
     story: list = [Spacer(1, 5 * cm)]
     story.append(Paragraph(escape(TITLE), ParagraphStyle("t", parent=center, fontName="TNR-Bold", fontSize=26, leading=32)))
     story.append(Spacer(1, 0.4 * cm))
-    story.append(Paragraph(escape(SUBTITLE), ParagraphStyle("st", parent=center, fontSize=15, leading=19)))
+    story.append(Paragraph(escape(spec.subtitle), ParagraphStyle("st", parent=center, fontSize=15, leading=19)))
     story.append(Spacer(1, 2.5 * cm))
-    for line in CONTEST.split("\n"):
+    for line in spec.cover.split("\n"):
         story.append(Paragraph(escape(line), ParagraphStyle("c", parent=center, fontSize=13, leading=17)))
     story.append(Spacer(1, 7 * cm))
     story.append(Paragraph(f"Редакция от {_ru_date(built)}", center))
@@ -371,7 +423,7 @@ def build_pdf(blocks: list[Block], target: Path, built: date) -> Path:
     for block in body:
         if block.kind == "h" and block.level in (2, 3):
             indent = 0 if block.level == 2 else 0.8 * cm
-            story.append(Paragraph(escape(block.text), ParagraphStyle("toc", parent=base, leftIndent=indent, spaceAfter=1, fontSize=11 if block.level == 2 else 10.5, leading=13)))
+            story.append(Paragraph(escape(plain(block.text)), ParagraphStyle("toc", parent=base, leftIndent=indent, spaceAfter=1, fontSize=11 if block.level == 2 else 10.5, leading=13)))
     story.append(PageBreak())
 
     usable = A4[0] - 4.0 * cm
@@ -384,6 +436,10 @@ def build_pdf(blocks: list[Block], target: Path, built: date) -> Path:
             story.append(Paragraph(markup(block.text), ParagraphStyle("li", parent=base, leftIndent=0.9 * cm, bulletIndent=0.3 * cm), bulletText="•"))
         elif block.kind == "ol":
             story.append(Paragraph(markup(block.text), ParagraphStyle("ol", parent=base, leftIndent=0.9 * cm, bulletIndent=0.2 * cm), bulletText=f"{block.level}."))
+        elif block.kind == "code":
+            story.append(Preformatted(block.text, ParagraphStyle(
+                "code", fontName="Mono", fontSize=8.5, leading=10.5, leftIndent=0.3 * cm, spaceBefore=4, spaceAfter=8,
+            )))
         elif block.kind == "img" and block.path is not None:
             from PIL import Image as PILImage
 
@@ -424,7 +480,7 @@ def build_pdf(blocks: list[Block], target: Path, built: date) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
     pdf = SimpleDocTemplate(
         str(target), pagesize=A4, leftMargin=2.5 * cm, rightMargin=1.5 * cm, topMargin=2 * cm, bottomMargin=2 * cm,
-        title=f"Концепция проекта {TITLE}", author="Команда проекта «Второе мнение»", lang="ru-RU",
+        title=spec.pdf_title, author="Команда проекта «Второе мнение»", lang="ru-RU",
     )
     pdf.build(story, onFirstPage=number, onLaterPages=number)
     return target
@@ -433,16 +489,21 @@ def build_pdf(blocks: list[Block], target: Path, built: date) -> Path:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", required=True, help="каталог для DOCX и PDF")
+    parser.add_argument("--doc", choices=sorted(SPECS), default="concept", help="что собирать (по умолчанию concept)")
     parser.add_argument("--date", default=None, help="дата редакции ГГГГ-ММ-ДД (по умолчанию сегодня)")
     args = parser.parse_args(argv)
     built = date.fromisoformat(args.date) if args.date else date.today()
-    blocks = parse(SOURCE.read_text(encoding="utf-8"))
+    spec = SPECS[args.doc]
+    blocks = parse(spec.source.read_text(encoding="utf-8"), spec.source.parent)
     missing = [b.path for b in blocks if b.kind == "img" and b.path is not None and not b.path.exists()]
     if missing:
         print(f"ОШИБКА: нет рисунков {missing}; сначала python scripts/concept_figures.py", file=sys.stderr)
         return 2
     out = Path(args.out)
-    for path in (build_docx(blocks, out / f"{BASENAME}.docx", built), build_pdf(blocks, out / f"{BASENAME}.pdf", built)):
+    for path in (
+        build_docx(blocks, out / f"{spec.basename}.docx", built, spec),
+        build_pdf(blocks, out / f"{spec.basename}.pdf", built, spec),
+    ):
         print(path)
     return 0
 

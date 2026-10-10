@@ -14,7 +14,7 @@
 | Разворачиваете систему | [../README.md](../README.md) -> [SECURITY.md](SECURITY.md) |
 | Поднимаете модель на сервере Ubuntu | [DEPLOYMENT_VLLM.md](DEPLOYMENT_VLLM.md) |
 | Оцениваете, что сделано | [CONCEPT.md](CONCEPT.md) -> [TZ.md](TZ.md) |
-| Готовите документ для жюри конкурса | [CONCEPT.md](CONCEPT.md); DOCX и PDF со схемами собираются командами `python scripts/concept_figures.py` и `python scripts/build_concept.py --out build/concept` (рисунки — `docs/concept/`) |
+| Готовите документ для жюри конкурса | [CONCEPT.md](CONCEPT.md) и [ARCHITECTURE.md](ARCHITECTURE.md); DOCX и PDF со схемами собираются командами `python scripts/concept_figures.py` и `python scripts/build_concept.py --out build/concept` (концепция) или `--doc architecture` (архитектура); рисунки — `docs/concept/` |
 
 ## Требования и замысел
 
