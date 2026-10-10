@@ -1,16 +1,16 @@
-# Единый developer interface (Windows: используйте команды напрямую, см. README)
+PYTHON ?= python3
 
-.PHONY: install dev test lint fmt eval seed
+.PHONY: install dev test lint fmt types seal eval check
 
 install:
-	python -m venv .venv
+	$(PYTHON) -m venv .venv
 	.venv/bin/pip install -e ".[dev]"
 
 dev:
 	.venv/bin/second-opinion serve
 
 test:
-	.venv/bin/pytest
+	.venv/bin/pytest --cov
 
 lint:
 	.venv/bin/ruff check .
@@ -18,5 +18,13 @@ lint:
 fmt:
 	.venv/bin/ruff check --fix .
 
+types:
+	.venv/bin/mypy
+
+seal:
+	.venv/bin/second-opinion norms-seal --check
+
 eval:
 	.venv/bin/second-opinion eval
+
+check: lint types test seal eval

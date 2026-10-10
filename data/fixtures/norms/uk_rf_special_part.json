@@ -1,7 +1,7 @@
 {
   "code": "УК РФ",
   "source_document": "Уголовный кодекс Российской Федерации от 13.06.1996 № 63-ФЗ",
-  "note": "Сверено юристом по КонсультантПлюс 03.09.2026 (редакция УК от 04.08.2026): максимумы лишения свободы — verification_status: verified. Исторические границы максимумов — по отчёту сверки. Промежуточные diffs альтернативных видов (ФЗ № 26-ФЗ) и дореформенная конструкция ст. 228 сознательно не реконструированы.",
+  "note": "Сверено юристом по КонсультантПлюс 03.09.2026 (редакция УК от 04.08.2026): максимумы лишения свободы — verification_status: verified. Исторические границы максимумов — по отчёту сверки. Промежуточные diffs альтернативных видов (ФЗ № 26-ФЗ) и дореформенная конструкция ст. 228 сознательно не реконструированы. Пределы штрафа, обязательных и исправительных работ, ограничения свободы добавлены 2026-10-10 по тексту ИПС (scripts/build_sanction_corpus.py) с пометкой pending_review: не сверены юристом. Даты периодов — даты актов из подписи редакции ИПС, кроме дат вступления в силу, известных из сверенных редакций; на промежутки, пришедшиеся на неподготовленные редакции ИПС, пределы не внесены.",
   "norms": [
     {
       "norm_id": "uk-rf:art-158-part-1",
@@ -14,13 +14,53 @@
           "norm_id": "uk-rf:art-158-part-1",
           "text": "Ч. 1 ст. 158 УК РФ в редакции 1996–2003 (сверено 03.09.2026): лишение свободы на срок до трех лет (36 мес.).",
           "sanctions": [
-            { "punishment_type": "imprisonment", "min_months": null, "max_months": 36 }
+            {
+              "punishment_type": "imprisonment",
+              "min_months": null,
+              "max_months": 36
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": 180.0,
+              "max_hours": 240.0,
+              "effective_from": "1997-01-01",
+              "effective_to": "2002-10-30",
+              "source_edition": "pravo:102041891:0",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": null,
+              "max_hours": 180.0,
+              "effective_from": "2002-10-31",
+              "effective_to": "2003-12-15",
+              "source_edition": "pravo:102041891:25",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": 12.0,
+              "max_months": 24.0,
+              "effective_from": "1997-01-01",
+              "effective_to": "2002-10-30",
+              "source_edition": "pravo:102041891:0",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": 6.0,
+              "max_months": 12.0,
+              "effective_from": "2002-10-31",
+              "effective_to": "2003-12-15",
+              "source_edition": "pravo:102041891:25",
+              "pending_review": true
+            }
           ],
-          "effective_from": "1996-07-01",
+          "effective_from": "1997-01-01",
           "effective_to": "2003-12-15",
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/57b5c7b83fcd2cf40cabe2042f2d8f04ed6875ad/",
           "retrieved_at": "2026-09-03",
-          "sha256": "AUTOFILL",
+          "sha256": "d1cab7eaddad5cac1359c3f7d2b7f6f77354bdc4f518590895dc0a144bdaa103",
           "verification_status": "verified"
         },
         {
@@ -28,16 +68,71 @@
           "norm_id": "uk-rf:art-158-part-1",
           "text": "Ч. 1 ст. 158 УК РФ (ред. ФЗ от 08.12.2003 № 162-ФЗ; сверено 03.09.2026): «лишением свободы на срок до двух лет» (24 мес.); денежные санкции переведены из МРОТ в рубли. ФЗ от 07.03.2011 № 26-ФЗ либерализовал нижние пределы отдельных альтернатив без увеличения максимума 2 года; ФЗ от 07.12.2011 № 420-ФЗ добавил альтернативы (обязательные работы до 360 ч., ограничение свободы и принудительные работы).",
           "sanctions": [
-            { "punishment_type": "imprisonment", "min_months": null, "max_months": 24 }
+            {
+              "punishment_type": "imprisonment",
+              "min_months": null,
+              "max_months": 24
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": null,
+              "max_hours": 180.0,
+              "effective_from": "2003-12-16",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": null,
+              "max_hours": 360.0,
+              "effective_from": "2011-12-07",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": 6.0,
+              "max_months": 12.0,
+              "effective_from": "2003-12-16",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": null,
+              "max_months": 12.0,
+              "effective_from": "2011-12-07",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "fine",
+              "min_rubles": null,
+              "max_rubles": 80000.0,
+              "effective_from": "2003-12-16",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "restriction_of_liberty",
+              "min_months": null,
+              "max_months": 24.0,
+              "effective_from": "2009-12-27",
+              "source_edition": "pravo:102041891:73",
+              "pending_review": true
+            }
           ],
           "effective_from": "2003-12-16",
           "effective_to": null,
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/57b5c7b83fcd2cf40cabe2042f2d8f04ed6875ad/",
           "retrieved_at": "2026-09-03",
-          "sha256": "AUTOFILL",
+          "sha256": "73a7778a23920ed4260589d36437fd7e3a3ee395084ca23dd679eb9b8413ee2c",
           "verification_status": "verified"
         }
-      ]
+      ],
+      "search_text": "Кража. Кража, то есть тайное хищение чужого имущества"
     },
     {
       "norm_id": "uk-rf:art-158-part-2",
@@ -48,15 +143,37 @@
         {
           "version_id": "v-1996",
           "norm_id": "uk-rf:art-158-part-2",
-          "text": "Ч. 2 ст. 158 УК РФ в редакции 1996–2003 (сверено 03.09.2026): лишение свободы на срок до шести лет (72 мес.).",
+          "text": "Ч. 2 ст. 158 УК РФ в редакции 1996–2003 (сверено 03.09.2026; нижний предел уточнён по исходной редакции в ИПС 06.10.2026): лишение свободы на срок от двух до шести лет (24-72 мес.).",
           "sanctions": [
-            { "punishment_type": "imprisonment", "min_months": null, "max_months": 72 }
+            {
+              "punishment_type": "imprisonment",
+              "min_months": 24,
+              "max_months": 72
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": 180.0,
+              "max_hours": 240.0,
+              "effective_from": "2002-10-31",
+              "effective_to": "2003-12-15",
+              "source_edition": "pravo:102041891:25",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": 12.0,
+              "max_months": 24.0,
+              "effective_from": "2002-10-31",
+              "effective_to": "2003-12-15",
+              "source_edition": "pravo:102041891:25",
+              "pending_review": true
+            }
           ],
-          "effective_from": "1996-07-01",
+          "effective_from": "1997-01-01",
           "effective_to": "2003-12-15",
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/57b5c7b83fcd2cf40cabe2042f2d8f04ed6875ad/",
           "retrieved_at": "2026-09-03",
-          "sha256": "AUTOFILL",
+          "sha256": "a91a7134c9afdf41493cb6bad8d3d3907e3fc4fc6dc348b1a7f2064f37e36488",
           "verification_status": "verified"
         },
         {
@@ -64,16 +181,63 @@
           "norm_id": "uk-rf:art-158-part-2",
           "text": "Ч. 2 ст. 158 УК РФ (ред. ФЗ от 08.12.2003 № 162-ФЗ; сверено 03.09.2026): «лишением свободы на срок до пяти лет» (60 мес.). ФЗ от 07.12.2011 № 420-ФЗ добавил обязательные работы до 480 ч., принудительные работы до 5 лет и факультативное ограничение свободы; максимум лишения свободы 5 лет сохранен.",
           "sanctions": [
-            { "punishment_type": "imprisonment", "min_months": null, "max_months": 60 }
+            {
+              "punishment_type": "imprisonment",
+              "min_months": null,
+              "max_months": 60
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": 180.0,
+              "max_hours": 240.0,
+              "effective_from": "2003-12-16",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": null,
+              "max_hours": 480.0,
+              "effective_from": "2011-12-07",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": 12.0,
+              "max_months": 24.0,
+              "effective_from": "2003-12-16",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": null,
+              "max_months": 24.0,
+              "effective_from": "2011-12-07",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "fine",
+              "min_rubles": null,
+              "max_rubles": 200000.0,
+              "effective_from": "2003-12-16",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            }
           ],
           "effective_from": "2003-12-16",
           "effective_to": null,
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/57b5c7b83fcd2cf40cabe2042f2d8f04ed6875ad/",
           "retrieved_at": "2026-09-03",
-          "sha256": "AUTOFILL",
+          "sha256": "6ed1c6d8fb9fdf13f738108a2cac2c9f8e07decaeedf5c2775062ca98e7847a5",
           "verification_status": "verified"
         }
-      ]
+      ],
+      "search_text": "Кража. Кража, совершенная: а) группой лиц по предварительному сговору; б) с незаконным проникновением в помещение либо иное хранилище; в) с причинением значительного ущерба гражданину; г) из одежды, сумки или другой ручной клади, находившихся при потерпевшем"
     },
     {
       "norm_id": "uk-rf:art-159-part-1",
@@ -86,13 +250,35 @@
           "norm_id": "uk-rf:art-159-part-1",
           "text": "Ч. 1 ст. 159 УК РФ в редакции 1996–2003 (сверено 03.09.2026): лишение свободы на срок до трех лет (36 мес.).",
           "sanctions": [
-            { "punishment_type": "imprisonment", "min_months": null, "max_months": 36 }
+            {
+              "punishment_type": "imprisonment",
+              "min_months": null,
+              "max_months": 36
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": 180.0,
+              "max_hours": 240.0,
+              "effective_from": "1997-01-01",
+              "effective_to": "2003-12-15",
+              "source_edition": "pravo:102041891:0",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": 12.0,
+              "max_months": 24.0,
+              "effective_from": "1997-01-01",
+              "effective_to": "2003-12-15",
+              "source_edition": "pravo:102041891:0",
+              "pending_review": true
+            }
           ],
-          "effective_from": "1996-07-01",
+          "effective_from": "1997-01-01",
           "effective_to": "2003-12-15",
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/8012ecdf64b7c9cfd62e90d7f55f9b5b7b72b755/",
           "retrieved_at": "2026-09-03",
-          "sha256": "AUTOFILL",
+          "sha256": "3c41a532e3a771d625a283aacc4c695810fe27916d30ba1d79fdc7c57f75aa6d",
           "verification_status": "verified"
         },
         {
@@ -100,16 +286,71 @@
           "norm_id": "uk-rf:art-159-part-1",
           "text": "Ч. 1 ст. 159 УК РФ (ред. ФЗ от 08.12.2003 № 162-ФЗ; сверено 03.09.2026): «лишением свободы на срок до двух лет» (24 мес.); новая рублевая шкала штрафа. ФЗ от 07.12.2011 № 420-ФЗ добавил альтернативы (обязательные работы до 360 ч.); максимум 2 года сохранен. Постановление КС РФ от 29.06.2026 № 43-П числовые санкции чч. 1–2 не меняет.",
           "sanctions": [
-            { "punishment_type": "imprisonment", "min_months": null, "max_months": 24 }
+            {
+              "punishment_type": "imprisonment",
+              "min_months": null,
+              "max_months": 24
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": null,
+              "max_hours": 180.0,
+              "effective_from": "2003-12-16",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": null,
+              "max_hours": 360.0,
+              "effective_from": "2011-12-07",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": 6.0,
+              "max_months": 12.0,
+              "effective_from": "2003-12-16",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": null,
+              "max_months": 12.0,
+              "effective_from": "2011-12-07",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "fine",
+              "min_rubles": null,
+              "max_rubles": 120000.0,
+              "effective_from": "2003-12-16",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "restriction_of_liberty",
+              "min_months": null,
+              "max_months": 24.0,
+              "effective_from": "2009-12-27",
+              "source_edition": "pravo:102041891:73",
+              "pending_review": true
+            }
           ],
           "effective_from": "2003-12-16",
           "effective_to": null,
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/8012ecdf64b7c9cfd62e90d7f55f9b5b7b72b755/",
           "retrieved_at": "2026-09-03",
-          "sha256": "AUTOFILL",
+          "sha256": "37cd26174c82402c985893869440f1174607ab15da16c8f78ee4fb62f62b686d",
           "verification_status": "verified"
         }
-      ]
+      ],
+      "search_text": "Мошенничество. Мошенничество, то есть хищение чужого имущества или приобретение права на чужое имущество путем обмана или злоупотребления доверием"
     },
     {
       "norm_id": "uk-rf:art-159-part-2",
@@ -120,15 +361,19 @@
         {
           "version_id": "v-1996",
           "norm_id": "uk-rf:art-159-part-2",
-          "text": "Ч. 2 ст. 159 УК РФ в редакции 1996–2003 (сверено 03.09.2026): лишение свободы на срок до шести лет (72 мес.).",
+          "text": "Ч. 2 ст. 159 УК РФ в редакции 1996–2003 (сверено 03.09.2026; нижний предел уточнён по исходной редакции в ИПС 06.10.2026): лишение свободы на срок от двух до шести лет (24-72 мес.).",
           "sanctions": [
-            { "punishment_type": "imprisonment", "min_months": null, "max_months": 72 }
+            {
+              "punishment_type": "imprisonment",
+              "min_months": 24,
+              "max_months": 72
+            }
           ],
-          "effective_from": "1996-07-01",
+          "effective_from": "1997-01-01",
           "effective_to": "2003-12-15",
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/8012ecdf64b7c9cfd62e90d7f55f9b5b7b72b755/",
           "retrieved_at": "2026-09-03",
-          "sha256": "AUTOFILL",
+          "sha256": "6a95896d8fe2b834a299006bcd09db8cd65101f1c7690565b995fb09dd8c2401",
           "verification_status": "verified"
         },
         {
@@ -136,16 +381,63 @@
           "norm_id": "uk-rf:art-159-part-2",
           "text": "Ч. 2 ст. 159 УК РФ (ред. ФЗ от 08.12.2003 № 162-ФЗ; сверено 03.09.2026): «лишением свободы на срок до пяти лет» (60 мес.). ФЗ от 07.12.2011 № 420-ФЗ добавил принудительные работы до 5 лет, обязательные до 480 ч. и факультативное ограничение свободы; максимум 5 лет сохранен.",
           "sanctions": [
-            { "punishment_type": "imprisonment", "min_months": null, "max_months": 60 }
+            {
+              "punishment_type": "imprisonment",
+              "min_months": null,
+              "max_months": 60
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": 180.0,
+              "max_hours": 240.0,
+              "effective_from": "2003-12-16",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": null,
+              "max_hours": 480.0,
+              "effective_from": "2011-12-07",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": 12.0,
+              "max_months": 24.0,
+              "effective_from": "2003-12-16",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": null,
+              "max_months": 24.0,
+              "effective_from": "2011-12-07",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "fine",
+              "min_rubles": null,
+              "max_rubles": 300000.0,
+              "effective_from": "2003-12-16",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            }
           ],
           "effective_from": "2003-12-16",
           "effective_to": null,
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/8012ecdf64b7c9cfd62e90d7f55f9b5b7b72b755/",
           "retrieved_at": "2026-09-03",
-          "sha256": "AUTOFILL",
+          "sha256": "78beef9c317646b5b1d21051a61cde3093e3775c8afb4a3bc9cbff3f423c034f",
           "verification_status": "verified"
         }
-      ]
+      ],
+      "search_text": "Мошенничество. Мошенничество, совершенное группой лиц по предварительному сговору, а равно с причинением значительного ущерба гражданину"
     },
     {
       "norm_id": "uk-rf:art-228-part-1",
@@ -158,16 +450,89 @@
           "norm_id": "uk-rf:art-228-part-1",
           "text": "Ч. 1 ст. 228 УК РФ (ред. от 04.08.2026, сверено 03.09.2026): «лишением свободы на срок до трех лет» (36 мес.). Принудительных работ в санкции ч. 1 нет. Дореформенная конструкция ст. 228 (до 2004) сознательно не моделируется как версия нынешних частей: состав и градация размеров менялись (ФЗ от 08.12.2003 № 162-ФЗ, ФЗ от 01.03.2012 № 18-ФЗ).",
           "sanctions": [
-            { "punishment_type": "imprisonment", "min_months": null, "max_months": 36 }
+            {
+              "punishment_type": "imprisonment",
+              "min_months": null,
+              "max_months": 36
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": 180.0,
+              "max_hours": 240.0,
+              "effective_from": "2010-05-06",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:79",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": null,
+              "max_hours": 480.0,
+              "effective_from": "2012-03-01",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": null,
+              "max_months": 24.0,
+              "effective_from": "2003-12-16",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": null,
+              "max_months": 24.0,
+              "effective_from": "2012-03-01",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "fine",
+              "min_rubles": null,
+              "max_rubles": 40000.0,
+              "effective_from": "2003-12-16",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:31",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "fine",
+              "min_rubles": null,
+              "max_rubles": 40000.0,
+              "effective_from": "2012-03-01",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "restriction_of_liberty",
+              "min_months": null,
+              "max_months": 36.0,
+              "effective_from": "2009-12-27",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:73",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "restriction_of_liberty",
+              "min_months": null,
+              "max_months": 36.0,
+              "effective_from": "2012-03-01",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            }
           ],
-          "effective_from": "1996-07-01",
+          "effective_from": "1997-01-01",
           "effective_to": null,
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/a109722731a0509e104278d1b2d2f589beee330f/",
           "retrieved_at": "2026-09-03",
-          "sha256": "AUTOFILL",
+          "sha256": "5dc69f97ded779536120f151697612cee2015f0a432c0e88e14e758b6ec307be",
           "verification_status": "verified"
         }
-      ]
+      ],
+      "search_text": "Незаконные приобретение, хранение, перевозка, изготовление, переработка наркотических средств, психотропных веществ или их аналогов, а также незаконные приобретение, хранение, перевозка растений, содержащих наркотические средства или психотропные вещества, либо их частей, содержащих наркотические средства или психотропные вещества (Наименование в редакции Федерального закона от 19.05.2010 № 87-ФЗ ). Незаконные приобретение, хранение, перевозка, изготовление, переработка без цели сбыта наркотических средств, психотропных веществ или их аналогов в значительном размере, а также незаконные приобретение, хранение, перевозка без цели сбыта растений, содержащих наркотические средства или психотропные вещества, либо их частей, содержащих наркотические средства или психотропные вещества, в значительном размере"
     },
     {
       "norm_id": "uk-rf:art-228-part-2",
@@ -180,16 +545,21 @@
           "norm_id": "uk-rf:art-228-part-2",
           "text": "Ч. 2 ст. 228 УК РФ в нынешней трехуровневой градации (ред. ФЗ от 01.03.2012 № 18-ФЗ; сверено 03.09.2026): «лишением свободы на срок от трех до десяти лет» (36–120 мес.), факультативно штраф до 500 000 руб. либо доход до 3 лет и ограничение свободы до 1 года.",
           "sanctions": [
-            { "punishment_type": "imprisonment", "min_months": 36, "max_months": 120 }
+            {
+              "punishment_type": "imprisonment",
+              "min_months": 36,
+              "max_months": 120
+            }
           ],
-          "effective_from": "1996-07-01",
+          "effective_from": "1997-01-01",
           "effective_to": null,
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/a109722731a0509e104278d1b2d2f589beee330f/",
           "retrieved_at": "2026-09-03",
-          "sha256": "AUTOFILL",
+          "sha256": "542d3775ca6ede69adc2e615fb2f9e798465f49c2cb13ce28de51a2355acc68e",
           "verification_status": "verified"
         }
-      ]
+      ],
+      "search_text": "Незаконные приобретение, хранение, перевозка, изготовление, переработка наркотических средств, психотропных веществ или их аналогов, а также незаконные приобретение, хранение, перевозка растений, содержащих наркотические средства или психотропные вещества, либо их частей, содержащих наркотические средства или психотропные вещества (Наименование в редакции Федерального закона от 19.05.2010 № 87-ФЗ ). Те же деяния, совершенные в крупном размере"
     },
     {
       "norm_id": "uk-rf:art-161-part-1",
@@ -202,16 +572,63 @@
           "norm_id": "uk-rf:art-161-part-1",
           "text": "Ч. 1 ст. 161 УК РФ (ред. от 04.08.2026, сверено 03.09.2026): «лишением свободы на срок до четырех лет» (48 мес.); «ограничением свободы на срок от двух до четырех лет» (24–48 мес.). Максимум лишения свободы 4 года не менялся с 1997.",
           "sanctions": [
-            { "punishment_type": "imprisonment", "min_months": null, "max_months": 48 }
+            {
+              "punishment_type": "imprisonment",
+              "min_months": null,
+              "max_months": 48
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": 180.0,
+              "max_hours": 240.0,
+              "effective_from": "2010-05-06",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:79",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "compulsory_labor",
+              "min_hours": null,
+              "max_hours": 480.0,
+              "effective_from": "2011-12-07",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": 12.0,
+              "max_months": 24.0,
+              "effective_from": "1997-01-01",
+              "effective_to": "2011-12-06",
+              "source_edition": "pravo:102041891:0",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "correctional_labor",
+              "min_months": null,
+              "max_months": 24.0,
+              "effective_from": "2011-12-07",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "restriction_of_liberty",
+              "min_months": 24.0,
+              "max_months": 48.0,
+              "effective_from": "2009-12-27",
+              "source_edition": "pravo:102041891:73",
+              "pending_review": true
+            }
           ],
-          "effective_from": "1996-07-01",
+          "effective_from": "1997-01-01",
           "effective_to": null,
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/8727611b42df79f2b3ef8d2f3b68fea711ed0c7a/",
           "retrieved_at": "2026-09-03",
-          "sha256": "AUTOFILL",
+          "sha256": "e19a3eb2bda73263529e025b2b4efc5462b885a8a3277e26733618e52ef74649",
           "verification_status": "verified"
         }
-      ]
+      ],
+      "search_text": "Грабеж. Грабеж, то есть открытое хищение чужого имущества"
     },
     {
       "norm_id": "uk-rf:art-161-part-2",
@@ -224,16 +641,21 @@
           "norm_id": "uk-rf:art-161-part-2",
           "text": "Ч. 2 ст. 161 УК РФ (ред. от 04.08.2026, сверено 03.09.2026): «лишением свободы на срок до семи лет» (84 мес.), факультативно штраф до 10 000 руб. (или доход до 1 мес.) и ограничение свободы до 1 года. Максимум 7 лет не менялся с 1997.",
           "sanctions": [
-            { "punishment_type": "imprisonment", "min_months": null, "max_months": 84 }
+            {
+              "punishment_type": "imprisonment",
+              "min_months": null,
+              "max_months": 84
+            }
           ],
-          "effective_from": "1996-07-01",
+          "effective_from": "1997-01-01",
           "effective_to": null,
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/8727611b42df79f2b3ef8d2f3b68fea711ed0c7a/",
           "retrieved_at": "2026-09-03",
-          "sha256": "AUTOFILL",
+          "sha256": "55b36cca511371be7a9afc75bd835019760ecb904334feec5187c7deeca90260",
           "verification_status": "verified"
         }
-      ]
+      ],
+      "search_text": "Грабеж. Грабеж, совершенный: а) группой лиц по предварительному сговору; б) в) с незаконным проникновением в жилище, помещение либо иное хранилище; г) с применением насилия, не опасного для жизни или здоровья, либо с угрозой применения такого насилия; д) в крупном размере"
     },
     {
       "norm_id": "uk-rf:art-111-part-1",
@@ -246,13 +668,17 @@
           "norm_id": "uk-rf:art-111-part-1",
           "text": "Ч. 1 ст. 111 УК РФ в редакции 1997–2011 (сверено 03.09.2026): лишение свободы на срок от двух до восьми лет (24–96 мес.).",
           "sanctions": [
-            { "punishment_type": "imprisonment", "min_months": 24, "max_months": 96 }
+            {
+              "punishment_type": "imprisonment",
+              "min_months": 24,
+              "max_months": 96
+            }
           ],
-          "effective_from": "1996-07-01",
+          "effective_from": "1997-01-01",
           "effective_to": "2011-03-10",
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/e7204e825c8e87b5c7be210b06a0cde61cd60a3c/",
           "retrieved_at": "2026-09-03",
-          "sha256": "AUTOFILL",
+          "sha256": "a1653dd548a8eb067c98fd1681880bd2d9eb8c01675ec2a482c51a3c267a0c94",
           "verification_status": "verified"
         },
         {
@@ -260,16 +686,21 @@
           "norm_id": "uk-rf:art-111-part-1",
           "text": "Ч. 1 ст. 111 УК РФ (ред. ФЗ от 07.03.2011 № 26-ФЗ, действует с 11.03.2011; сверено 03.09.2026): нижний предел исключен — «наказывается лишением свободы на срок до восьми лет» (макс. 96 мес.).",
           "sanctions": [
-            { "punishment_type": "imprisonment", "min_months": null, "max_months": 96 }
+            {
+              "punishment_type": "imprisonment",
+              "min_months": null,
+              "max_months": 96
+            }
           ],
           "effective_from": "2011-03-11",
           "effective_to": null,
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/e7204e825c8e87b5c7be210b06a0cde61cd60a3c/",
           "retrieved_at": "2026-09-03",
-          "sha256": "AUTOFILL",
+          "sha256": "20f8c96c928f3cbb2fe8ecb41c4a2fee9393708ae119deb422fbe88ad1d745ec",
           "verification_status": "verified"
         }
-      ]
+      ],
+      "search_text": "Умышленное причинение тяжкого вреда здоровью. Умышленное причинение тяжкого вреда здоровью, опасного для жизни человека, или повлекшего за собой потерю зрения, речи, слуха либо какого-либо органа или утрату органом его функций, прерывание беременности, психическое расстройство, заболевание наркоманией либо токсикоманией, или выразившегося в неизгладимом обезображивании лица, или вызвавшего значительную стойкую утрату общей трудоспособности не менее чем на одну треть или заведомо для виновного полную утрату профессиональной трудоспособности"
     },
     {
       "norm_id": "uk-rf:art-112-part-1",
@@ -282,16 +713,38 @@
           "norm_id": "uk-rf:art-112-part-1",
           "text": "Ч. 1 ст. 112 УК РФ (ред. от 04.08.2026, сверено 03.09.2026): «ограничением свободы на срок до трех лет… либо лишением свободы на срок до трех лет» (макс. 36 мес.). Нижние пределы в санкции не установлены.",
           "sanctions": [
-            { "punishment_type": "imprisonment", "min_months": null, "max_months": 36 }
+            {
+              "punishment_type": "imprisonment",
+              "min_months": null,
+              "max_months": 36
+            },
+            {
+              "punishment_type": "restriction_of_liberty",
+              "min_months": null,
+              "max_months": 36.0,
+              "effective_from": "2009-12-27",
+              "effective_to": "2011-03-10",
+              "source_edition": "pravo:102041891:73",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "restriction_of_liberty",
+              "min_months": null,
+              "max_months": 36.0,
+              "effective_from": "2011-12-07",
+              "source_edition": "pravo:102041891:233",
+              "pending_review": true
+            }
           ],
-          "effective_from": "1996-07-01",
+          "effective_from": "1997-01-01",
           "effective_to": null,
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/de03992e5fb9ce601f30ccc9ac4cea6a01e8fbf4/",
           "retrieved_at": "2026-09-03",
-          "sha256": "AUTOFILL",
+          "sha256": "8ec328a7d0e53ec82789c3bebdbae0790a92d0ba80fd9b95f7563a9628a40500",
           "verification_status": "verified"
         }
-      ]
+      ],
+      "search_text": "Умышленное причинение средней тяжести вреда здоровью. Умышленное причинение средней тяжести вреда здоровью, не опасного для жизни человека и не повлекшего последствий, указанных в статье 111 настоящего Кодекса, но вызвавшего длительное расстройство здоровья или значительную стойкую утрату общей трудоспособности менее чем на одну треть"
     },
     {
       "norm_id": "uk-rf:art-163-part-1",
@@ -304,16 +757,38 @@
           "norm_id": "uk-rf:art-163-part-1",
           "text": "Ч. 1 ст. 163 УК РФ (ред. от 04.08.2026, сверено 03.09.2026): «лишением свободы на срок до четырех лет со штрафом в размере до восьмидесяти тысяч рублей либо без такового» (макс. 48 мес.). Нижнего предела лишения свободы нет.",
           "sanctions": [
-            { "punishment_type": "imprisonment", "min_months": null, "max_months": 48 }
+            {
+              "punishment_type": "imprisonment",
+              "min_months": null,
+              "max_months": 48
+            },
+            {
+              "punishment_type": "restriction_of_liberty",
+              "min_months": null,
+              "max_months": 36.0,
+              "effective_from": "1997-01-01",
+              "effective_to": "2009-12-26",
+              "source_edition": "pravo:102041891:0",
+              "pending_review": true
+            },
+            {
+              "punishment_type": "restriction_of_liberty",
+              "min_months": null,
+              "max_months": 48.0,
+              "effective_from": "2009-12-27",
+              "source_edition": "pravo:102041891:73",
+              "pending_review": true
+            }
           ],
-          "effective_from": "1996-07-01",
+          "effective_from": "1997-01-01",
           "effective_to": null,
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_10699/3cf93ca64f2a009e75430fc6394b66a3642ba176/",
           "retrieved_at": "2026-09-03",
-          "sha256": "AUTOFILL",
+          "sha256": "8e95cef93bb907000d80d79afdbc54ec056c1833632b7ea88471ffbc88004043",
           "verification_status": "verified"
         }
-      ]
+      ],
+      "search_text": "Вымогательство. Вымогательство, то есть требование передачи чужого имущества или права на имущество или совершения других действий имущественного характера под угрозой применения насилия либо уничтожения или повреждения чужого имущества, а равно под угрозой распространения сведений, позорящих потерпевшего или его близких, либо иных сведений, которые могут причинить существенный вред правам или законным интересам потерпевшего или его близких"
     }
   ]
 }

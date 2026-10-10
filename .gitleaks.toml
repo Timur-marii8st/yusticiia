@@ -1,0 +1,13 @@
+title = "Второе мнение"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Тестовые значения ключей в tests/ и пример формата токена ГАРАНТ из документации"
+regexes = [
+  '''test-shared-bearer-token''',
+  '''test-jwt-signing-key-of-at-least-32-bytes''',
+  '''test-secret-key-with-at-least-32-bytes-for-hmac''',
+  '''U1QtOTkwMTAyLWNud3FpdWhmbzg3M''',
+]

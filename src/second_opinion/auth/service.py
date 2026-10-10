@@ -2,22 +2,76 @@
 
 from __future__ import annotations
 
+import logging
+import secrets
 from datetime import UTC, datetime, timedelta
 
 import jwt
-from passlib.context import CryptContext
 
-from ..config import load_config
+from ..config import AppConfig, load_config
 from ..domain.users import LoginAttempt, TokenPair, TokenPayload, User, UserRole
-from .repository import InMemoryUserStore, PostgresUserStore, UserStore
+from .passwords import (
+    MAX_PASSWORD_BYTES,
+    hash_password,
+    verify_password,
+    waste_time_like_verify,
+)
+from .repository import (
+    InMemoryUserStore,
+    JsonFileUserStore,
+    PostgresUserStore,
+    UserStore,
+)
 
-# Контекст для хеширования паролей (bcrypt)
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+logger = logging.getLogger(__name__)
 
-# Алгоритм и параметры JWT
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
+
+MIN_JWT_SECRET_BYTES = 32
+MIN_ADMIN_PASSWORD_LENGTH = 12
+
+
+def ensure_password_length(password: str, minimum: int) -> None:
+    """Отклонить пароль короче порога.
+
+    Проверка живёт отдельной функцией, потому что путей задать пароль
+    несколько — создание пользователя админом, смена владельцем, сброс, —
+    и пропуск хотя бы одного из них обнуляет всю политику.
+    """
+    if len(password) < minimum:
+        raise ValueError(f"пароль короче {minimum} символов")
+
+
+def resolve_jwt_secret(config: AppConfig) -> str:
+    """Ключ подписи JWT: только из ``SO_JWT_SECRET`` либо эфемерный.
+
+    Захардкоженного значения по умолчанию быть не может: зная его, кто
+    угодно выпускает себе токен с ``role: admin``. Если секрет не задан,
+    берётся случайный на время жизни процесса — подделать нельзя, но
+    выданные токены не переживут перезапуск, о чём пишем в лог.
+
+    ``SO_AUTH_TOKEN`` здесь намеренно не используется: общий Bearer для
+    ``/api/*`` раздаётся операторам, и знание его не должно давать
+    возможности подписать токен любой роли.
+    """
+    secret = config.jwt_secret
+    if secret:
+        if len(secret.encode("utf-8")) < MIN_JWT_SECRET_BYTES:
+            raise ValueError(
+                f"SO_JWT_SECRET короче {MIN_JWT_SECRET_BYTES} байт — "
+                "для HS256 это недопустимо слабый ключ "
+                "(сгенерировать: python -c \"import secrets;"
+                "print(secrets.token_urlsafe(48))\")"
+            )
+        return secret
+    logger.warning(
+        "SO_JWT_SECRET не задан — используется случайный ключ на время "
+        "жизни процесса: все выданные токены станут недействительны после "
+        "перезапуска. Для постоянной работы задайте SO_JWT_SECRET."
+    )
+    return secrets.token_urlsafe(48)
 
 
 class PasswordExpiredError(ValueError):
@@ -26,6 +80,10 @@ class PasswordExpiredError(ValueError):
 
 class AccountLockedError(ValueError):
     """Вход временно заблокирован после неудачных попыток."""
+
+
+class LastAdminError(ValueError):
+    """Действие оставило бы систему без активного администратора."""
 
 
 class AuthService:
@@ -44,7 +102,7 @@ class AuthService:
         login_lockout_minutes: int | None = None,
     ):
         self._config = load_config()
-        self._secret_key = self._config.auth_token or "dev-secret-change-in-production"
+        self._secret_key = resolve_jwt_secret(self._config)
         self._store: UserStore = store or self._default_store()
         cfg = self._config
         self._password_max_age_days = (
@@ -55,6 +113,7 @@ class AuthService:
             if password_history_depth is None
             else password_history_depth
         )
+        self._password_min_length = cfg.password_min_length
         self._login_max_attempts = (
             cfg.login_max_attempts if login_max_attempts is None else login_max_attempts
         )
@@ -67,29 +126,20 @@ class AuthService:
         if cfg.storage_backend == "postgres" and cfg.database_url:
             try:
                 return PostgresUserStore(cfg.database_url)
-            except Exception:  # noqa: BLE001 — fallback к in-memory
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "PostgresUserStore недоступен (%s) — временный переход на "
+                    "in-memory: пользователи не переживут перезапуск",
+                    exc,
+                )
                 return InMemoryUserStore()
-        return InMemoryUserStore()
+        return JsonFileUserStore(cfg.store_dir / "auth")
 
-    # Совместимость: старый код/тесты обращались к ``auth._users`` напрямую.
-    # Для in-memory возвращаем живой словарь; для Postgres — read-only снимок
-    # в dict-обёртке (запись через ``save_user``).
-    @property
-    def _users(self) -> dict:  # type: ignore[no-redef]
-        store = self._store
-        if isinstance(store, InMemoryUserStore):
-            return store._users
-        return _ReadOnlyUsersView(store)
-
-    @_users.setter
-    def _users(self, value: dict) -> None:
-        if isinstance(self._store, InMemoryUserStore):
-            self._store._users = value
-        else:
-            for user in value.values():
-                self._store.save_user(user)
-
-    # --- Управление пользователями ---
+    def _minimum_length(self, role: UserRole) -> int:
+        """Администратору пароль не короче 12 символов, остальным ``SO_PASSWORD_MIN_LENGTH``."""
+        if role is UserRole.ADMIN:
+            return max(self._password_min_length, MIN_ADMIN_PASSWORD_LENGTH)
+        return self._password_min_length
 
     def create_user(
         self,
@@ -99,6 +149,7 @@ class AuthService:
         role: UserRole = UserRole.JUDGE,
     ) -> User:
         """Создать нового пользователя."""
+        ensure_password_length(password, self._minimum_length(role))
         if self._store.get_user_by_email(email):
             raise ValueError(f"Пользователь с email {email} уже существует")
 
@@ -107,7 +158,7 @@ class AuthService:
             email=email,
             full_name=full_name,
             role=role,
-            password_hash=pwd_context.hash(password),
+            password_hash=hash_password(password),
             password_changed_at=now,
             created_at=now,
             updated_at=now,
@@ -149,7 +200,7 @@ class AuthService:
             return
         recent = [user.password_hash, *user.password_history]
         for old_hash in recent[: self._password_history_depth]:
-            if old_hash and pwd_context.verify(new_password, old_hash):
+            if old_hash and verify_password(new_password, old_hash):
                 raise ValueError("Не используйте один из последних паролей")
 
     def _remember_password(self, user: User) -> None:
@@ -163,9 +214,10 @@ class AuthService:
         ][: self._password_history_depth]
 
     def _apply_new_password(self, user: User, new_password: str) -> None:
+        ensure_password_length(new_password, self._minimum_length(user.role))
         self._check_password_reuse(user, new_password)
         self._remember_password(user)
-        user.password_hash = pwd_context.hash(new_password)
+        user.password_hash = hash_password(new_password)
         user.password_changed_at = datetime.now(UTC)
         user.failed_login_attempts = 0
         user.locked_until = None
@@ -175,32 +227,26 @@ class AuthService:
         """Проверить учётные данные пользователя.
 
         При истёкшем пароле — ``PasswordExpiredError``, при активной
-        блокировке — ``AccountLockedError`` (вход запрещён, но существующая
-        сессия может сменить пароль).
+        блокировке — ``AccountLockedError``. Новый пароль задаёт только
+        оператор (``set_password`` из команды ``reset-password``).
         """
         user = self.get_user_by_email(email)
         if not user or not user.is_active:
+            waste_time_like_verify()
             self._store.record_login(
                 LoginAttempt(email=email, user_id=None, success=False, reason="not_found")
             )
             return None
         if self.is_locked(user):
+            waste_time_like_verify()
             self._store.record_login(
                 LoginAttempt(
                     email=email, user_id=user.user_id, success=False, reason="locked"
                 )
             )
             raise AccountLockedError("Вход временно заблокирован — повторите позже")
-        if not pwd_context.verify(password, user.password_hash):
-            user.failed_login_attempts += 1
-            if (
-                self._login_max_attempts > 0
-                and user.failed_login_attempts >= self._login_max_attempts
-            ):
-                user.locked_until = datetime.now(UTC) + timedelta(
-                    minutes=self._login_lockout_minutes
-                )
-            self.save_user(user)
+        if not verify_password(password, user.password_hash):
+            self._register_failure(user)
             self._store.record_login(
                 LoginAttempt(
                     email=email, user_id=user.user_id, success=False, reason="bad_password"
@@ -216,11 +262,19 @@ class AuthService:
                     email=email, user_id=user.user_id, success=False, reason="password_expired"
                 )
             )
-            raise PasswordExpiredError("Срок действия пароля истёк — смените пароль")
+            raise PasswordExpiredError(
+                "Срок действия пароля истёк — обратитесь к администратору для сброса пароля"
+            )
         self._store.record_login(
             LoginAttempt(email=email, user_id=user.user_id, success=True, reason="ok")
         )
         return user
+
+    def _register_failure(self, user: User) -> None:
+        user.failed_login_attempts += 1
+        if self._login_max_attempts > 0 and user.failed_login_attempts >= self._login_max_attempts:
+            user.locked_until = datetime.now(UTC) + timedelta(minutes=self._login_lockout_minutes)
+        self.save_user(user)
 
     def set_password(self, user_id: str, new_password: str) -> User | None:
         """Установить новый пароль (admin-сброс): обновляет метку смены."""
@@ -230,20 +284,43 @@ class AuthService:
         self._apply_new_password(user, new_password)
         return user
 
-    def change_password(self, user: User, current_password: str, new_password: str) -> None:
-        """Смена пароля владельцем с проверкой текущего."""
-        if not pwd_context.verify(current_password, user.password_hash):
-            raise ValueError("Текущий пароль неверен")
-        if new_password == current_password:
-            raise ValueError("Новый пароль не должен совпадать с текущим")
-        self._apply_new_password(user, new_password)
-
     def update_last_login(self, user_id: str) -> None:
         """Обновить время последнего входа."""
         user = self.get_user(user_id)
         if user:
             user.last_login = datetime.now(UTC)
             self.save_user(user)
+
+    def _active_admin_ids(self) -> set[str]:
+        return {
+            u.user_id
+            for u in self.list_users()
+            if u.role is UserRole.ADMIN and u.is_active
+        }
+
+    def ensure_admin_remains(
+        self,
+        user_id: str,
+        *,
+        role: UserRole | None = None,
+        is_active: bool | None = None,
+    ) -> None:
+        """Проверить, что после изменения останется активный администратор.
+
+        Снятие роли, деактивация и удаление последнего администратора
+        оставляют систему без администратора: корпус норм править будет
+        некому, а завести нового администратора можно только командой
+        оператора. Удаление здесь равнозначно деактивации.
+        """
+        admins = self._active_admin_ids()
+        if user_id not in admins:
+            return
+        stays_admin = (role is None or role is UserRole.ADMIN) and is_active is not False
+        if stays_admin or admins != {user_id}:
+            return
+        raise LastAdminError(
+            "это единственный активный администратор — сначала назначьте другого"
+        )
 
     def delete_user(self, user_id: str) -> bool:
         """Удалить пользователя; вернуть True, если он существовал."""
@@ -252,8 +329,6 @@ class AuthService:
     def list_login_attempts(self, limit: int = 100) -> list[LoginAttempt]:
         """Аудит входов (новые первыми)."""
         return self._store.list_login_attempts(limit=limit)
-
-    # --- Работа с токенами ---
 
     def _create_token(
         self,
@@ -309,7 +384,6 @@ class AuthService:
         if not user or not user.is_active:
             return None
 
-        # Ротация: отзываем предъявленный refresh до выпуска нового.
         if payload.jti:
             self._store.revoke_refresh(payload.jti, user.user_id)
         access_token, new_refresh, expires_in = self.create_tokens(user)
@@ -329,15 +403,6 @@ class AuthService:
         return True
 
 
-class _ReadOnlyUsersView(dict):
-    """Dict-совместимый снимок пользователей из внешнего store (для чтения)."""
-
-    def __init__(self, store: UserStore) -> None:
-        self._store_ref = store
-        super().__init__({u.user_id: u for u in store.list_users()})
-
-
-# Глобальный экземпляр сервиса (MVP)
 _auth_service: AuthService | None = None
 
 
@@ -354,13 +419,53 @@ def reset_auth_service() -> None:
     _auth_service = None
 
 
-def create_default_admin() -> None:
-    """Создать администратора по умолчанию (для демо/разработки)."""
-    auth = get_auth_service()
-    if not auth.get_user_by_email("admin@court.local"):
-        auth.create_user(
-            email="admin@court.local",
-            password="admin123",  # В продакшене — только через безопасную генерацию!
-            full_name="Системный администратор",
-            role=UserRole.ADMIN,
+class AdminAlreadyExistsError(ValueError):
+    """В системе уже есть активный администратор."""
+
+
+def validate_admin_password(password: str) -> None:
+    """Проверить пароль первого администратора.
+
+    Требования жёстче, чем у обычной учётки (``min_length=8`` в API):
+    это единственная запись, через которую заводятся все остальные.
+    """
+    length = len(password.encode("utf-8"))
+    if len(password) < MIN_ADMIN_PASSWORD_LENGTH:
+        raise ValueError(
+            f"пароль администратора короче {MIN_ADMIN_PASSWORD_LENGTH} символов"
         )
+    if length > MAX_PASSWORD_BYTES:
+        raise ValueError(
+            f"пароль длиннее {MAX_PASSWORD_BYTES} байт — bcrypt отбросит остаток"
+        )
+
+
+def bootstrap_admin(
+    email: str,
+    password: str,
+    full_name: str = "Системный администратор",
+) -> User:
+    """Завести первого администратора.
+
+    Без этого личный кабинет недостижим: учётные записи заводятся только
+    командами оператора, а первой записи для входа ещё нет. Пароля по
+    умолчанию нет намеренно — он задаётся оператором.
+
+    Повторный вызов при уже существующем активном администраторе
+    отклоняется: следующих пользователей заводит ``create-user``, где
+    действие попадает в аудит.
+    """
+    auth = get_auth_service()
+    existing = [u for u in auth.list_users() if u.role is UserRole.ADMIN and u.is_active]
+    if existing:
+        raise AdminAlreadyExistsError(
+            "активный администратор уже существует "
+            f"({existing[0].email}) — создавайте учётки командой create-user"
+        )
+    validate_admin_password(password)
+    return auth.create_user(
+        email=email,
+        password=password,
+        full_name=full_name,
+        role=UserRole.ADMIN,
+    )

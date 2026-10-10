@@ -1,0 +1,107 @@
+name: Актуальность норм
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: pip install -e .
+
+      - name: Целостность корпуса норм
+        run: second-opinion norms-seal --check
+
+      - name: Редакционное покрытие
+        if: always()
+        run: second-opinion norms-coverage | tee coverage.txt
+
+      - name: Сверка с ИПС pravo.gov.ru
+        id: freshness
+        env:
+          SO_REDACTION_SOURCE: pravo
+          SO_PRAVO_TIMEOUT: "180"
+        run: |
+          set +e
+          second-opinion norms-check-updates 2>&1 | tee freshness.txt
+          code=${PIPESTATUS[0]}
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Завести issue о необходимости сверить актуальность норм
+        if: steps.freshness.outputs.code == '1'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const read = (name) => {
+              try { return fs.readFileSync(name, 'utf8'); } catch { return '(отчёт не собран)'; }
+            };
+            const body = [
+              'Редакция документа отличается от записанной в корпусе либо',
+              'актуальность не подтверждена из-за неподготовленных редакций ИПС.',
+              'Это не доказывает изменение конкретной статьи: требуется сверка.',
+              '',
+              '**Что это значит.** Проверки правило-движка опираются на текст и',
+              'пределы санкции той редакции, которая лежит у нас. До завершения',
+              'сверки актуальность соответствующих норм не подтверждена.',
+              '',
+              '**Что сделать — руками, автоматика этого не делает:**',
+              '1. проверить статьи и изменяющие акты; неподготовленный консолидированный текст ИПС не позволяет завершить автоматическую сверку;',
+              '2. если статья изменилась, внести редакцию: `second-opinion norms-add-version …` (статус `draft`, санкции пустые);',
+              '3. юрист сверяет текст, проставляет границы действия и пределы наказания;',
+              '4. `second-opinion norms-seal`.',
+              '',
+              '## Сверка с источником',
+              '```',
+              read('freshness.txt').trim(),
+              '```',
+              '',
+              '## Редакционное покрытие на ту же дату',
+              '```',
+              read('coverage.txt').trim(),
+              '```',
+            ].join('\n');
+
+            const title = 'Требуется сверка актуальности норм по ИПС';
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'norms-watch',
+            });
+
+            if (existing.data.length > 0) {
+              // Не плодим по issue в неделю: дописываем в открытый.
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.data[0].number,
+                body: `Проверка ${new Date().toISOString().slice(0, 10)}:\n\n${body}`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['norms-watch'],
+              });
+            }
+
+      - name: Отметить недоступность источника
+        if: steps.freshness.outputs.code != '0' && steps.freshness.outputs.code != '1'
+        run: |
+          echo "::warning::Сверку выполнить не удалось (код ${{ steps.freshness.outputs.code }}): ИПС недоступен или ответил неожиданно. Норм это не касается — см. лог шага."
+          exit 1

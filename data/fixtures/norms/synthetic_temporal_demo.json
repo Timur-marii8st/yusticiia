@@ -14,13 +14,17 @@
           "norm_id": "uk-rf:art-999-synthetic",
           "text": "СИНТЕТИЧЕСКАЯ ФИКСТУРА, редакция 2020–2023: лишение свободы на срок до трёх лет.",
           "sanctions": [
-            { "punishment_type": "imprisonment", "min_months": null, "max_months": 36 }
+            {
+              "punishment_type": "imprisonment",
+              "min_months": null,
+              "max_months": 36
+            }
           ],
           "effective_from": "2020-01-01",
           "effective_to": "2023-12-31",
           "source_url": "synthetic-fixture",
           "retrieved_at": "2026-08-25",
-          "sha256": "AUTOFILL",
+          "sha256": "4130c2aee45875347266bd91d4e17c685e6ac5e6f49d1a17874a215dd4b4ddf6",
           "verification_status": "draft",
           "synthetic": true
         },
@@ -29,13 +33,17 @@
           "norm_id": "uk-rf:art-999-synthetic",
           "text": "СИНТЕТИЧЕСКАЯ ФИКСТУРА, редакция с 2024: лишение свободы на срок до пяти лет.",
           "sanctions": [
-            { "punishment_type": "imprisonment", "min_months": null, "max_months": 60 }
+            {
+              "punishment_type": "imprisonment",
+              "min_months": null,
+              "max_months": 60
+            }
           ],
           "effective_from": "2024-01-01",
           "effective_to": null,
           "source_url": "synthetic-fixture",
           "retrieved_at": "2026-08-25",
-          "sha256": "AUTOFILL",
+          "sha256": "3b95cf3cf882d3c197c89d45d30789cbc92060a86938afd85664d692bbdad102",
           "verification_status": "draft",
           "synthetic": true
         }

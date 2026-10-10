@@ -20,6 +20,7 @@ class RuleStatus(StrEnum):
     WARNING = "WARNING"
     FAIL = "FAIL"
     UNKNOWN = "UNKNOWN"
+    NOT_APPLICABLE = "NOT_APPLICABLE"
 
 
 class FactType(StrEnum):
@@ -40,8 +41,12 @@ class FactType(StrEnum):
     JURY_TRIAL = "jury_trial"
     PUNISHMENT_TYPE = "punishment_type"
     PUNISHMENT_TERM = "punishment_term"
+    FINAL_PUNISHMENT_TERM = "final_punishment_term"
+    PUNISHMENT_HOURS = "punishment_hours"
+    FINE_AMOUNT = "fine_amount"
     SUSPENDED_SENTENCE = "suspended_sentence"
     DATE_OF_OFFENSE = "date_of_offense"
+    EXCEPTIONAL_CIRCUMSTANCES = "exceptional_circumstances"
 
 
 class OffenseStage(StrEnum):

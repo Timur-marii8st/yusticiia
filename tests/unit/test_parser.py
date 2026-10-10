@@ -82,3 +82,20 @@ def test_rejects_pdf_without_text_layer() -> None:
     writer.write(buffer)
     with pytest.raises(ParseError):
         parse_document("scan.pdf", buffer.getvalue(), MAX_BYTES)
+
+
+
+def test_pdf_extension_with_text_content_is_refused() -> None:
+    with pytest.raises(ParseError, match="не соответствует расширению"):
+        parse_document("a.pdf", "Приговор".encode(), 1000)
+
+
+def test_docx_extension_with_text_content_is_refused() -> None:
+    with pytest.raises(ParseError, match="не соответствует расширению"):
+        parse_document("a.docx", "Приговор".encode(), 1000)
+
+
+def test_pdf_header_may_follow_a_short_preamble() -> None:
+    with pytest.raises(ParseError) as caught:
+        parse_document("a.pdf", b"\n\n%PDF-1.4 not really", 1000)
+    assert "не соответствует расширению" not in str(caught.value)

@@ -38,10 +38,8 @@ def test_concurrent_ingest_and_analyze_is_reliable(pipeline) -> None:
 
     assert not errors, errors
     assert len(analysis_ids) == threads
-    # каждый отчёт читается обратно из хранилища
     for analysis_id in analysis_ids:
         assert pipeline.get_analysis(analysis_id) is not None
-    # документов ровно столько, сколько загрузок
     assert len(pipeline._documents.list()) == threads
 
 
@@ -72,7 +70,6 @@ def test_concurrent_analyze_of_same_document(pipeline) -> None:
 
     assert not errors, errors
     assert len(reports) == threads
-    # все analysis_id уникальны — отчёты не перезаписали друг друга
     ids = {report.analysis_id for report in reports}
     assert len(ids) == threads
     for report in reports:

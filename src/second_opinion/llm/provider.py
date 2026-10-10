@@ -1,12 +1,9 @@
 from __future__ import annotations
 
+import json
 from typing import Protocol
 
 from pydantic import BaseModel, ValidationError
-
-
-class LLMError(RuntimeError):
-    pass
 
 
 class LLMResult(BaseModel):
@@ -20,7 +17,7 @@ class LLMResult(BaseModel):
 
 
 class LLMProvider(Protocol):
-    """Абстракция LLM (см. docs/ADR/ADR-004).
+    """Абстракция LLM.
 
     Бизнес-логика зависит только от этого интерфейса. Контент документа
     передаётся как ДАННЫЕ, не как инструкции модели.
@@ -50,8 +47,6 @@ def validate_payload(
     schema: type[BaseModel], raw: str
 ) -> BaseModel:
     """Распарсить и провалидировать JSON-ответ модели по схеме."""
-    import json
-
     text = raw.strip()
     if text.startswith("```"):
         lines = text.splitlines()
@@ -60,4 +55,10 @@ def validate_payload(
     try:
         return schema.model_validate(payload)
     except ValidationError as exc:
-        raise ValueError(f"ответ модели не соответствует схеме: {exc}") from exc
+        problems = "; ".join(
+            f"{'.'.join(str(part) for part in error['loc'])}: {error['type']}"
+            for error in exc.errors(include_input=False, include_url=False)
+        )
+        raise ValueError(
+            f"ответ модели не соответствует схеме ({exc.error_count()}): {problems}"
+        ) from exc

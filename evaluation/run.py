@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import contextlib
-import hashlib
 import json
 import sys
 from datetime import UTC, date, datetime
@@ -35,9 +34,9 @@ from second_opinion.legal_rag import (  # noqa: E402
     HashingTfidfEmbedder,
     LegalRag,
 )
+from second_opinion.legal_sources.sealing import check as check_seal  # noqa: E402
 from second_opinion.legal_sources.store import NormStore  # noqa: E402
 
-#: Пороги приёмки; нарушение любого из них даёт ненулевой код возврата.
 EXTRACTION_F1_THRESHOLD = 0.8
 
 
@@ -54,7 +53,6 @@ def _run_extraction(dataset_path: Path) -> dict:
     total_evidence_correct = 0
     total_evidence = 0
     unsupported_rates: list[float] = []
-    # Агрегаты по типам фактов для per-type P/R/F1.
     type_tp: dict[str, int] = {}
     type_fp: dict[str, int] = {}
     type_fn: dict[str, int] = {}
@@ -169,8 +167,6 @@ def _run_retrieval(dataset_path: Path, mode: str) -> dict:
         )
         results.append(entry)
 
-        # Целостность цитирования: каждый фрагмент обязан совпадать с текстом
-        # реально хранящейся редакции, а контрольная сумма — с пересчитанной.
         for hit in hits:
             citation_checked += 1
             version = next(
@@ -183,10 +179,7 @@ def _run_retrieval(dataset_path: Path, mode: str) -> dict:
             )
             if version is None:
                 continue
-            sha_matches = version.sha256 == hashlib.sha256(
-                version.text.encode("utf-8")
-            ).hexdigest()
-            if hit.fragment == version.text and sha_matches:
+            if hit.fragment == version.text:
                 citation_ok += 1
 
     return {
@@ -231,8 +224,6 @@ def _run_temporal(dataset_path: Path) -> dict:
 
 
 def main() -> int:
-    # Консоли Windows могут иметь не-UTF-8 кодировку; отчёт не должен
-    # теряться из-за этого.
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             with contextlib.suppress(ValueError, OSError):
@@ -271,8 +262,6 @@ def main() -> int:
         print("ВНИМАНИЕ: обнаружены подтверждённые факты без доказательств",
               file=sys.stderr)
         exit_code = 1
-    # Пороги применяются к обоим режимам поиска: гибридный реранкинг не
-    # должен деградировать качество ниже приёмки.
     for mode, result in retrieval.items():
         if (result["recall_at_5_mean"] or 0) < 0.8:
             print(f"ВНИМАНИЕ: средний Recall@5 ({mode}) ниже порога 0.8",
@@ -284,6 +273,12 @@ def main() -> int:
             exit_code = 1
     if (temporal["accuracy"] or 0) < 1.0:
         print("ВНИМАНИЕ: ошибки выбора редакции нормы на дату", file=sys.stderr)
+        exit_code = 1
+
+    seal = check_seal(load_config().fixtures_dir / "norms")
+    if not seal.ok:
+        print("ВНИМАНИЕ: корпус норм разошёлся с манифестом", file=sys.stderr)
+        print(seal.describe(), file=sys.stderr)
         exit_code = 1
     return exit_code
 

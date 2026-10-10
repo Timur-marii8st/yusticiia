@@ -43,7 +43,11 @@ def test_postgres_documents_roundtrip(pg_dsn: str) -> None:
     assert repo.delete(doc.document_id) is False
 
 
-def test_postgres_analyses_roundtrip(pg_dsn: str) -> None:
+@pytest.mark.parametrize(
+    ("source", "assumed"),
+    [("explicit", False), ("fact", False), ("assumed", True), ("legacy", False)],
+)
+def test_postgres_analyses_roundtrip(pg_dsn: str, source: str, assumed: bool) -> None:
     from second_opinion.domain.analysis import AnalysisReport
     from second_opinion.storage.postgres import PostgresJsonRepository
 
@@ -56,6 +60,8 @@ def test_postgres_analyses_roundtrip(pg_dsn: str) -> None:
         analysis_id=uuid.uuid4().hex,
         document_id="doc-1",
         applicable_at="2025-01-01",
+        applicable_at_source=source,
+        applicable_at_assumed=assumed,
         facts=[],
         evaluations=[],
         norms_applied=[],
@@ -65,6 +71,9 @@ def test_postgres_analyses_roundtrip(pg_dsn: str) -> None:
     loaded = repo.get(report.analysis_id)
     assert loaded is not None
     assert loaded.document_id == "doc-1"
+    assert loaded.applicable_at == report.applicable_at
+    assert loaded.applicable_at_source == source
+    assert loaded.applicable_at_assumed is assumed
 
 
 def test_postgres_pipeline_e2e(pg_dsn: str, tmp_path) -> None:
@@ -73,10 +82,7 @@ def test_postgres_pipeline_e2e(pg_dsn: str, tmp_path) -> None:
 
     from second_opinion.config import AppConfig
 
-    # Уникальные таблицы на прогон, чтобы параллельные CI не мешали друг другу.
     suffix = uuid.uuid4().hex[:8]
-    # Переопределяем таблицы через временное патчирование PostgresJsonRepository:
-    # проще собрать pipeline вручную с кастомными таблицами.
     from second_opinion.audit.trail import AuditTrail
     from second_opinion.domain.analysis import AnalysisReport
     from second_opinion.domain.documents import Document
@@ -102,7 +108,6 @@ def test_postgres_pipeline_e2e(pg_dsn: str, tmp_path) -> None:
         storage_backend="postgres",
     )
 
-    # Таблицы с суффиксом
     documents = PostgresJsonRepository[Document](
         pg_dsn, table=f"documents_{suffix}", model=Document, id_field="document_id"
     )
@@ -125,6 +130,5 @@ def test_postgres_pipeline_e2e(pg_dsn: str, tmp_path) -> None:
     report = pipeline.analyze(document.document_id)
     assert report.facts
     assert report.evaluations
-    # каскад удаления
     pipeline.delete_document(document.document_id)
     assert pipeline.get_analysis(report.analysis_id) is None

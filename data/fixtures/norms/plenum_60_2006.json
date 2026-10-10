@@ -8,6 +8,9 @@
       "article": 60,
       "part": 7,
       "title": "Пленум ВС РФ № 60: особый порядок и несовершеннолетние",
+      "applies_to": [
+        "R-007"
+      ],
       "versions": [
         {
           "version_id": "v-2021",
@@ -18,7 +21,7 @@
           "effective_to": null,
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_64549/",
           "retrieved_at": "2026-09-03",
-          "sha256": "AUTOFILL",
+          "sha256": "f054409b4139a683ca1703568c4bca4a3a60a428a98b5d0dc4002442c58e85a7",
           "verification_status": "verified"
         }
       ]
@@ -28,6 +31,9 @@
       "article": 60,
       "part": 13,
       "title": "Пленум ВС РФ № 60: предел 2/3 при особом порядке",
+      "applies_to": [
+        "R-003"
+      ],
       "versions": [
         {
           "version_id": "v-2021",
@@ -38,7 +44,7 @@
           "effective_to": null,
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_64549/",
           "retrieved_at": "2026-09-03",
-          "sha256": "AUTOFILL",
+          "sha256": "e2e1e989a15052f0a14e339b2918fcbbaa0fd7a901cb18dc4aef263522d5d88b",
           "verification_status": "verified"
         }
       ]
@@ -48,6 +54,9 @@
       "article": 60,
       "part": 14,
       "title": "Пленум ВС РФ № 60: последовательность специальных правил",
+      "applies_to": [
+        "R-010"
+      ],
       "versions": [
         {
           "version_id": "v-2021",
@@ -58,7 +67,7 @@
           "effective_to": null,
           "source_url": "https://www.consultant.ru/document/cons_doc_LAW_64549/",
           "retrieved_at": "2026-09-03",
-          "sha256": "AUTOFILL",
+          "sha256": "d832a713ec0f14e224667883197ea0ff7da7857d71d25a810d83095980bd113b",
           "verification_status": "verified"
         }
       ]

@@ -1,0 +1,51 @@
+@page { size: A4 landscape; margin: 12mm; }
+
+body {
+  font-family: "Times New Roman", Times, serif;
+  font-size: 12pt;
+  color: #000;
+  background: #fff;
+  margin: 0;
+}
+
+h1 { font-size: 18pt; text-align: center; margin: 0 0 12pt; }
+h2 { font-size: 14pt; margin: 14pt 0 6pt; break-after: avoid; }
+
+p { margin: 4pt 0; }
+p.lead { font-weight: bold; }
+p.note { font-style: italic; }
+
+table { width: 100%; border-collapse: collapse; margin: 4pt 0 10pt; table-layout: fixed; }
+th, td {
+  border: 1px solid #555;
+  padding: 3pt 5pt;
+  font-size: 9pt;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+thead th { background: #e7e6e6; }
+thead { display: table-header-group; }
+tr { break-inside: avoid; }
+tbody th { font-weight: bold; background: #f4f4f4; }
+
+col.w5 { width: 5%; }
+col.w10 { width: 10%; }
+col.w15 { width: 15%; }
+col.w20 { width: 20%; }
+col.w25 { width: 25%; }
+col.w30 { width: 30%; }
+col.w35 { width: 35%; }
+col.w40 { width: 40%; }
+col.w45 { width: 45%; }
+col.w50 { width: 50%; }
+col.w55 { width: 55%; }
+col.w60 { width: 60%; }
+col.w65 { width: 65%; }
+col.w70 { width: 70%; }
+col.w75 { width: 75%; }
+col.w80 { width: 80%; }
+col.w85 { width: 85%; }
+col.w90 { width: 90%; }
+col.w95 { width: 95%; }
+col.w100 { width: 100%; }

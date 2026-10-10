@@ -12,7 +12,7 @@ class LegalFact(BaseModel):
     """Юридически значимый факт, извлечённый из документа.
 
     Инвариант provenance-first: факт без доказательств не может быть
-    VERIFIED (см. docs/ADR/ADR-005).
+    VERIFIED.
     """
 
     id: str
@@ -23,6 +23,7 @@ class LegalFact(BaseModel):
     extraction_method: ExtractionMethod
     status: FactStatus
     prompt_version: str | None = None
+    rejection_reason: str | None = None
 
     @model_validator(mode="after")
     def _verified_requires_evidence(self) -> LegalFact:
@@ -39,11 +40,13 @@ class Qualification(BaseModel):
     code: str = "УК РФ"
     article: int = Field(ge=1)
     part: int | None = Field(default=None, ge=1)
+    article_suffix: str | None = None
 
     @property
     def ref(self) -> str:
+        article = f"{self.article}.{self.article_suffix}" if self.article_suffix else str(self.article)
         part = f" ч. {self.part}" if self.part else ""
-        return f"ст. {self.article}{part} {self.code}"
+        return f"ст. {article}{part} {self.code}"
 
 
 class DefendantFacts(BaseModel):
@@ -55,18 +58,18 @@ class DefendantFacts(BaseModel):
 
 class OffenseFacts(BaseModel):
     qualifications: list[Qualification] = Field(default_factory=list)
-    stage: str | None = None  # OffenseStage.value
+    stage: str | None = None
     complicity_role: str | None = None
 
 
 class MitigatingFactor(BaseModel):
-    code: str  # например "61.1.и"
+    code: str
     title: str
     fact_ids: list[str] = Field(default_factory=list)
 
 
 class AggravatingFactor(BaseModel):
-    code: str  # например "63.1.а"
+    code: str
     title: str
     fact_ids: list[str] = Field(default_factory=list)
 
@@ -79,8 +82,11 @@ class ProceduralFacts(BaseModel):
 
 
 class SentenceFacts(BaseModel):
-    punishment_type: str | None = None  # PunishmentType.value
+    punishment_type: str | None = None
     term_months: float | None = Field(default=None, ge=0)
+    final_term_months: float | None = Field(default=None, ge=0)
+    hours: float | None = Field(default=None, ge=0)
+    fine_rubles: float | None = Field(default=None, ge=0)
     suspended: bool | None = None
 
 
@@ -94,7 +100,7 @@ class CaseFacts(BaseModel):
     procedural: ProceduralFacts = Field(default_factory=ProceduralFacts)
     sentence: SentenceFacts = Field(default_factory=SentenceFacts)
     facts: list[LegalFact] = Field(default_factory=list)
-    applicable_at: str | None = None  # ISO-дата юридически значимого события
+    applicable_at: str | None = None
 
     def fact_by_id(self, fact_id: str) -> LegalFact | None:
         return next((f for f in self.facts if f.id == fact_id), None)
@@ -105,6 +111,15 @@ class CaseFacts(BaseModel):
     @property
     def primary_qualification(self) -> Qualification | None:
         return self.offense.qualifications[0] if self.offense.qualifications else None
+
+    @property
+    def has_criminal_content(self) -> bool:
+        """Есть ли в документе хоть что-то уголовно-правовое: статья или наказание."""
+        return (
+            self.primary_qualification is not None
+            or self.sentence.punishment_type is not None
+            or self.sentence.term_months is not None
+        )
 
     @property
     def has_aggravating(self) -> bool:

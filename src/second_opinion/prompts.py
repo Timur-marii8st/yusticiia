@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-# Промпты — часть пакета: путь резолвится относительно модуля, поэтому
-# работает и из исходников, и при установленном пакете (Docker/pip).
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 
 

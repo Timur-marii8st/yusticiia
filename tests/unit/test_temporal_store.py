@@ -74,7 +74,7 @@ def test_overlapping_versions_rejected() -> None:
             norm_id="test:art-1",
             version_id="b",
             text=text_b,
-            effective_from=date(2023, 12, 31),  # пересекается с предыдущей
+            effective_from=date(2023, 12, 31),
             effective_to=None,
             source_document="тест",
             source_url="",

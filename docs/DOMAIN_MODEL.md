@@ -13,7 +13,7 @@ classDiagram
     class LegalFact {id, type, value, confidence, evidence[], extraction_method, status}
     class CaseFacts {defendant, offense, mitigating[], aggravating[], procedural, sentence, applicable_at}
     class LegalNorm {norm_id, code, article, part, title}
-    class NormVersion {norm_id, version_id, text, sanctions[], effective_from, effective_to, source_url, retrieved_at, sha256}
+    class NormVersion {norm_id, version_id, text, sanctions[], effective_from, effective_to, source_url, source_edition, retrieved_at, sha256}
     class LegalRule {rule_id, version, title, norm_refs}
     class RuleEvaluation {rule_id, rule_version, status, facts_used[], norms_used[], explanation}
     class ComparableCase {case_id, article, part, stage, punishment_type, term_months, suspended, synthetic}
@@ -51,15 +51,23 @@ SHA-256 текста. Все цитирования ссылаются на `tex
 | `type` | перечисление `FactType` (см. ниже) |
 | `value` | структурированное значение (bool/число/строка/объект) |
 | `confidence` | 0..1 |
-| `evidence` | список `Evidence`; **пустой список ⇒ факт не может быть `VERIFIED`** |
+| `evidence` | список `Evidence`; **пустой список -> факт не может быть `VERIFIED`** |
 | `extraction_method` | `pattern` / `llm:<model>` / `user` |
 | `status` | `VERIFIED / LIKELY / UNCERTAIN / NOT_FOUND / CONFLICT` |
+| `rejection_reason` | причина исключения (`status: NOT_FOUND`); `None`, пока факт не исключён |
 
-`FactType` (доменный срез MVP): `qualification`, `defendant_age`,
+`FactType` (21 значение): `qualification`, `defendant_age`,
 `prior_convictions`, `minor_dependents`, `health_factor`, `offense_stage`,
-`guilty_plea`, `surrender_or_confession`, `restitution`, `aggravating_recidivism`,
-`special_procedure`, `jury_trial`, `punishment_type`, `punishment_term`,
-`suspended_sentence`.
+`group_offense`, `guilty_plea`, `surrender_or_confession`, `restitution`,
+`aggravating_recidivism`, `special_procedure`, `jury_trial`, `punishment_type`,
+`punishment_term`, `final_punishment_term`, `punishment_hours`, `fine_amount`,
+`suspended_sentence`, `date_of_offense`, `exceptional_circumstances`.
+`punishment_term` - срок за преступление в месяцах (лишение свободы, исправительные работы,
+ограничение свободы), `final_punishment_term` -
+окончательный срок по совокупности преступлений или приговоров (ст. 69, 70), если
+приговор называет его отдельно, `punishment_hours` - срок обязательных работ в
+часах, `fine_amount` - основной штраф в рублях (дополнительный штраф к лишению
+свободы и штраф в размере дохода за период не извлекаются).
 
 ### CaseFacts
 Агрегат обстоятельств дела, собранный из реестра `LegalFact`:
@@ -75,23 +83,35 @@ SHA-256 текста. Все цитирования ссылаются на `tex
 фрагмент), санкции `SanctionSpec[{punishment_type, min_months?, max_months?}]`,
 `effective_from`, `effective_to` (null = действует), реквизиты источника,
 `retrieved_at`, SHA-256 текста, `verification_status` (`draft|verified`).
-Запрос: `NormStore.get_norm(norm_id, applicable_at)` → ровно одна версия
+
+`source_edition` — какой редакции источника соответствует текст, в виде
+`источник:документ:редакция` (`pravo:102041891:365`). Отличает «текст
+соответствует такой-то редакции» от «мы однажды что-то скачали» и даёт
+`norms-check-updates` точку сравнения. Пустая строка означает «не
+записано»: детектор тогда говорит, что сравнивать не с чем, а не
+объявляет норму свежей.
+Запрос: `NormStore.get_norm(norm_id, applicable_at)` -> ровно одна версия
 или явная ошибка.
 
 ### LegalRule / RuleEvaluation
 Правило — версионируемый класс с метаданными (`rule_id`, `version`, `title`,
 `norm_refs`) и методом `evaluate(context) -> RuleEvaluation`.
 
-`RuleEvaluation`: статус `PASS | WARNING | FAIL | UNKNOWN`, человекочитаемые
-`headline` и `explanation`, `facts_used[]` (id фактов), `norms_used[]`
-(норма + `version_id`), численные результаты (`numbers`, например
+`RuleEvaluation`: статус `PASS | WARNING | FAIL | UNKNOWN | NOT_APPLICABLE`,
+человекочитаемые `headline` и `explanation`, `facts_used[]` (id фактов),
+`norms_used[]` (норма + `version_id`), численные результаты (`numbers`, например
 `term_months` и `limit_months`).
 
 Семантика статусов:
 - `PASS` — ограничение соблюдено;
 - `WARNING` — обнаружено обстоятельство, требующее внимания судьи;
 - `FAIL` — обнаружено возможное нарушение формального ограничения;
-- `UNKNOWN` — недостаточно фактов/данных нормы; система не догадывается.
+- `UNKNOWN` — недостаточно фактов/данных нормы; система не догадывается;
+- `NOT_APPLICABLE` — проверка к этому делу не относится (например, преступление
+  окончено, а правило про покушение). Отличается от `PASS`: проверка не
+  проводилась, и «пройдено» на ней читалось бы как «проверено, в порядке».
+  Если квалификация извлечена, а данных о наказании нет, правила пределов
+  дают `UNKNOWN`, не `NOT_APPLICABLE`: пробел в данных — не неприменимость.
 
 ### ComparableCase
 Судебный акт в базе практики: структурные признаки (статья, часть, стадия,
@@ -124,3 +144,9 @@ SHA-256 текста. Все цитирования ссылаются на `tex
 правило-движка, но остаётся в отчёте ради прозрачности истории правок.
 Подтверждение/правка факта без `evidence` запрещены. Каждая правка
 фиксируется в аудит-журнале и детерминированно пересчитывает отчёт.
+
+Исключение (`NOT_FOUND`) обязано нести непустой `reason` — мера по риску
+№ 5 Приложения № 3 к Концепции ВС РФ по ИИ («обязательная мотивировка
+отклонения ИИ-рекомендации»). Причина сохраняется в `rejection_reason`,
+пишется в аудит-журнал и попадает в .docx-заключение; последующее
+подтверждение или правка значения факта её очищают.

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import re
+
 from fastapi.testclient import TestClient
 
-from second_opinion.api.routes import create_app
+from second_opinion.api.app import create_app
 
 
 def test_index_has_a11y_landmarks(pipeline) -> None:
@@ -21,6 +23,23 @@ def test_index_has_a11y_landmarks(pipeline) -> None:
     assert 'lang="ru"' in html
 
 
+def test_interface_has_no_password_or_account_forms(pipeline) -> None:
+    client = TestClient(create_app(pipeline))
+    html = client.get("/").text
+    js = client.get("/static/app.js").text
+
+    assert "password-box" not in html and "pw-change-btn" not in html
+    assert "change-password" not in js and "/auth/users" not in js
+
+
+def test_corpus_edit_forms_are_for_administrators_only(pipeline) -> None:
+    client = TestClient(create_app(pipeline))
+    js = client.get("/static/app.js").text
+
+    assert 'if (accountRole === "admin") li.appendChild(normEditBox(norm));' in js
+    assert "может только администратор" in client.get("/").text
+
+
 def test_app_js_disclosure_is_keyboard_accessible(pipeline) -> None:
     client = TestClient(create_app(pipeline))
     js = client.get("/static/app.js").text
@@ -29,8 +48,119 @@ def test_app_js_disclosure_is_keyboard_accessible(pipeline) -> None:
     assert 'setAttribute("tabindex", "0")' in js
     assert "aria-expanded" in js
     assert '"Enter"' in js or "'Enter'" in js
-    # бейджи озвучиваются статусом, а не символом
     assert 'aria-label' in js
+
+
+def test_file_picker_is_a_visible_control(pipeline) -> None:
+    """Выбор файла — видимая кнопка, доступная с клавиатуры.
+
+    Прежде это была строка 13px цветом акцента, а само поле пряталось через
+    `display: none` — такое поле выпадает из обхода клавиатурой целиком.
+    """
+    client = TestClient(create_app(pipeline))
+    html = client.get("/").text
+    css = client.get("/static/style.css").text
+
+    assert 'id="file-label"' in html
+    assert "Выбрать файл" in html
+
+    input_rule = re.search(r"\.file-label input \{(.*?)\}", css, re.DOTALL)
+    assert input_rule is not None, "правило .file-label input исчезло"
+    assert "display: none" not in input_rule.group(1), (
+        "display: none возвращает поле обратно в недоступность для клавиатуры"
+    )
+    assert ".file-label:focus-within" in css
+
+
+def test_report_download_goes_through_api_fetch(pipeline) -> None:
+    """Выгрузка отчёта не должна быть обычной ссылкой на эндпойнт.
+
+    Браузер идёт по `href` обычной навигацией, без заголовка Authorization,
+    поэтому в развёртывании с авторизацией судья получал 401 вместо файла
+    (проверено: GET /api/analyses/{id} без заголовка -> 401, с ним -> 200).
+    """
+    client = TestClient(create_app(pipeline))
+    js = client.get("/static/app.js").text
+
+    assert "href = `/api/" not in js, "ссылка снова ведёт мимо авторизации"
+    assert "createObjectURL" in js
+    assert 'download = "second-opinion-report.json"' in js
+
+
+def test_add_fact_error_is_shown_next_to_the_form(pipeline) -> None:
+    """Ошибка добавления обстоятельства — у формы, а не в панели вверху."""
+    client = TestClient(create_app(pipeline))
+    html = client.get("/").text
+    js = client.get("/static/app.js").text
+
+    assert 'id="add-fact-error"' in html
+    submit = js.split("async function submitNewFact")[1].split("async function")[0]
+    assert "showFactError" in submit
+    assert "showError(" not in submit, "ошибка формы снова уходит в панель «Документ»"
+
+
+def test_fact_origin_is_visible_in_the_list(pipeline) -> None:
+    """Внесённое судьёй обстоятельство отличимо от извлечённого машиной."""
+    client = TestClient(create_app(pipeline))
+    js = client.get("/static/app.js").text
+    css = client.get("/static/style.css").text
+
+    assert "внесено судьёй" in js
+    assert "исключено из проверок" in js
+    assert ".fact-origin" in css
+
+
+def test_search_score_is_explained(pipeline) -> None:
+    """Число у результата поиска подписано: это релевантность, не применимость."""
+    client = TestClient(create_app(pipeline))
+    html = client.get("/").text
+    js = client.get("/static/app.js").text
+
+    assert "лексическая релевантность" in html
+    assert "лексическая релевантность" in js
+
+
+def test_document_has_one_heading_of_the_first_level(pipeline) -> None:
+    """Двенадцать h1 читаются скринридером как двенадцать документов.
+
+    Заголовок первого уровня — название системы; разделы страницы идут
+    вторым уровнем, панели внутри рабочей области — третьим. Прежде все
+    двенадцать панелей стояли вторым уровнем плоским списком: навигация по
+    структуре была, но не показывала, что одиннадцать из них — части
+    одного разбора.
+    """
+    client = TestClient(create_app(pipeline))
+    html = client.get("/").text
+
+    assert html.count("<h1") == 1, "заголовков первого уровня должно быть ровно один"
+    assert html.count("<h2") == 4, "разделов страницы должно быть четыре"
+    assert html.count("<h3") >= 8
+    assert html.index("<h2 id=\"workspace-title\"") < html.index("<h3")
+
+
+def test_every_section_is_a_named_landmark(pipeline) -> None:
+    """Секция без доступного имени не объявляется ориентиром вовсе."""
+    client = TestClient(create_app(pipeline))
+    html = client.get("/").text
+
+    sections = re.findall(r"<section[^>]*>", html)
+    assert sections
+    unnamed = [s for s in sections if "aria-label" not in s]
+    assert not unnamed, f"секции без имени: {unnamed}"
+
+
+def test_dynamic_fields_carry_labels(pipeline) -> None:
+    """Поля, которые рисует скрипт, тоже должны иметь подпись.
+
+    Плейсхолдер подписью не является: он исчезает при вводе и читается
+    не всеми скринридерами.
+    """
+    client = TestClient(create_app(pipeline))
+    js = client.get("/static/app.js").text
+
+    assert 'for="nf-article"' in js
+    assert 'for="nf-part"' in js
+    assert 'setAttribute("aria-label", "Значение обстоятельства")' in js
 
 
 def test_css_has_focus_and_responsive(pipeline) -> None:
@@ -40,3 +170,170 @@ def test_css_has_focus_and_responsive(pipeline) -> None:
     assert "focus-visible" in css
     assert "@media (max-width:" in css
     assert "@media print" in css
+
+
+def test_every_status_has_its_own_badge(pipeline) -> None:
+    """Статус обстоятельства виден в символе, а не только в цвете.
+
+    Регрессия: символ знали лишь три статуса правил, остальные — включая
+    все пять статусов обстоятельств — печатались как «?». Подтверждённое
+    обстоятельство и обстоятельство с противоречием выглядели одинаково;
+    различал их только цвет рамки, а цвет читается не всеми.
+    """
+    from second_opinion.domain.enums import FactStatus, RuleStatus
+
+    client = TestClient(create_app(pipeline))
+    js = client.get("/static/app.js").text
+
+    table = js[js.index("const STATUS_BADGES = {") :]
+    table = table[: table.index("\n};")]
+
+    for status in (*FactStatus, *RuleStatus):
+        assert f"{status.value}:" in table, f"нет бейджа для статуса {status.value}"
+
+    assert '"подтверждено"' in table
+    assert '"исключено из проверок"' in table
+
+    assert 'NOT_APPLICABLE: ["н/п", "не применимо к этому делу"]' in table
+    assert 'PASS: ["✓"' in table
+
+
+def test_static_version_marker_matches_the_interface(pipeline) -> None:
+    """Метка `?v=` поднимается вместе с правкой скрипта или стилей.
+
+    Без этого браузер отдаёт закэшированный файл, и правка выглядит как
+    неработающая кнопка — на этом здесь теряли время не раз.
+
+    Сравнение идёт с `HEAD`, поэтому проверка работает до коммита — в
+    прогоне перед ним, когда правка ещё не записана. После коммита обоих
+    файлов сравнивать нечего, и в CI она ничего не ловит: это местная
+    страховка, а не рубеж на въезде.
+    """
+    import re
+    import subprocess
+    from pathlib import Path
+
+    client = TestClient(create_app(pipeline))
+    html = client.get("/").text
+
+    markers = set(re.findall(r"/static/\w+\.\w+\?v=([\d.]+)", html))
+    assert markers, "в разметке нет меток версии статики"
+    assert len(markers) == 1, f"метки разошлись: {sorted(markers)}"
+
+    root = Path(__file__).resolve().parents[2]
+    changed = subprocess.run(
+        ["git", "diff", "--name-only", "HEAD", "--", "src/second_opinion/static"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+    )
+    if changed.returncode != 0:
+        return
+    touched = {line.rsplit("/", 1)[-1] for line in changed.stdout.split()}
+    if touched & {"app.js", "style.css"} and "index.html" not in touched:
+        raise AssertionError(
+            "скрипт или стили изменены, а метка `?v=` в index.html — нет: "
+            "браузер отдаст старый файл"
+        )
+
+
+def _has_js_comment(src: str) -> bool:
+    """Есть ли `//`/`/* */` вне строковых литералов.
+
+    Наивный поиск подстроки ложно сработал бы на `//` внутри URL в
+    строке; здесь код проходится посимвольно и пропускает содержимое
+    `"..."`/`'...'`/`` `...` ``.
+    """
+    in_string: str | None = None
+    i, n = 0, len(src)
+    while i < n:
+        c = src[i]
+        if in_string:
+            if c == "\\" and i + 1 < n:
+                i += 2
+                continue
+            if c == in_string:
+                in_string = None
+            i += 1
+            continue
+        if c in ('"', "'", "`"):
+            in_string = c
+            i += 1
+            continue
+        if c == "/" and i + 1 < n and src[i + 1] in ("/", "*"):
+            return True
+        i += 1
+    return False
+
+
+def test_served_static_files_have_no_comments(pipeline) -> None:
+    """Интерфейс отдаётся без комментариев — их видно любому через devtools.
+
+    В отличие от исходников на сервере, статика открыта любому браузеру,
+    зашедшему на страницу: «просмотр кода» и вкладка Network показывают
+    файл целиком, без авторизации. Внутренние пояснения там неуместны
+    независимо от того, что записано в правилах комментирования кода.
+    """
+    client = TestClient(create_app(pipeline))
+
+    js = client.get("/static/app.js").text
+    assert not _has_js_comment(js), "в app.js остался комментарий"
+
+    css = client.get("/static/style.css").text
+    assert "/*" not in css, "в style.css остался комментарий"
+
+    html = client.get("/").text
+    assert "<!--" not in html, "в index.html остался HTML-комментарий"
+
+
+def test_internal_names_do_not_reach_the_reader(pipeline) -> None:
+    """Судья читает по-русски: `verified`, `pattern`, `PASS` — внутренние имена.
+
+    Различие «сверено юристом / черновик» — то самое, на котором держится
+    запрет применять непроверенный текст нормы. Пока оно было написано
+    словом `draft`, его понимал только тот, кто знает английский и устройство
+    корпуса.
+    """
+    from second_opinion.domain.enums import ExtractionMethod, VerificationStatus
+
+    client = TestClient(create_app(pipeline))
+    js = client.get("/static/app.js").text
+
+    def table(name: str) -> str:
+        body = js[js.index(f"const {name} = {{") :]
+        return body[: body.index("\n};")]
+
+    verification = table("VERIFICATION_LABELS")
+    for status in VerificationStatus:
+        assert f"{status.value}:" in verification, f"нет подписи для {status.value}"
+
+    methods = table("METHOD_LABELS")
+    for method in ExtractionMethod:
+        assert f"{method.value}:" in methods, f"нет подписи для {method.value}"
+
+    assert "${verificationLabel(hit.verification_status)}" in js
+    assert "${methodLabel(fact.extraction_method)}" in js
+    assert "${statusLabel(fact.status)}" in js
+
+
+def test_interface_is_split_into_the_two_named_areas(pipeline) -> None:
+    """Интерфейс разделён на «Личный кабинет» и «Рабочую область анализа».
+
+    Пункт 2.5.2.а Положения — единственное, что оно говорит о раскладке
+    интерфейса. Кабинет был назван с самого начала, рабочая область — нет:
+    одиннадцать панелей шли подряд плоским списком, и требование
+    выполнялось по существу, но не по форме. Название выверено по тексту
+    Положения 20.09.2026: там «Рабочая область анализа», а не «Рабочая
+    область».
+    """
+    client = TestClient(create_app(pipeline))
+    html = client.get("/").text
+
+    assert ">Личный кабинет<" in html
+    assert ">Рабочая область анализа<" in html
+    assert 'id="workspace"' in html
+
+    workspace = html[html.index('<section id="workspace"') :]
+    workspace = workspace[: workspace.index('id="corpus-panel"')]
+    for panel in ("upload-panel", "summary-panel", "concerns-panel", "sources-panel"):
+        assert panel in workspace, f"{panel} оказалась вне рабочей области"

@@ -52,32 +52,40 @@ def pipeline(tmp_path):
 
 
 @pytest.fixture(autouse=True)
-def reset_auth_service(monkeypatch):
+def reset_auth_service(monkeypatch, tmp_path):
     """Сброс глобального auth_service перед каждым тестом.
 
     Создаём заново AuthService с предзаполненным админом, чтобы тесты
     авторизации могли выполнять логин под `admin@example.com / admin123`.
-    SO_AUTH_TOKEN задаётся в 32+ байт, чтобы JWT-предупреждение
-    pyjwt (RFC 7518) не шумело в прогоне; кэш load_config сбрасывается.
+
+    `SO_JWT_SECRET` — 32+ байта: ключ подписи JWT отделён от общего
+    Bearer `SO_AUTH_TOKEN` и обязан удовлетворять RFC 7518 §3.2.
+    `SO_DATA_DIR` уводится в tmp_path: хранилище пользователей по
+    умолчанию файловое, и прогон не должен писать в data/ репозитория.
     """
-    monkeypatch.setenv("SO_AUTH_TOKEN", "test-secret-key-with-at-least-32-bytes-for-hmac")
+    monkeypatch.setenv("SO_AUTH_TOKEN", "test-shared-bearer-token")
+    monkeypatch.setenv("SO_JWT_SECRET", "test-jwt-signing-key-of-at-least-32-bytes")
+    monkeypatch.setenv("SO_DATA_DIR", str(tmp_path))
     from second_opinion.config import reset_config_cache
 
     reset_config_cache()
 
-    from second_opinion.auth.service import AuthService, pwd_context
+    from second_opinion.auth.passwords import hash_password
+    from second_opinion.auth.service import AuthService
     from second_opinion.domain.users import User, UserRole
 
     auth = AuthService()
-    auth._users["admin-001"] = User(
-        user_id="admin-001",
-        email="admin@example.com",
-        full_name="Admin User",
-        role=UserRole.ADMIN,
-        is_active=True,
-        password_hash=pwd_context.hash("admin123"),
-        created_at=datetime.now(UTC),
-        updated_at=datetime.now(UTC),
+    auth._store.save_user(
+        User(
+            user_id="admin-001",
+            email="admin@example.com",
+            full_name="Admin User",
+            role=UserRole.ADMIN,
+            is_active=True,
+            password_hash=hash_password("admin123"),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
     )
 
     import second_opinion.auth.service

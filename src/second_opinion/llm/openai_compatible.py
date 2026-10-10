@@ -19,24 +19,44 @@ SYSTEM_INSTRUCTION = (
 
 
 class OpenAICompatibleProvider:
-    """Адаптер для любого OpenAI-совместимого контура.
+    """Адаптер для модели, развёрнутой в закрытом контуре (vLLM, Ollama).
 
-    Включается только явно (``SO_LLM_PROVIDER=openai_compatible``) и требует
-    ключ из окружения; по умолчанию система работает офлайн на мок-провайдере.
+    Протокол OpenAI-совместимый, но адрес обязан указывать внутрь сети суда:
+    это проверяет ``llm.contour`` при сборке конвейера. Включается только явно
+    (``SO_LLM_PROVIDER=openai_compatible``) и требует ключ из окружения; по
+    умолчанию система работает офлайн на мок-провайдере.
     """
 
     name = "openai_compatible"
 
-    def __init__(self, base_url: str, api_key: str, model: str, timeout: float = 60.0) -> None:
-        if not api_key:
+    def __init__(
+        self,
+        base_url: str,
+        api_key: str,
+        model: str,
+        timeout: float = 60.0,
+        max_tokens: int = 3000,
+    ) -> None:
+        missing = [
+            name
+            for name, value in (
+                ("SO_OPENAI_BASE_URL", base_url),
+                ("SO_OPENAI_API_KEY", api_key),
+                ("SO_LLM_MODEL", model),
+            )
+            if not value
+        ]
+        if missing:
             raise ValueError(
-                "SO_OPENAI_API_KEY не задан: внешний LLM-контур включается только "
-                "при явной настройке (см. .env.example)"
+                f"не задано: {', '.join(missing)}. Модель включается только полной "
+                "явной настройкой: умолчаний нет намеренно, иначе забытый адрес увёл "
+                "бы документы туда, куда их никто не отправлял. См. .env.example"
             )
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         self._model = model
         self._timeout = timeout
+        self._max_tokens = max_tokens
 
     def generate_structured(
         self,
@@ -63,6 +83,7 @@ class OpenAICompatibleProvider:
         payload = {
             "model": self._model,
             "temperature": 0,
+            "max_tokens": self._max_tokens,
             "messages": [
                 {"role": "system", "content": SYSTEM_INSTRUCTION},
                 {"role": "user", "content": user_content},

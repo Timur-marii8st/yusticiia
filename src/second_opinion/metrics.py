@@ -16,13 +16,11 @@ from __future__ import annotations
 import bisect
 import os
 import threading
-from collections import defaultdict
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from time import perf_counter
 
-# Фиксированные границы бакетов для гистограмм (секунды).
-# Покрывают типичный latency анализа: 1 мс — 1 с.
 _LATENCY_BUCKETS: tuple[float, ...] = (
     0.001,
     0.005,
@@ -74,11 +72,9 @@ class _Histogram:
         with self._lock:
             self._sum += value
             self._count += 1
-            # bisect_right: первый бакет, верхняя граница которого > value
             index = bisect.bisect_left(self.buckets, value)
             if index >= len(self.buckets):
                 index = len(self.buckets) - 1
-            # +inf-бакет содержит всё
             self._counts[index] += 1
 
     def snapshot(self) -> dict[str, object]:
@@ -132,7 +128,7 @@ class MetricsRegistry:
             return new
 
     @contextmanager
-    def time_histogram(self, name: str, help_text: str = "") -> object:
+    def time_histogram(self, name: str, help_text: str = "") -> Iterator[None]:
         """Контекст-менеджер: ``with registry.time_histogram(...):``.
 
         Гистограмма всегда регистрируется (для видимости в snapshot), но
@@ -168,7 +164,6 @@ class MetricsRegistry:
                     h._count = 0
 
 
-# Глобальный реестр — единственный, как AuditTrail.
 _global_registry: MetricsRegistry | None = None
 _global_lock = threading.Lock()
 
@@ -193,8 +188,6 @@ def reset_metrics_for_tests() -> None:
         _global_registry = None
 
 
-# Имена метрик, которые используются в pipeline. Зафиксированы
-# константами, чтобы случайно не разъехаться в разных местах.
 ANALYSES_TOTAL = "second_opinion_analyses_total"
 ANALYSES_FAILED_TOTAL = "second_opinion_analyses_failed_total"
 FACTS_EXTRACTED = "second_opinion_facts_extracted_total"
@@ -205,7 +198,17 @@ EXTRACT_DURATION_SECONDS = "second_opinion_extract_duration_seconds"
 RULE_ENGINE_DURATION_SECONDS = "second_opinion_rule_engine_duration_seconds"
 RETRIEVAL_DURATION_SECONDS = "second_opinion_retrieval_duration_seconds"
 
-# Помощник для кратких текстов подсказок (для дампа).
+COUNTED_STATUSES = (401, 403, 413, 429, 503)
+
+
+def http_status_metric(status_code: int) -> str | None:
+    """Имя счётчика для ответов, всплеск которых означает перебор, перегрузку или сбой."""
+    if status_code in COUNTED_STATUSES:
+        return f"second_opinion_http_{status_code}_total"
+    if status_code >= 500:
+        return "second_opinion_http_5xx_total"
+    return None
+
 METRIC_HELP: dict[str, str] = {
     ANALYSES_TOTAL: "Total number of successful analyses",
     ANALYSES_FAILED_TOTAL: "Total number of failed analyses",
@@ -218,12 +221,3 @@ METRIC_HELP: dict[str, str] = {
     RETRIEVAL_DURATION_SECONDS: "Case retrieval duration (s)",
 }
 
-
-def group_by_status(evaluations: list[object]) -> dict[str, int]:
-    """Подсчёт статусов правил для одной оценки (для метрик)."""
-    counts: dict[str, int] = defaultdict(int)
-    for ev in evaluations:
-        status = getattr(ev, "status", None)
-        if status is not None:
-            counts[str(getattr(status, "value", status))] += 1
-    return dict(counts)

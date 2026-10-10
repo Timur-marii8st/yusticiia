@@ -23,6 +23,7 @@ class Document(BaseModel):
         default_factory=lambda: datetime.now(UTC).replace(microsecond=0)
     )
     origin: str = "upload"
+    owner: str = ""
 
     def page_for_offset(self, offset: int) -> int | None:
         if not self.page_offsets:

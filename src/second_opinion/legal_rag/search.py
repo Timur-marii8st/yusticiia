@@ -7,17 +7,18 @@ from datetime import date
 
 from pydantic import BaseModel, Field
 
+from ..domain.enums import VerificationStatus
 from ..domain.norms import LegalNorm, NormVersion
 from ..legal_sources.store import NoApplicableVersionError, NormStore
 from .embeddings import EmbeddingProvider, cosine
 
 _TOKEN = re.compile(r"[a-zа-яё0-9]+")
 
-#: Константа Reciprocal Rank Fusion: чем больше, тем ровнее вклад позиций.
-RRF_K = 60
+LEXICAL_WEIGHT = 0.7
+BM25_K1 = 1.2
+BM25_B = 0.75
+DRAFT_WEIGHT = 0.85
 
-#: Слова, не несущие юридического смысла в запросе. «ук/рф/упк/статья/часть»
-#: совпали бы с каждой нормой и только размывали ранжирование.
 _STOPWORDS = {
     "и", "в", "во", "не", "на", "по", "для", "при", "это", "как", "или",
     "если", "то", "из", "за", "от", "об", "о", "к", "со", "что", "его",
@@ -26,18 +27,17 @@ _STOPWORDS = {
     "кодекса", "кодекс",
 }
 
-#: Длина префикса для грубого учёта словоформ (русская флексия).
 _PREFIX_LEN = 6
 
 
 def tokenize(text: str) -> list[str]:
+    """Слова запроса или текста: нижний регистр, «ё» как «е» (ИПС пишет «грабеж»)."""
     tokens: list[str] = []
-    for raw in _TOKEN.findall(text.lower()):
+    for raw in _TOKEN.findall(text.lower().replace("ё", "е")):
         if raw in _STOPWORDS:
             continue
         if raw.isdigit() or len(raw) >= 3:
             tokens.append(raw)
-    # Убираем дубликаты, сохраняя порядок.
     seen: set[str] = set()
     unique: list[str] = []
     for token in tokens:
@@ -51,8 +51,32 @@ def _prefix(token: str) -> str:
     return token[:_PREFIX_LEN] if len(token) > _PREFIX_LEN else token
 
 
-def _haystack(norm: LegalNorm, version: NormVersion) -> str:
-    return f"{norm.title} {norm.ref} {version.text}"
+def _min_max(values: list[float]) -> list[float]:
+    if not values:
+        return []
+    low, high = min(values), max(values)
+    if high <= low:
+        return [1.0 for _ in values]
+    return [(value - low) / (high - low) for value in values]
+
+
+def _length_factor(length: int, average: float) -> float:
+    """Поправка на длину текста по BM25 (k1 = 1,2, b = 0,75).
+
+    Без неё длинный текст выигрывает потому, что длинный: в пункте Пленума на
+    две тысячи знаков слова запроса встречаются чаще, чем в выверенной записи
+    статьи на триста. Черновики к тому же получают вес ``DRAFT_WEIGHT``: при
+    близкой релевантности судья сначала видит сверенный источник, черновик
+    остаётся в выдаче со своим статусом.
+    """
+    if average <= 0:
+        return 1.0
+    return (BM25_K1 + 1) / (1 + BM25_K1 * (1 - BM25_B + BM25_B * length / average))
+
+
+def haystack(norm: LegalNorm, version: NormVersion) -> str:
+    """Текст, по которому ищется редакция: название, ``search_text`` нормы, ссылка, текст."""
+    return " ".join(part for part in (norm.title, norm.search_text, norm.ref, version.text) if part)
 
 
 class SearchHit(BaseModel):
@@ -73,9 +97,7 @@ class SearchHit(BaseModel):
     synthetic: bool
     score: float
     matched_terms: list[str] = Field(default_factory=list)
-    #: Лексический балл (в гибридном режиме отделяется от итогового).
     lexical_score: float | None = None
-    #: Косинусная близость к запросу (только в гибридном режиме).
     semantic_score: float | None = None
 
 
@@ -85,16 +107,16 @@ class LegalRag:
 
     Инвариант: результат содержит только реально хранящиеся фрагменты
     текста норм; если ничего не найдено — возвращается пустой список,
-    а не сгенерированный ответ (см. docs/LEGAL_SAFETY_PRINCIPLES.md §6).
-    Реранкинг меняет только ПОРЯДОК кандидатов, найденных лексической
-    фазой, и никогда не добавляет новые фрагменты.
+    а не сгенерированный ответ. Реранкинг меняет только ПОРЯДОК
+    кандидатов, найденных лексической фазой, и никогда не добавляет
+    новые фрагменты.
     """
 
     def __init__(
         self,
         norm_store: NormStore,
         embedder: EmbeddingProvider | None = None,
-        vector_store=None,  # PgVectorNormStore, опционально
+        vector_store=None,
     ) -> None:
         self._store = norm_store
         self._embedder = embedder
@@ -125,12 +147,13 @@ class LegalRag:
         if not selected:
             return []
 
-        # IDF по выбранному корпусу редакций: редкие термины (например,
-        # «покушение») весят больше частых («наказание»).
         term_df: dict[str, int] = {}
         hay_token_sets: dict[str, set[str]] = {}
+        doc_lengths: dict[str, int] = {}
         for norm, version in selected:
-            tokens = set(tokenize(_haystack(norm, version)))
+            all_tokens = tokenize(haystack(norm, version))
+            doc_lengths[norm.norm_id] = len(all_tokens)
+            tokens = set(all_tokens)
             hay_token_sets[norm.norm_id] = tokens
             for token in tokens:
                 term_df[token] = term_df.get(token, 0) + 1
@@ -148,6 +171,7 @@ class LegalRag:
             return math.log((corpus_size + 1) / (df + 1)) + 1.0
 
         query_weight = sum(idf(token) for token in query_tokens)
+        average_length = sum(doc_lengths.values()) / len(doc_lengths)
 
         hits: list[SearchHit] = []
         for norm, version in selected:
@@ -156,6 +180,9 @@ class LegalRag:
             )
             if score <= 0:
                 continue
+            score *= _length_factor(doc_lengths[norm.norm_id], average_length)
+            if version.verification_status is VerificationStatus.DRAFT:
+                score *= DRAFT_WEIGHT
             hits.append(
                 SearchHit(
                     norm_id=norm.norm_id,
@@ -180,18 +207,22 @@ class LegalRag:
             return hits[:limit]
         return self._rerank(hits, query, limit)
 
-    # -- внутреннее -----------------------------------------------------------
-
     def _rerank(
         self, hits: list[SearchHit], query: str, limit: int
     ) -> list[SearchHit]:
-        """Гибридный реранкинг: Reciprocal Rank Fusion лексического и
-        семантического ранжирований (ADR-003).
+        """Гибридный реранкинг: взвешенная сумма нормированных оценок.
+
+        Лексическая и семантическая оценки приводятся к шкале 0..1 внутри
+        выдачи и складываются с весами 0,7 и 0,3. Слияние по местам (RRF)
+        стирало разрыв в оценках: норма с лексической оценкой 0,31 против
+        0,11 у соседа получала почти тот же вклад, что второе место против
+        пятого, и слабый семантический сигнал хэширующего векторизатора
+        переставлял выдачу. Лексике вес больше, потому что она измерена как
+        более точная на контрольном наборе (docs/EVALUATION.md).
 
         Если подключён pgvector-store, семантические близости берутся из БД
         (ANN-поиск), иначе — in-memory косинус.
         """
-        # Попытка взять семантику из pgvector (если настроен и синхронизирован)
         similarities: list[float] | None = None
         if self._vector_store is not None:
             try:
@@ -203,23 +234,26 @@ class LegalRag:
         if similarities is None:
             assert self._embedder is not None
             query_vector = self._embedder.embed([query])[0]
-            texts = [f"{hit.title} {hit.ref} {hit.fragment}" for hit in hits]
+            context = {norm.norm_id: norm.search_text for norm in self._store.list_norms()}
+            texts = [
+                " ".join(p for p in (hit.title, context.get(hit.norm_id, ""), hit.ref, hit.fragment) if p)
+                for hit in hits
+            ]
             vectors = self._embedder.embed(texts)
             similarities = [
                 cosine(query_vector, vector) for vector in vectors
             ]
 
-        lexical_ranking = sorted(
-            range(len(hits)), key=lambda i: (-hits[i].score, hits[i].norm_id)
-        )
-        semantic_ranking = sorted(
-            range(len(hits)), key=lambda i: (-similarities[i], hits[i].norm_id)
-        )
-
-        fused: dict[int, float] = {}
-        for ranking in (lexical_ranking, semantic_ranking):
-            for position, index in enumerate(ranking, start=1):
-                fused[index] = fused.get(index, 0.0) + 1.0 / (RRF_K + position)
+        weighted = [
+            similarity * (DRAFT_WEIGHT if hits[i].verification_status == "draft" else 1.0)
+            for i, similarity in enumerate(similarities)
+        ]
+        lexical = _min_max([hit.score for hit in hits])
+        semantic = _min_max(weighted)
+        fused = {
+            index: LEXICAL_WEIGHT * lexical[index] + (1 - LEXICAL_WEIGHT) * semantic[index]
+            for index in range(len(hits))
+        }
 
         reranked: list[SearchHit] = []
         for index, hit in enumerate(hits):
@@ -238,14 +272,19 @@ class LegalRag:
     def _select_version(
         self, norm: LegalNorm, applicable_at: date | None
     ) -> NormVersion | None:
+        """Редакция на дату, а без даты — действующая.
+
+        Норма без действующей редакции (часть статьи, которой в нынешнем тексте
+        нет) без даты в выдачу не попадает: иначе текст 1996 года стоял бы в
+        одном ряду с действующими как равноправный ответ.
+        """
         if applicable_at is not None:
             try:
                 return self._store.get_norm(norm.norm_id, applicable_at)
             except NoApplicableVersionError:
                 return None
-        versions = self._store.versions(norm.norm_id)
-        current = [v for v in versions if v.effective_to is None]
-        return current[0] if current else versions[-1]
+        current = [v for v in self._store.versions(norm.norm_id) if v.effective_to is None]
+        return current[0] if current else None
 
     @staticmethod
     def _score(
@@ -255,19 +294,23 @@ class LegalRag:
         idf: Callable[[str], float],
         query_weight: float,
     ) -> tuple[float, list[str]]:
-        hay_tokens = tokenize(_haystack(norm, version))
+        hay_tokens = tokenize(haystack(norm, version))
         hay_exact = set(hay_tokens)
         hay_prefixes = {_prefix(token) for token in hay_tokens}
         title_exact = set(tokenize(norm.title)) | set(tokenize(norm.ref))
 
         score = 0.0
         matched: list[str] = []
+        exact = 0
         for token in query_tokens:
             weight = idf(token)
             if token in hay_exact:
                 score += weight * (1.25 if token in title_exact else 1.0)
                 matched.append(token)
+                exact += 1
             elif _prefix(token) in hay_prefixes:
                 score += weight * 0.75
                 matched.append(token)
+        if exact == 0 and len(matched) == 1 and len(query_tokens) > 1:
+            return 0.0, []
         return score / query_weight, matched

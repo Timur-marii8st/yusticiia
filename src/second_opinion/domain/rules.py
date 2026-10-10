@@ -35,7 +35,7 @@ class LegalRule(ABC):
     version: str
     title: str
     description: str
-    norm_refs: list[str]  # norm_id норм, на которых основано правило
+    norm_refs: list[str]
 
     @abstractmethod
     def evaluate(self, context: Any) -> RuleEvaluation:
@@ -49,6 +49,18 @@ class LegalRule(ABC):
             headline=f"{self.title}: недостаточно данных",
             explanation=explanation,
             missing=missing,
+        )
+
+    def _not_criminal_document(self) -> RuleEvaluation:
+        return RuleEvaluation(
+            rule_id=self.rule_id,
+            rule_version=self.version,
+            status=RuleStatus.NOT_APPLICABLE,
+            headline=f"{self.title}: не применимо",
+            explanation=(
+                "В документе нет ни статьи УК РФ, ни назначенного наказания: "
+                "проверка относится к приговору по уголовному делу."
+            ),
         )
 
     def _evaluation(self, **kwargs: Any) -> RuleEvaluation:

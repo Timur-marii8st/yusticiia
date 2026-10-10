@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from second_opinion.api.routes import create_app
+from second_opinion.api.app import create_app
 from tests.conftest import SAMPLE_CLEAN
 
 
@@ -16,11 +16,11 @@ def client(pipeline):
 def analysis_id(client):
     with SAMPLE_CLEAN.open("rb") as fh:
         response = client.post(
-            "/api/documents/upload",
+            "/api/v1/documents/upload",
             files={"file": (SAMPLE_CLEAN.name, fh, "text/plain")},
         )
     document_id = response.json()["document_id"]
-    response = client.post(f"/api/documents/{document_id}/analyze", json={})
+    response = client.post(f"/api/v1/documents/{document_id}/analyze", json={})
     return response.json()["analysis_id"]
 
 
@@ -31,15 +31,15 @@ def _quote_of(text: str, needle: str) -> str:
 
 def test_add_fact_end_to_end(client, analysis_id) -> None:
     """Судья добавляет факт: цитата из документа, пересчёт отчёта."""
-    report_before = client.get(f"/api/analyses/{analysis_id}").json()
-    doc = client.get(f"/api/documents/{report_before['document_id']}").json()
+    report_before = client.get(f"/api/v1/analyses/{analysis_id}").json()
+    doc = client.get(f"/api/v1/documents/{report_before['document_id']}").json()
 
     target = "состояние здоровья"
     assert target in doc["text"]
     real_quote = _quote_of(doc["text"], target)
 
     response = client.post(
-        f"/api/analyses/{analysis_id}/facts",
+        f"/api/v1/analyses/{analysis_id}/facts",
         json={
             "type": "health_factor",
             "value": "хроническое заболевание",
@@ -60,7 +60,7 @@ def test_add_fact_end_to_end(client, analysis_id) -> None:
 
 def test_add_fact_rejects_quote_not_in_document(client, analysis_id) -> None:
     response = client.post(
-        f"/api/analyses/{analysis_id}/facts",
+        f"/api/v1/analyses/{analysis_id}/facts",
         json={"type": "guilty_plea", "value": True, "quote": "такой фразы в документе нет"},
     )
     assert response.status_code == 400
@@ -69,18 +69,18 @@ def test_add_fact_rejects_quote_not_in_document(client, analysis_id) -> None:
 
 def test_add_fact_rejects_unknown_type(client, analysis_id) -> None:
     response = client.post(
-        f"/api/analyses/{analysis_id}/facts",
+        f"/api/v1/analyses/{analysis_id}/facts",
         json={"type": "mood_of_judge", "value": "спокойное", "quote": "суд"},
     )
     assert response.status_code == 400
 
 
 def test_add_fact_rejects_wrong_value_shape(client, analysis_id) -> None:
-    report_before = client.get(f"/api/analyses/{analysis_id}").json()
-    doc = client.get(f"/api/documents/{report_before['document_id']}").json()
+    report_before = client.get(f"/api/v1/analyses/{analysis_id}").json()
+    doc = client.get(f"/api/v1/documents/{report_before['document_id']}").json()
     quote = _quote_of(doc["text"], "возраст")
     response = client.post(
-        f"/api/analyses/{analysis_id}/facts",
+        f"/api/v1/analyses/{analysis_id}/facts",
         json={"type": "defendant_age", "value": "тридцать", "quote": quote},
     )
     assert response.status_code == 400
@@ -90,12 +90,12 @@ def test_add_fact_rejects_wrong_value_shape(client, analysis_id) -> None:
 def test_added_qualification_changes_evaluations(client, analysis_id) -> None:
     """Новая квалификация реально участвует в проверках правила-движка:
     R-001 ссылается на добавленный судьёй факт."""
-    report_before = client.get(f"/api/analyses/{analysis_id}").json()
-    doc = client.get(f"/api/documents/{report_before['document_id']}").json()
+    report_before = client.get(f"/api/v1/analyses/{analysis_id}").json()
+    doc = client.get(f"/api/v1/documents/{report_before['document_id']}").json()
     quote = _quote_of(doc["text"], "ч. 2 ст. 158 УК")
 
     response = client.post(
-        f"/api/analyses/{analysis_id}/facts",
+        f"/api/v1/analyses/{analysis_id}/facts",
         json={"type": "qualification", "value": {"article": 158, "part": 2}, "quote": quote},
     )
     assert response.status_code == 200

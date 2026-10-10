@@ -25,14 +25,25 @@ data/processed/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 
+# Артефакты измерения покрытия (НТ-09): данные прогона, не исходник
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
 # Evaluation reports are generated artifacts
 evaluation/reports/
 .last_eval.json
 .eval_stdout.json
 .eval_stderr.txt
 
+.claude/
+
 # OS / editor
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
+
+# Кэш трассировки истории по ИПС: воспроизводится командой norms-trace-history
+data/drafts/norms/*.cache.json

@@ -1,0 +1,11 @@
+# Локальный пользователь теста DOCX: пароль из create_user используется только
+# для входа через FastAPI TestClient в том же тесте, внешнего сервиса нет.
+5befb253114315514bebeecf6b8f89086c3a6c36:tests/integration/test_docx_export.py:generic-api-key:326
+
+# Fixture JUDGE: тест создаёт локального пользователя через TestClient.
+# Файл удалён; исключение относится только к этой находке в истории.
+0a7ee7850897843be412d9e913257aa4653a9919:tests/integration/test_mfa.py:generic-api-key:13
+
+# Публичный SHA-1 тестовый вектор RFC 6238 для unit-тестов TOTP.
+# Файл удалён; исключение относится только к этой находке в истории.
+0a7ee7850897843be412d9e913257aa4653a9919:tests/unit/test_totp.py:generic-api-key:9

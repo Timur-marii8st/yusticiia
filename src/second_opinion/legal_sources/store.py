@@ -5,6 +5,7 @@ from datetime import date
 from pathlib import Path
 
 from ..domain.norms import LegalNorm, NormVersion
+from .sealing import MANIFEST_NAME, UNSEALED, UnsealedNormError
 
 
 class NormNotFoundError(KeyError):
@@ -19,21 +20,32 @@ class NormStore:
     """Хранилище норм с временны́ми редакциями.
 
     ``get_norm(norm_id, applicable_at)`` возвращает редакцию, действовавшую
-    на указанную дату (см. docs/ADR/ADR-002).
+    на указанную дату.
     """
 
     def __init__(self) -> None:
         self._norms: dict[str, LegalNorm] = {}
         self._versions: dict[str, list[NormVersion]] = {}
 
-    # -- загрузка ---------------------------------------------------------
-
     @classmethod
     def from_directory(cls, directory: Path) -> NormStore:
         store = cls()
-        for path in sorted(Path(directory).glob("*.json")):
-            store.load_file(path)
+        store.reload_from_directory(directory)
         return store
+
+    def reload_from_directory(self, directory: Path) -> None:
+        """Перечитать корпус на месте, не создавая новый объект.
+
+        ``add_norm`` перезаписывает запись по ``norm_id``, поэтому повторная
+        загрузка тех же файлов безопасна. В отличие от ``from_directory``,
+        существующие держатели этого хранилища (``AnalysisPipeline``,
+        ``AnalysisDerivation``) сразу видят обновление — без этого правка
+        корпуса через веб-интерфейс требовала бы перезапуска процесса.
+        """
+        for path in sorted(Path(directory).glob("*.json")):
+            if path.name == MANIFEST_NAME:
+                continue
+            self.load_file(path)
 
     def load_file(self, path: Path) -> None:
         with Path(path).open(encoding="utf-8") as fh:
@@ -46,20 +58,28 @@ class NormStore:
                 code=norm_payload.get("code", code),
                 article=norm_payload["article"],
                 part=norm_payload.get("part"),
+                article_suffix=norm_payload.get("article_suffix"),
+                part_suffix=norm_payload.get("part_suffix"),
+                applies_to=list(norm_payload.get("applies_to", [])),
+                search_text=norm_payload.get("search_text", ""),
                 title=norm_payload.get("title", ""),
+                amendments_checked_through=norm_payload.get("amendments_checked_through"),
+                amendments_checked_source=norm_payload.get(
+                    "amendments_checked_source", ""
+                ),
             )
             versions = []
             for version in norm_payload["versions"]:
                 version = dict(version)
                 sha256 = version.get("sha256", "")
-                if not sha256 or sha256 == "AUTOFILL":
-                    version["sha256"] = NormVersion.compute_sha256(version["text"])
-                versions.append(
-                    NormVersion(
-                        source_document=version.get("source_document", source_document),
-                        **version,
+                if not sha256 or sha256 == UNSEALED:
+                    raise UnsealedNormError(
+                        f"норма {norm.norm_id} версия {version['version_id']}: "
+                        "контрольная сумма не заполнена — опечатайте корпус "
+                        "командой `second-opinion norms-seal`"
                     )
-                )
+                version.setdefault("source_document", source_document)
+                versions.append(NormVersion(**version))
             self.add_norm(norm, versions)
 
     def add_norm(self, norm: LegalNorm, versions: list[NormVersion]) -> None:
@@ -71,13 +91,12 @@ class NormStore:
                     f"норма {norm.norm_id}: версия {version.version_id} "
                     "ссылается на другую норму"
                 )
+        _validate_unique_version_ids(norm.norm_id, versions)
         _validate_no_overlap(norm.norm_id, versions)
         self._norms[norm.norm_id] = norm
         self._versions[norm.norm_id] = sorted(
             versions, key=lambda v: v.effective_from
         )
-
-    # -- запросы ----------------------------------------------------------
 
     def get_norm_meta(self, norm_id: str) -> LegalNorm:
         try:
@@ -103,15 +122,40 @@ class NormStore:
         )
 
     def find_by_article(
-        self, code: str, article: int, part: int | None
+        self,
+        code: str,
+        article: int,
+        part: int | None,
+        article_suffix: str | None = None,
     ) -> LegalNorm | None:
         for norm in self._norms.values():
-            if norm.code == code and norm.article == article and norm.part == part:
+            if (
+                norm.code == code
+                and norm.article == article
+                and norm.part == part
+                and norm.article_suffix == article_suffix
+            ):
                 return norm
         return None
 
     def list_norms(self) -> list[LegalNorm]:
         return sorted(self._norms.values(), key=lambda n: (n.code, n.article, n.part or 0))
+
+
+def _validate_unique_version_ids(norm_id: str, versions: list[NormVersion]) -> None:
+    """Редакции одной нормы обязаны различаться идентификаторами.
+
+    Дубликат означает, что одна редакция подменяет другую при любой
+    выборке по version_id — в том числе в ссылках отчёта на норму.
+    """
+    seen: set[str] = set()
+    for version in versions:
+        if version.version_id in seen:
+            raise ValueError(
+                f"норма {norm_id}: идентификатор редакции "
+                f"{version.version_id} повторяется"
+            )
+        seen.add(version.version_id)
 
 
 def _validate_no_overlap(norm_id: str, versions: list[NormVersion]) -> None:

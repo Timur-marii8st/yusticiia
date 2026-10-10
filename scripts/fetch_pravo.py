@@ -34,6 +34,8 @@ except ImportError:  # pragma: no cover
     httpx = None  # type: ignore[assignment]
 
 DEFAULT_BASE_URL = "https://publication.pravo.gov.ru"
+
+MAX_PDF_BYTES = 50 * 1024 * 1024
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_RAW_DIR = REPO_ROOT / "data" / "raw_pravo"
 
@@ -170,15 +172,61 @@ def cmd_search(args: argparse.Namespace) -> int:
     return 0
 
 
+def extract_pdf_text(pdf_path: Path) -> str:
+    """Достать текст из PDF существующим парсером проекта.
+
+    Тот же путь, что и у загружаемых судебных документов: текстовый слой,
+    при его отсутствии — OCR, при недоступном OCR — понятная ошибка.
+    """
+    sys.path.insert(0, str(REPO_ROOT / "src"))
+    from second_opinion.ingestion.parser import parse_document
+
+    document = parse_document(pdf_path.name, pdf_path.read_bytes(), MAX_PDF_BYTES)
+    return document.text
+
+
+def _load_text(args: argparse.Namespace) -> str:
+    if args.text_file:
+        return Path(args.text_file).read_text(encoding="utf-8")
+
+    text = extract_pdf_text(Path(args.pdf_file))
+    print(
+        f"Текст извлечён из PDF: {len(text)} символов. "
+        "Это ЧЕРНОВИК — распознавание ошибается в числах, "
+        "а число в санкции меняет смысл нормы. "
+        "Сверьте с официальным текстом перед снятием статуса draft.",
+        file=sys.stderr,
+    )
+    return text
+
+
+def load_card(raw_path: Path) -> dict:
+    """Прочитать карточку документа из сохранённого ответа API.
+
+    Файла нет или он пуст — карточки просто нет, реквизиты берутся из
+    аргументов. А вот непустой, но нечитаемый файл — это, как правило,
+    оборванная загрузка, и молчать о ней нельзя.
+    """
+    if not raw_path.exists():
+        return {}
+    content = raw_path.read_text(encoding="utf-8").strip()
+    if not content:
+        return {}
+    try:
+        loaded = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise SystemExit(
+            f"ОШИБКА: {raw_path} не разбирается как JSON ({exc}). "
+            "Ожидается ответ API, сохранённый командой fetch-card."
+        ) from exc
+    if not isinstance(loaded, dict):
+        return {}
+    return loaded.get("document", loaded) if isinstance(loaded.get("document"), dict) else loaded
+
+
 def cmd_build_fixture(args: argparse.Namespace) -> int:
-    raw_path = Path(args.raw)
-    card: dict = {}
-    if raw_path.exists():
-        loaded = json.loads(raw_path.read_text(encoding="utf-8"))
-        if isinstance(loaded, dict):
-            # API может вернуть карточку напрямую или обёртку — берём словарь документа.
-            card = loaded.get("document", loaded) if isinstance(loaded.get("document"), dict) else loaded
-    text = Path(args.text_file).read_text(encoding="utf-8")
+    card = load_card(Path(args.raw))
+    text = _load_text(args)
     source_document = args.source_document or build_source_document(card)
     source_url = args.source_url or api_document_url(args.base_url, args.eo_number)
     retrieved = args.retrieved_at or date.today().isoformat()
@@ -187,8 +235,10 @@ def cmd_build_fixture(args: argparse.Namespace) -> int:
         + (f"-part-{args.part}" if args.part else "")
         + f"-pravo-{args.eo_number}"
     )
+    version_id = args.version_id or f"v-{args.effective_from[:4]}"
     payload = build_fixture_payload(
         norm_id=norm_id,
+        version_id=version_id,
         code=args.code,
         article=args.article,
         part=args.part,
@@ -203,7 +253,6 @@ def cmd_build_fixture(args: argparse.Namespace) -> int:
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    # Самопроверка: фикстура обязана грузиться в NormStore (SHA, даты, интервалы).
     sys.path.insert(0, str(REPO_ROOT / "src"))
     from second_opinion.legal_sources.store import NormStore
 
@@ -235,13 +284,25 @@ def build_parser() -> argparse.ArgumentParser:
     p_build = sub.add_parser("build-fixture", help="собрать draft-фикстуру из raw + text-file")
     p_build.add_argument("--eo-number", required=True)
     p_build.add_argument("--raw", required=True)
-    p_build.add_argument("--text-file", required=True, help="txt, скопированный из официального PDF")
+    text_source = p_build.add_mutually_exclusive_group(required=True)
+    text_source.add_argument(
+        "--text-file", help="готовый txt (например, скопированный из официального PDF)"
+    )
+    text_source.add_argument(
+        "--pdf-file",
+        help="PDF официальной публикации; текст извлекается автоматически, результат — черновик",
+    )
     p_build.add_argument("--code", required=True)
     p_build.add_argument("--article", type=int, required=True)
     p_build.add_argument("--part", type=int, default=None)
     p_build.add_argument("--title", required=True)
     p_build.add_argument("--effective-from", required=True, help="YYYY-MM-DD")
     p_build.add_argument("--effective-to", default=None)
+    p_build.add_argument(
+        "--version-id",
+        default=None,
+        help="идентификатор редакции; по умолчанию v-<год из --effective-from>",
+    )
     p_build.add_argument("--out", required=True)
     p_build.add_argument("--norm-id", default=None)
     p_build.add_argument("--source-document", default=None)

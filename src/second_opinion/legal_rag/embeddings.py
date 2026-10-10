@@ -1,10 +1,10 @@
 """Провайдеры векторных представлений для реранкинга поиска.
 
-Принципы (ADR-003, ADR-004):
+Принципы:
 
 - интерфейс ``EmbeddingProvider`` отделён от бизнес-логики;
 - по умолчанию используется полностью офлайн детерминированный
-  ``HashingTfidfEmbedder`` (символьные n-граммы + слова → хэш-вектор);
+  ``HashingTfidfEmbedder`` (символьные n-граммы + слова -> хэш-вектор);
 - внешний провайдер (OpenAI-совместимый /embeddings) включается только
   явно через переменные окружения; текст норм — не персональные данные,
   но решение об отправке остаётся за оператором.
@@ -16,11 +16,8 @@ import hashlib
 import math
 from abc import ABC, abstractmethod
 
-# Размерность хэш-пространства офлайн-эмбеддера. Компромисс: достаточно
-# велика, чтобы развести n-граммы, и мала, чтобы считать быстро.
 HASH_DIM = 1024
 
-#: Диапазоны длин символьных n-грамм: устойчивость к русской флексии.
 NGRAM_RANGE = (3, 5)
 
 
@@ -67,7 +64,7 @@ class HashingTfidfEmbedder(EmbeddingProvider):
 
     def _embed_one(self, text: str) -> list[float]:
         counts: dict[int, float] = {}
-        normalized = " ".join(text.lower().split())
+        normalized = " ".join(text.lower().replace("ё", "е").split())
         for gram in self._ngrams(normalized):
             counts[_bucket(gram)] = counts.get(_bucket(gram), 0.0) + 1.0
         vector = [0.0] * HASH_DIM

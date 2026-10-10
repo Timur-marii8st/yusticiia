@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Второе мнение — юридический аудит проекта судебного акта</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v=0.84">
 </head>
 <body>
   <a class="skip-link" href="#upload-panel">Перейти к форме анализа</a>
   <header class="topbar">
     <div class="brand">
-      <span class="brand-name">Второе мнение</span>
+      <h1 class="brand-name">Второе мнение</h1>
       <span class="brand-sub">юридический аудит проекта судебного акта</span>
     </div>
     <div class="topbar-note">
@@ -19,8 +19,8 @@
   </header>
 
   <main>
-    <div id="auth-box" class="panel" hidden>
-      <h1>Доступ защищён</h1>
+    <div id="auth-box" class="panel" role="region" aria-labelledby="section-title-1" hidden>
+      <h2 id="section-title-1">Доступ защищён</h2>
       <p class="hint">
         Введите токен доступа (общий секрет развёртывания). Он хранится
         только в текущей сессии браузера.
@@ -36,8 +36,51 @@
       </p>
     </div>
 
-    <section class="panel" id="upload-panel">
-      <h1>Документ</h1>
+    <section aria-labelledby="section-title-2" class="panel" id="account-panel">
+      <h2 id="section-title-2">Личный кабинет</h2>
+
+      <div id="account-login">
+        <p class="hint">
+          Вход по личной учётной записи. Демо-сценарий работает и без входа.
+        </p>
+        <div class="controls">
+          <label class="visually-hidden" for="login-email">Электронная почта</label>
+          <input type="email" id="login-email" size="28" autocomplete="username"
+            placeholder="Электронная почта"> 
+          <label class="visually-hidden" for="login-password">Пароль</label>
+          <input type="password" id="login-password" size="20" autocomplete="current-password"
+            placeholder="Пароль">
+          <button id="login-btn" class="primary">Войти</button>
+        </div>
+        <div id="login-error" class="error" role="alert" aria-live="assertive" hidden></div>
+      </div>
+
+      <div id="account-profile" hidden>
+        <div id="profile-card" class="card"></div>
+        <div class="controls">
+          <button id="history-btn" class="secondary">Обновить историю дел</button>
+          <button id="history-clear-btn" class="secondary danger">Очистить всё</button>
+          <button id="logout-btn" class="secondary">Выйти</button>
+        </div>
+        <p class="hint" id="history-hint">
+          История — анализы, выполненные под этой учётной записью. Нажмите
+          на дело, чтобы открыть отчёт целиком; «Удалить» рядом с делом
+          убирает только его, «Очистить всё» — всю историю целиком.
+        </p>
+        <div id="history-error" class="error" role="alert" aria-live="assertive" hidden></div>
+        <ul id="history-list" class="items" aria-live="polite"></ul>
+      </div>
+    </section>
+
+    <section id="workspace" aria-labelledby="workspace-title">
+      <h2 id="workspace-title">Рабочая область анализа</h2>
+      <p class="hint workspace-hint">
+        Разбор одного дела: документ, извлечённые обстоятельства, проверки
+        норм, источники, сопоставимая практика и статистика.
+      </p>
+
+    <section aria-labelledby="section-title-3" class="panel" id="upload-panel">
+      <h3 id="section-title-3">Документ</h3>
       <p class="hint">
         Вставьте текст проекта судебного акта или выберите файл
         (TXT, MD, DOCX, PDF с текстовым слоем).
@@ -46,9 +89,9 @@
       <textarea id="doc-text" rows="10"
         placeholder="Текст проекта судебного акта…"></textarea>
       <div class="controls">
-        <label class="file-label">
+        <label class="file-label" id="file-label">
           <input type="file" id="doc-file" accept=".txt,.md,.markdown,.docx,.pdf">
-          <span id="file-name">или выберите файл…</span>
+          <span id="file-name">Выбрать файл</span>
         </label>
         <label class="date-label">
           Дата юридически значимого события (для выбора редакции нормы):
@@ -57,22 +100,53 @@
         <button id="analyze-btn" class="primary">Проанализировать</button>
         <button id="demo-btn" class="secondary">Демо-образец</button>
       </div>
+      <p class="hint">
+        Дата деяния нужна, чтобы взять нормы в той редакции, что действовала в тот день.
+        Можно оставить пустой: тогда берётся дата деяния из текста документа, а если её там
+        нет, то сегодняшняя, и отчёт помечает её «предположительно».
+      </p>
       <div id="upload-error" class="error" role="alert" aria-live="assertive" hidden></div>
     </section>
 
+
     <div id="results" hidden>
-      <section class="panel">
-        <h1>Дело / документ</h1>
+      <section aria-labelledby="section-title-5" class="panel">
+        <h3 id="section-title-5">Дело / документ</h3>
         <div class="report-actions no-print">
           <button id="print-btn" class="secondary">Печать отчёта</button>
+          <button id="download-docx" class="secondary">Скачать заключение (DOCX)</button>
+          <label class="mask-label">
+            <input type="checkbox" id="mask-personal">
+            скрыть персональные данные в файле
+          </label>
           <a id="download-json" class="secondary" download="second-opinion-report.json"
             href="#">Скачать JSON</a>
         </div>
         <div id="doc-card" class="card"></div>
       </section>
 
-      <section class="panel">
-        <h1>Обнаруженные обстоятельства</h1>
+      <section aria-labelledby="section-title-6" class="panel" id="summary-panel">
+        <h3 id="section-title-6">Краткое изложение дела</h3>
+        <p class="hint">
+          Собрано из извлечённых обстоятельств, а не пересказано моделью:
+          каждая строка раскрывается до тех же цитат, что и обстоятельства ниже.
+        </p>
+        <div id="summary-headline" class="summary-headline"></div>
+        <ul id="summary-list" class="items"></ul>
+      </section>
+
+      <section aria-labelledby="section-title-7" class="panel" id="concerns-panel">
+        <h3 id="section-title-7">Проблемные места</h3>
+        <p class="hint">
+          На что посмотреть отдельно. Нарушение предела и нехватка данных
+          разведены: первое требует проверить расчёт, второе — дополнить
+          документ или обстоятельства.
+        </p>
+        <ul id="concerns-list" class="items"></ul>
+      </section>
+
+      <section aria-labelledby="section-title-8" class="panel">
+        <h3 id="section-title-8">Обнаруженные обстоятельства</h3>
         <p class="hint">Нажмите на обстоятельство, чтобы увидеть цитату из документа.</p>
         <ul id="facts-list" class="items"></ul>
 
@@ -93,6 +167,7 @@
           <div class="controls">
             <button id="add-fact-btn" class="secondary">Добавить обстоятельство</button>
           </div>
+          <div id="add-fact-error" class="error" role="alert" aria-live="assertive" hidden></div>
           <p class="hint">
             Цитата обязана дословно находиться в документе — иначе факт не
             будет принят. Добавленное обстоятельство сразу участвует в проверках.
@@ -100,16 +175,18 @@
         </details>
       </section>
 
-      <section class="panel">
-        <h1>Проверка норм</h1>
+      <section aria-labelledby="section-title-9" class="panel">
+        <h3 id="section-title-9">Проверка норм</h3>
         <ul id="evaluations-list" class="items"></ul>
       </section>
 
-      <section class="panel" id="sources-panel">
-        <h1>Источники</h1>
+      <section aria-labelledby="section-title-10" class="panel" id="sources-panel">
+        <h3 id="section-title-10">Источники</h3>
         <p class="hint">
           Поиск по базе норм: каждый результат — фрагмент реального источника
           с редакцией и реквизитами. Если ничего не найдено, система не додумывает.
+          Число слева от нормы — лексическая релевантность запросу, а не
+          оценка юридической применимости.
         </p>
         <div class="controls">
           <label class="visually-hidden" for="search-query">Поиск по базе норм</label>
@@ -121,25 +198,48 @@
         <ul id="search-results" class="items" aria-live="polite"></ul>
       </section>
 
-      <section class="panel">
-        <h1>Сопоставимая практика</h1>
+      <section aria-labelledby="section-title-11" class="panel">
+        <h3 id="section-title-11">Сопоставимая практика</h3>
         <p class="hint">
           Справочный материал. Сходство не является основанием для вывода о наказании.
         </p>
         <ul id="cases-list" class="items"></ul>
       </section>
 
-      <section class="panel" id="analytics-panel">
-        <h1>Аналитика (описательная)</h1>
+      <section aria-labelledby="section-title-12" class="panel" id="analytics-panel">
+        <h3 id="section-title-12">Аналитика (описательная)</h3>
         <div id="analytics" class="card"></div>
       </section>
 
-      <section class="panel disclaimers-panel">
+      <section class="panel disclaimers-panel" aria-label="Оговорки и ограничения системы">
         <ul id="disclaimers" class="disclaimers"></ul>
       </section>
     </div>
+    </section>
+
+    <section aria-labelledby="section-title-4" class="panel" id="corpus-panel">
+      <h2 id="section-title-4">Состояние нормативного корпуса</h2>
+      <p class="hint">
+        На чём система основывает проверки и что ещё требует юридической
+        сверки. Раздел открытый намеренно: неназванная слабость данных
+        опаснее названной. Править корпус (сверка истории, новые редакции)
+        может только администратор.
+      </p>
+      <div class="controls">
+        <button id="corpus-btn" class="secondary">Показать состояние корпуса</button>
+      </div>
+      <div id="corpus-error" class="error" role="alert" aria-live="assertive" hidden></div>
+      <div id="corpus-summary" class="card" hidden></div>
+      <ul id="corpus-list" class="items" aria-live="polite" hidden></ul>
+      <p class="hint" id="corpus-freshness" hidden>
+        Здесь показано то, что записано в корпусе. Не изменилась ли норма
+        у официального источника — отдельная проверка, она обращается к
+        внешнему серверу и запускается командой
+        <code>second-opinion norms-check-updates</code>.
+      </p>
+    </section>
   </main>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=0.84"></script>
 </body>
 </html>

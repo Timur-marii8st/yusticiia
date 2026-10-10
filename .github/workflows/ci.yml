@@ -2,33 +2,60 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
   pull_request:
 
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.14"]
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: second_opinion_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      SO_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/second_opinion_test
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
+      - name: Системные зависимости OCR
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            tesseract-ocr tesseract-ocr-rus poppler-utils
       - name: Install
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev,pg,ocr]"
       - name: Lint
         run: ruff check .
+      - name: Типы
+        run: mypy
       - name: Test
-        run: pytest
+        run: pytest --cov
+      - name: Целостность корпуса норм
+        run: second-opinion norms-seal --check
       - name: Evaluation
         run: python -m evaluation.run > /dev/null
 
-  # Supply-chain аудит (docs/SECURITY.md п. 8). Блокирующий: уязвимости
-  # зависимостей не должны попадать в main.
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
       - name: Install
@@ -39,3 +66,15 @@ jobs:
         run: |
           pip install pip-audit
           pip-audit --skip-editable
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        run: |
+          docker run --rm -v "$PWD":/repo zricethezav/gitleaks:latest \
+            detect --source /repo --no-banner --redact \
+            --gitleaks-ignore-path /repo/.gitleaksignore

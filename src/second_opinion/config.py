@@ -14,29 +14,42 @@ DEFAULT_MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 class AppConfig:
     data_dir: Path
     fixtures_dir: Path
-    llm_provider: str  # "mock" | "openai_compatible"
+    llm_provider: str
     openai_base_url: str
     openai_api_key: str
     llm_model: str
     max_upload_bytes: int
-    rag_mode: str = "lexical"  # "lexical" | "hybrid" (ADR-003)
-    embeddings_provider: str = "hashing"  # "hashing" | "openai_compatible"
+    rag_mode: str = "lexical"
+    embeddings_provider: str = "hashing"
     embedding_model: str = ""
-    #: Общий секрет для /api/*; пусто — авторизация выключена (loopback-MVP).
     auth_token: str = ""
-    #: Носитель документов/отчётов: "file" (по умолчанию) | "postgres" (ADR-006).
+    jwt_secret: str = ""
+    require_auth: bool = False
+    cookie_secure: bool = False
+    auth_mode: str = ""
+    password_min_length: int = 8
     storage_backend: str = "file"
-    #: DSN PostgreSQL для storage_backend="postgres".
     database_url: str = ""
-    #: Максимальный возраст пароля в днях (0 — без ограничения).
-    #: При превышении вход отклоняется с требованием смены пароля.
     password_max_age_days: int = 0
-    #: Глубина истории паролей (0 — не проверять повторы).
     password_history_depth: int = 5
-    #: Максимум последовательных неудачных входов до блокировки (0 — без блокировки).
     login_max_attempts: int = 5
-    #: Длительность блокировки входа в минутах.
     login_lockout_minutes: int = 15
+    norms_backend: str = "file"
+    redaction_source: str = "none"
+    pravo_base_url: str = "http://pravo.gov.ru/proxy/ips/"
+    pravo_timeout_seconds: float = 180.0
+    garant_base_url: str = ""
+    garant_token: str = ""
+    garant_stub_dir: str = ""
+    llm_contour_hosts: tuple[str, ...] = ()
+    login_rate_limit: int = 20
+    login_rate_window_seconds: int = 60
+    llm_max_tokens: int = 3000
+    analyze_rate_limit: int = 30
+    analyze_rate_window_seconds: int = 60
+    analyze_max_concurrency: int = 4
+    analyze_queue_seconds: float = 30.0
+    api_docs: str = ""
 
     @property
     def store_dir(self) -> Path:
@@ -72,20 +85,46 @@ def load_config() -> AppConfig:
         data_dir=data_dir,
         fixtures_dir=fixtures,
         llm_provider=_env("SO_LLM_PROVIDER", "mock") or "mock",
-        openai_base_url=_env("SO_OPENAI_BASE_URL", "https://api.openai.com/v1"),
+        openai_base_url=_env("SO_OPENAI_BASE_URL"),
         openai_api_key=_env("SO_OPENAI_API_KEY"),
-        llm_model=_env("SO_LLM_MODEL", "gpt-4o-mini"),
+        llm_model=_env("SO_LLM_MODEL"),
         max_upload_bytes=int(_env("SO_MAX_UPLOAD_BYTES") or DEFAULT_MAX_UPLOAD_BYTES),
         rag_mode=_env("SO_RAG_MODE", "lexical") or "lexical",
         embeddings_provider=_env("SO_EMBEDDINGS_PROVIDER", "hashing") or "hashing",
         embedding_model=_env("SO_EMBEDDING_MODEL"),
         auth_token=_env("SO_AUTH_TOKEN"),
+        jwt_secret=_env("SO_JWT_SECRET"),
+        require_auth=_env("SO_REQUIRE_AUTH") in ("1", "true", "yes"),
+        cookie_secure=_env("SO_COOKIE_SECURE") in ("1", "true", "yes"),
+        auth_mode=(_env("SO_AUTH_MODE") or "").strip().lower(),
+        password_min_length=int(_env("SO_PASSWORD_MIN_LENGTH") or 8),
         storage_backend=_env("SO_STORAGE_BACKEND", "file") or "file",
         database_url=_env("SO_DATABASE_URL"),
         password_max_age_days=int(_env("SO_PASSWORD_MAX_AGE_DAYS") or 0),
         password_history_depth=int(_env("SO_PASSWORD_HISTORY_DEPTH") or 5),
         login_max_attempts=int(_env("SO_LOGIN_MAX_ATTEMPTS") or 5),
         login_lockout_minutes=int(_env("SO_LOGIN_LOCKOUT_MINUTES") or 15),
+        norms_backend=_env("SO_NORMS_BACKEND", "file") or "file",
+        redaction_source=_env("SO_REDACTION_SOURCE", "none") or "none",
+        pravo_base_url=_env("SO_PRAVO_BASE_URL")
+        or "http://pravo.gov.ru/proxy/ips/",
+        pravo_timeout_seconds=float(_env("SO_PRAVO_TIMEOUT") or 180.0),
+        garant_base_url=_env("SO_GARANT_BASE_URL"),
+        garant_token=_env("SO_GARANT_TOKEN"),
+        garant_stub_dir=_env("SO_GARANT_STUB_DIR"),
+        llm_contour_hosts=tuple(
+            host.strip().lower()
+            for host in (_env("SO_LLM_CONTOUR_HOSTS") or "").split(",")
+            if host.strip()
+        ),
+        login_rate_limit=int(_env("SO_LOGIN_RATE_LIMIT") or 20),
+        login_rate_window_seconds=int(_env("SO_LOGIN_RATE_WINDOW_SECONDS") or 60),
+        llm_max_tokens=int(_env("SO_LLM_MAX_TOKENS") or 3000),
+        analyze_rate_limit=int(_env("SO_ANALYZE_RATE_LIMIT") or 30),
+        analyze_rate_window_seconds=int(_env("SO_ANALYZE_RATE_WINDOW_SECONDS") or 60),
+        analyze_max_concurrency=int(_env("SO_ANALYZE_MAX_CONCURRENCY") or 4),
+        analyze_queue_seconds=float(_env("SO_ANALYZE_QUEUE_SECONDS") or 30.0),
+        api_docs=_env("SO_API_DOCS"),
     )
 
 

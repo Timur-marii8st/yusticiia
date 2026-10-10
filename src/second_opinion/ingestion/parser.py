@@ -112,7 +112,6 @@ def parse_pdf(filename: str, content: bytes) -> Document:
     for page in reader.pages:
         pages.append(page.extract_text() or "")
     if not any(p.strip() for p in pages):
-        # Попытка OCR-фолбэка, если зависимости доступны
         if _ocr_available():
             try:
                 ocr_pages = _ocr_pdf_pages(content)
@@ -148,6 +147,22 @@ PARSERS = {
 }
 
 
+SIGNATURES: dict[str, tuple[bytes, int]] = {
+    ".pdf": (b"%PDF-", 1024),
+    ".docx": (b"PK\x03\x04", 4),
+}
+
+
+def _check_signature(suffix: str, content: bytes) -> None:
+    """Содержимое обязано соответствовать расширению: имя файла задаёт клиент."""
+    expected = SIGNATURES.get(suffix)
+    if expected is None:
+        return
+    marker, window = expected
+    if marker not in content[:window]:
+        raise ParseError(f"содержимое файла не соответствует расширению '{suffix}'")
+
+
 def parse_document(filename: str, content: bytes, max_bytes: int) -> Document:
     """Единая точка входа парсинга: выбор парсера по расширению."""
     if len(content) == 0:
@@ -163,4 +178,5 @@ def parse_document(filename: str, content: bytes, max_bytes: int) -> Document:
             f"неподдерживаемый формат '{suffix or 'без расширения'}'; "
             f"поддерживаются: {', '.join(sorted(SUPPORTED_EXTENSIONS))}"
         )
+    _check_signature(suffix, content)
     return parser(filename, content)
