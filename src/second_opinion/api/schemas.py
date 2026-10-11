@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from ..domain.analysis import AnalysisReport
 from ..domain.cases import ComparableCase
 from ..domain.norms import LegalNorm, NormVersion
+from ..domain.source_fragments import NormSourceState
 from ..domain.users import UserRole
 from ..legal_rag.search import SearchHit
 
@@ -166,6 +167,7 @@ class CaseListResponse(BaseModel):
 class SearchResponse(BaseModel):
     query: str
     results: list[SearchHit]
+    source_state: NormSourceState | None = None
 
 
 class HistoryItem(BaseModel):

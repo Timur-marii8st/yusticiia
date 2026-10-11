@@ -49,7 +49,12 @@ def test_served_endpoints_are_documented(pipeline) -> None:
     assert not undocumented, f"сервер отдаёт, но docs/API.md молчит: {undocumented}"
 
 
-_ANY_PATH = re.compile(r"/api/[^\s`\"'()\[\]{},;]*(?:\{[^}]+\}[^\s`\"'()\[\]{},;]*)*")
+_ANY_PATH = re.compile(r"(?<![\w/])/api/[^\s`\"'()\[\]{},;]*(?:\{[^}]+\}[^\s`\"'()\[\]{},;]*)*")
+
+
+def test_external_provider_documentation_is_not_an_application_route() -> None:
+    assert not _ANY_PATH.findall("https://www.garant.ru/mobileonline/api/documentation/")
+    assert _ANY_PATH.findall("`/api/v1/search?q=тест`") == ["/api/v1/search?q=тест"]
 
 
 def _served_paths(pipeline) -> set[str]:

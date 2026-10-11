@@ -733,6 +733,9 @@ function renderReport(report) {
 
   renderSummary(report.summary);
   renderConcerns(report.concerns || []);
+  const sourcesList = $("norm-sources");
+  sourcesList.innerHTML = "";
+  (report.norm_sources || []).forEach((source) => sourcesList.appendChild(renderNormSource(source)));
 
   const factsList = $("facts-list");
   factsList.innerHTML = "";
@@ -910,8 +913,9 @@ function renderSearchHit(hit) {
   const meta = div("meta");
   const period = hit.effective_to
     ? `${hit.effective_from} — ${hit.effective_to}`
-    : `с ${hit.effective_from} (действует)`;
+    : `с ${hit.effective_from} (открытый интервал корпуса)`;
   meta.appendChild(div("", `Редакция: ${hit.version_id}; период действия: ${period}`));
+  meta.appendChild(div("", `Применимость: ${hit.applicability || "не проверена"}; актуальность: ${hit.freshness || "не проверена"}`));
   meta.appendChild(div("", `Источник: ${hit.source_document}`));
   if (hit.source_url) meta.appendChild(div("", `URL: ${hit.source_url}`));
   meta.appendChild(div("", `Извлечено: ${hit.retrieved_at}; SHA-256: ${hit.sha256.slice(0, 16)}…`));
@@ -926,22 +930,51 @@ function renderSearchHit(hit) {
   return li;
 }
 
+function renderNormSource(source) {
+  const li = document.createElement("li");
+  li.appendChild(div("", `${source.ref}: применимость ${source.applicability}; актуальность ${source.freshness}; получение ${source.acquisition}`));
+  li.appendChild(div("hint", source.reasons.join(" ")));
+  [source.local_fragment, source.candidate].filter(Boolean).forEach((snapshot) => {
+    const details = document.createElement("details");
+    const summary = document.createElement("summary");
+    summary.textContent = `${snapshot.verification_status === "candidate" ? "Кандидат для сверки" : "Сохранённая норма"}: ${snapshot.provider}, документ ${snapshot.document_id}, редакция ${snapshot.edition_id}`;
+    const quote = document.createElement("blockquote");
+    quote.textContent = snapshot.text;
+    details.append(summary, quote,
+      div("meta", `URL: ${snapshot.source_url}; получено ${snapshot.retrieved_at}; последняя проверка ${snapshot.last_checked_at || "не выполнена"}; SHA-256 ${snapshot.sha256}`));
+    li.appendChild(details);
+  });
+  return li;
+}
+
 async function runSearch() {
   const box = $("search-error");
   box.hidden = true;
   const query = $("search-query").value.trim();
   const list = $("search-results");
   list.innerHTML = "";
-  if (!query) return;
+  const article = $("search-article").value.trim();
+  if (!query && !article) return;
   try {
+    const params = new URLSearchParams({q: query, limit: "10"});
+    if (article) {
+      if (!/^\d+(\.\d+)?$/.test(article)) throw new Error("Укажите номер статьи, например 228.1");
+      const [number, suffix] = article.split(".");
+      params.set("code", "УК РФ");
+      params.set("article", number);
+      if (suffix) params.set("article_suffix", suffix);
+      if ($("search-part").value) params.set("part", $("search-part").value);
+      params.set("applicable_at", $("search-date").value);
+    }
     const response = await apiFetch(
-      `/api/v1/search?q=${encodeURIComponent(query)}&limit=10`
+      `/api/v1/search?${params}`
     );
     if (!response.ok) {
       throw new Error((await response.json()).detail || `HTTP ${response.status}`);
     }
     const body = await response.json();
-    if (!body.results.length) {
+    if (body.source_state) list.appendChild(renderNormSource(body.source_state));
+    if (!body.results.length && !body.source_state) {
       list.appendChild(div("hint", "В базе источников ничего не найдено."));
       return;
     }

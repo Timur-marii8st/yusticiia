@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from pathlib import Path
@@ -10,6 +11,7 @@ from ..domain.analysis import AnalysisReport
 from ..domain.cases import ComparableCase
 from ..domain.documents import Document
 from ..legal_rag.embeddings import EmbeddingProvider
+from ..legal_sources.acquisition import NormAcquisition, SourceCache
 from ..legal_sources.store import NormStore
 from ..llm.mock_provider import MockLLMProvider
 from ..llm.provider import LLMProvider
@@ -153,6 +155,20 @@ def build_pipeline(config: AppConfig | None = None) -> AnalysisPipeline:
             config.store_dir / "analyses", AnalysisReport, "analysis_id"
         )
     norm_store = build_norm_store(config)
+    if config.dynamic_norm_source not in ("none", "pravo"):
+        raise ValueError("SO_DYNAMIC_NORM_SOURCE: допустимы none и pravo")
+    if not 0 < config.source_request_timeout_seconds <= 30:
+        raise ValueError("SO_SOURCE_REQUEST_TIMEOUT: допустимы значения (0, 30] секунд")
+    from ..legal_sources.pravo_gov import PravoGovSource
+
+    source = PravoGovSource(
+        config.pravo_base_url, config.source_request_timeout_seconds, retries=1, backoff=0.5,
+    ) if config.dynamic_norm_source == "pravo" else None
+    namespace = hashlib.sha256(config.pravo_base_url.encode()).hexdigest()[:16]
+    acquisition = NormAcquisition(
+        norm_store, SourceCache(config.store_dir / "source_cache" / namespace), source,
+        ttl_seconds=config.source_cache_ttl_seconds,
+    )
     retriever = CaseRetriever(load_cases(config.fixtures_dir))
 
     provider: LLMProvider
@@ -186,4 +202,5 @@ def build_pipeline(config: AppConfig | None = None) -> AnalysisPipeline:
         llm_provider=provider,
         audit=AuditTrail(config.audit_path),
         max_upload_bytes=config.max_upload_bytes,
+        norm_acquisition=acquisition,
     )

@@ -168,10 +168,11 @@ def test_documented_module_entry_point_runs() -> None:
     )
 
     result = subprocess.run(
-        [sys.executable, "-m", "second_opinion.cli", "--help"],
+        [sys.executable, "-X", "utf8", "-m", "second_opinion.cli", "--help"],
         cwd=PROJECT_ROOT,
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert result.returncode == 0, result.stderr
     assert "serve" in result.stdout
