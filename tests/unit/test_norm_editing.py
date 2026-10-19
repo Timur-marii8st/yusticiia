@@ -325,7 +325,7 @@ def test_confirm_history_records_source_edition_on_open_version(tmp_path) -> Non
         source_edition="pravo:102041891:365",
     )
 
-    payload = json.loads(next(directory.glob("*.json")).read_text(encoding="utf-8"))
+    payload = json.loads((directory / "uk.json").read_text(encoding="utf-8"))
     norm = next(n for n in payload["norms"] if n["norm_id"] == "uk-rf:art-158-part-1")
     open_version = next(v for v in norm["versions"] if v["effective_to"] in (None, ""))
     assert open_version["source_edition"] == "pravo:102041891:365"
@@ -342,6 +342,6 @@ def test_confirm_history_without_stamp_leaves_versions_untouched(tmp_path) -> No
         source="КонсультантПлюс",
     )
 
-    payload = json.loads(next(directory.glob("*.json")).read_text(encoding="utf-8"))
+    payload = json.loads((directory / "uk.json").read_text(encoding="utf-8"))
     norm = next(n for n in payload["norms"] if n["norm_id"] == "uk-rf:art-158-part-1")
     assert all(not v.get("source_edition") for v in norm["versions"])

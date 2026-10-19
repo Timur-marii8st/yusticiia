@@ -16,16 +16,18 @@ from datetime import date
 
 from ..analytics.descriptive import compute_analytics
 from ..audit.trail import AuditTrail
-from ..domain.analysis import AnalysisReport, AnalyticsSummary, PracticePosition
+from ..domain.analysis import AnalysisReport, AnalyticsSummary, Concern, PracticePosition
 from ..domain.cases import CaseMatch
 from ..domain.documents import Document
 from ..domain.enums import FactStatus, RuleStatus, VerificationStatus
 from ..domain.facts import CaseFacts, LegalFact
 from ..domain.norms import NormRef
 from ..domain.rules import RuleEvaluation
+from ..domain.source_fragments import NormSourceState
 from ..fact_extraction.builder import build_case_facts
 from ..fact_extraction.llm_extractor import LLMFactExtractor
 from ..fact_extraction.pattern_extractor import PatternFactExtractor, _value_key
+from ..legal_sources.acquisition import NormAcquisition
 from ..legal_sources.coverage import HistoryCaveat, history_caveats
 from ..legal_sources.store import NoApplicableVersionError, NormNotFoundError, NormStore
 from ..llm.provider import LLMProvider
@@ -78,6 +80,7 @@ class DerivedAnalysis:
     comparable_cases: list[CaseMatch]
     analytics: AnalyticsSummary
     practice_positions: list[PracticePosition]
+    norm_sources: list[NormSourceState]
 
 
 class AnalysisDerivation:
@@ -91,8 +94,10 @@ class AnalysisDerivation:
         llm_provider: LLMProvider,
         audit: AuditTrail,
         rule_engine: RuleEngine | None = None,
+        norm_acquisition: NormAcquisition | None = None,
     ) -> None:
         self._norm_store = norm_store
+        self._norm_acquisition = norm_acquisition
         self._retriever = retriever
         self._audit = audit
         self._engine = rule_engine or RuleEngine()
@@ -146,6 +151,34 @@ class AnalysisDerivation:
     ) -> DerivedAnalysis:
         """Правила + поиск практики + аналитика + счётчики метрик."""
         case_facts = build_case_facts(facts)
+        source_requests: list[tuple[str, str, int | None]] = []
+        required_ids: dict[tuple[str, str, int | None], str] = {}
+        if case_facts.has_criminal_content and self._norm_acquisition:
+            for qualification in case_facts.offense.qualifications:
+                article = str(qualification.article)
+                if qualification.article_suffix:
+                    article += f".{qualification.article_suffix}"
+                source_requests.append((qualification.code, article, qualification.part))
+            for norm_id in self._engine.required_norm_ids:
+                try:
+                    norm = self._norm_store.get_norm_meta(norm_id)
+                except NormNotFoundError:
+                    # Общая часть УК имеет стабильные внутренние идентификаторы.
+                    if norm_id.startswith("uk-rf:art-"):
+                        article = norm_id.removeprefix("uk-rf:art-").replace("-", ".")
+                        if all(piece.isdigit() for piece in article.split(".")):
+                            request = ("УК РФ", article, None)
+                            source_requests.append(request)
+                            required_ids[request] = norm_id
+                    continue
+                if norm.code == "УК РФ":
+                    article = str(norm.article) + (f".{norm.article_suffix}" if norm.article_suffix else "")
+                    source_requests.append((norm.code, article, norm.part))
+                    required_ids[(norm.code, article, norm.part)] = norm_id
+        sources = self._norm_acquisition.resolve_many(source_requests, applicable_at) if self._norm_acquisition else []
+        for source in sources:
+            if not source.norm_id:
+                source.norm_id = required_ids.get((source.code, source.article, source.part), "")
         rules_timer = StageTimer()
         metrics = get_metrics()
         with metrics.time_histogram(RULE_ENGINE_DURATION_SECONDS):
@@ -155,6 +188,7 @@ class AnalysisDerivation:
                 applicable_at,
                 audit=self._audit,
                 request_id=request_id,
+                norm_sources=sources,
             )
         if metrics.enabled:
             metrics.counter(RULE_EVALUATIONS).inc(len(evaluations))
@@ -198,6 +232,7 @@ class AnalysisDerivation:
             comparable_cases=matches,
             analytics=analytics,
             practice_positions=self.practice_positions(evaluations, date.today()),
+            norm_sources=sources,
         )
 
     def practice_positions(
@@ -240,6 +275,7 @@ class AnalysisDerivation:
         report.case_facts = derived.case_facts
         report.evaluations = derived.evaluations
         report.norms_applied = derived.norms_applied
+        report.norm_sources = derived.norm_sources
         report.comparable_cases = derived.comparable_cases
         report.analytics = derived.analytics
         report.practice_positions = derived.practice_positions
@@ -249,6 +285,12 @@ class AnalysisDerivation:
             self.unverified_norms(derived.norms_applied),
             self.history_caveats(derived.norms_applied, report.applicable_at),
         )
+        for source in report.norm_sources:
+            if source.applicability != "confirmed" or source.freshness != "confirmed" or source.structured_data == "pending":
+                report.concerns.append(Concern(
+                    severity="data", title=f"Нормативный источник требует сверки: {source.ref}",
+                    detail=" ".join(source.reasons),
+                ))
 
     def history_caveats(
         self, norms_applied: list[NormRef], applicable_at: str | None

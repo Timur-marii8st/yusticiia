@@ -222,6 +222,7 @@ def test_timeout_is_reported_as_slowness_not_absence(monkeypatch) -> None:
         raise httpx.ReadTimeout("timed out")
 
     monkeypatch.setattr(httpx, "get", _timeout)
+    monkeypatch.setattr("second_opinion.legal_sources.pravo_gov.time.sleep", lambda _: None)
 
     with pytest.raises(RedactionSourceError, match="SO_PRAVO_TIMEOUT"):
         PravoGovSource(timeout=180.0).editions("102041891")

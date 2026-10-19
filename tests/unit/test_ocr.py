@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import shutil
 
 import pytest
 from pypdf import PdfWriter
@@ -73,7 +74,8 @@ def test_parse_pdf_ocr_exception_propagates(monkeypatch) -> None:
 
 
 @pytest.mark.skipif(
-    not __import__("second_opinion.ingestion.parser", fromlist=["_ocr_available"])._ocr_available(),  # type: ignore[attr-defined]
+    shutil.which("tesseract") is None
+    or not __import__("second_opinion.ingestion.parser", fromlist=["_ocr_available"])._ocr_available(),  # type: ignore[attr-defined]
     reason="OCR зависимости не установлены — пропускаем интеграционный тест",
 )
 def test_real_ocr_on_scanned_image_pdf() -> None:

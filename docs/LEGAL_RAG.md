@@ -41,6 +41,58 @@
 
 ## API
 
+Явный запрос УК РФ может получать отсутствующую статью из ИПС при
+`SO_DYNAMIC_NORM_SOURCE=pravo`. В интерфейсе «Источники» доступны поля
+статьи, части и даты. `q` в этом сценарии необязателен:
+
+```http
+GET /api/v1/search?code=УК%20РФ&article=272&part=1&applicable_at=2022-05-10
+```
+
+Дополнительный `source_state` содержит состояние применимости/актуальности
+и снимки. Неопределённый внешний текст возвращается в `candidate`,
+отдельно от `SearchHit`: обязательная дата начала действия не выдумывается.
+Ниже — сокращённый пример формы ответа тестового сервера, не живая норма:
+
+```json
+{
+  "query": "",
+  "results": [],
+  "source_state": {
+    "ref": "УК РФ ст. 272 ч. 1",
+    "applicable_at": "2022-05-10",
+    "applicability": "unknown",
+    "freshness": "unknown",
+    "structured_data": "missing",
+    "acquisition": "fetched",
+    "candidate": {
+      "provider": "pravo",
+      "document_id": "102041891",
+      "edition_id": "2",
+      "article": "272",
+      "part": 1,
+      "scope": "article",
+      "text": "Заголовок статьи 1. Новый текст.",
+      "sha256": "a89f42a43ba4c67f7316b6d0c22f211cf629c2713576220c46d0fb47b5a0dd3d",
+      "source_url": "http://pravo.gov.ru/proxy/ips/?doc_itself=&nd=102041891&page=1&rdk=2&fulltext=1",
+      "retrieved_at": "2026-10-10T16:00:00Z",
+      "last_checked_at": "2026-10-10T16:00:00Z",
+      "act_date": "2024-01-01",
+      "publication_date": null,
+      "entry_into_force": null,
+      "effective_from": null,
+      "applicability": "unknown",
+      "verification_status": "candidate"
+    }
+  }
+}
+```
+
+Полный ответ также содержит SHA-256 полного текста фрагмента и причины
+неопределённости. Политика кэша и результаты живой проверки описаны в
+[DATA_SOURCES](DATA_SOURCES.md#динамическое-получение-ук-рф). Обычный запрос
+по словам продолжает пользоваться лексическим/гибридным индексом корпуса.
+
 ```http
 GET /api/v1/search?q=покушение&limit=10&code=УК РФ&applicable_at=2022-05-01
 ```

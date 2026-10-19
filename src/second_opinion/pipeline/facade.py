@@ -25,6 +25,7 @@ from ..domain.evidence import Evidence
 from ..domain.facts import LegalFact
 from ..fact_extraction.builder import build_case_facts
 from ..fact_values import USER_ALLOWED_STATUSES, FactValidationError, validate_fact_value
+from ..legal_sources.acquisition import NormAcquisition
 from ..legal_sources.store import NormStore
 from ..llm.provider import LLMProvider
 from ..logging_utils import StageTimer, log_stage
@@ -66,10 +67,12 @@ class AnalysisPipeline:
         audit: AuditTrail,
         max_upload_bytes: int,
         rule_engine: RuleEngine | None = None,
+        norm_acquisition: NormAcquisition | None = None,
     ) -> None:
         self._documents = documents
         self._analyses = analyses
         self._norm_store = norm_store
+        self.norm_acquisition = norm_acquisition
         self._retriever = retriever
         self._llm = llm_provider
         self._audit = audit
@@ -82,6 +85,7 @@ class AnalysisPipeline:
             llm_provider=llm_provider,
             audit=audit,
             rule_engine=rule_engine,
+            norm_acquisition=norm_acquisition,
         )
 
     @property

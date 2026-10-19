@@ -382,6 +382,23 @@ def build_sheet(
             _table(Table(["Норма", "Редакция"], norm_rows, [3.0, 1.0]))
         )
 
+    if report.norm_sources:
+        blocks.append(_heading("Состояние нормативных источников"))
+        for source in report.norm_sources:
+            blocks.append(_paragraph(
+                f"{source.ref}: применимость — {source.applicability}; "
+                f"актуальность — {source.freshness}; получение — {source.acquisition}. "
+                + " ".join(source.reasons)
+            ))
+            for snapshot in (source.local_fragment, source.candidate):
+                if snapshot:
+                    blocks.append(_paragraph(
+                        f"{snapshot.provider}, документ {snapshot.document_id}, редакция {snapshot.edition_id}; "
+                        f"{snapshot.source_url}; получено {snapshot.retrieved_at.isoformat()}; "
+                        f"проверено {snapshot.last_checked_at}; SHA-256 {snapshot.sha256}."
+                    ))
+                    blocks.append(_paragraph(snapshot.text))
+
     if mask_personal_data:
         blocks.append(
             _paragraph(

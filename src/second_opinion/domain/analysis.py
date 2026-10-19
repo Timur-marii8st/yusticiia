@@ -9,6 +9,7 @@ from .cases import CaseMatch
 from .facts import CaseFacts, LegalFact
 from .norms import NormRef
 from .rules import RuleEvaluation
+from .source_fragments import NormSourceState
 
 
 class SentencePosition(BaseModel):
@@ -123,6 +124,7 @@ class AnalysisReport(BaseModel):
     concerns: list[Concern] = Field(default_factory=list)
     evaluations: list[RuleEvaluation] = Field(default_factory=list)
     norms_applied: list[NormRef] = Field(default_factory=list)
+    norm_sources: list[NormSourceState] = Field(default_factory=list)
     comparable_cases: list[CaseMatch] = Field(default_factory=list)
     practice_positions: list[PracticePosition] = Field(default_factory=list)
     analytics: AnalyticsSummary | None = None
